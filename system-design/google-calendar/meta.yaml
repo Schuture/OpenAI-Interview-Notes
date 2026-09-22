@@ -1,0 +1,12 @@
+title: Calendar (Google Calendar-style)
+title_zh: 日历（类 Google Calendar）
+summary: 'A calendar service: single and recurring events with per-occurrence exceptions, invites and RSVPs, time zones and all-day events, fast day/week/month/year views, and changes reaching a user''s other devices within seconds, offline ones included.'
+summary_zh: 日历服务：单次与重复日程及其单次例外、邀请与回复、时区与全天日程、快速的日 / 周 / 月 / 年视图，改动要在几秒内同步到用户的其他设备，包括离线过的设备。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE]
+topics: [schema-design, caching, sync]
+frequency: low
+stage: [onsite]
+order: 15

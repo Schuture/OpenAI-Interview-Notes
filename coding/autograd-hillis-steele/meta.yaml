@@ -1,0 +1,13 @@
+title: 'Prefix Matmul: Autograd, Manual Backward, Hillis–Steele Scan'
+title_zh: 前缀矩阵连乘：Autograd、手写反向、Hillis–Steele 扫描
+summary: 'Prefix products of a stack of square matrices: explain why the in-place version breaks autograd, write the out-of-place forward, derive the backward by hand, then redo both passes as a parallel scan of logarithmic depth.'
+summary_zh: 一组方阵的前缀连乘：解释原地写法为什么会让 autograd 报错，写出非原地前向，手推反向，再用对数深度的并行扫描把前向和反向各实现一遍。
+category: coding
+kind: Coding with derivation · PyTorch
+kind_zh: 编程（含数学推导）· PyTorch
+roles: [RS, RE, MLE]
+topics: [autograd, linear-algebra, parallel-scan, pytorch]
+difficulty: hard
+frequency: high
+format: 4 parts / 75 min
+order: 5

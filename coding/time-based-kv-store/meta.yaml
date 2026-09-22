@@ -1,0 +1,13 @@
+title: Time-Travel Key-Value Store
+title_zh: 按时间点查询的 KV 存储
+summary: Keep several timestamped values per key and answer “what was the value at time t” with binary search; then make it testable with an injected clock, keep each key's timestamps strictly increasing, and make it thread-safe.
+summary_zh: 每个键保存多个带时间戳的值，用二分回答“t 时刻的值是什么”；再通过注入时钟让它可测试，保证每个键的时间戳严格递增，并做到线程安全。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE]
+topics: [binary-search, testing, concurrency]
+difficulty: medium
+frequency: rare
+format: 4 parts
+order: 30

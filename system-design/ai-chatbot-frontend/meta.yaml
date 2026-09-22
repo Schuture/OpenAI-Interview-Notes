@@ -1,0 +1,13 @@
+title: AI Chatbot Front End
+title_zh: AI 聊天机器人前端
+summary: 'A ChatGPT-style chat site with the weight on the front end: streamed rendering, conversation state kept only in browser memory, login and credential handling, and error handling with retry.'
+summary_zh: 类 ChatGPT 的聊天网站，重点在前端：流式渲染、对话状态只保存在浏览器内存里、登录与凭证处理，以及错误处理与重试。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE]
+topics: [frontend, streaming, client-state, auth]
+frequency: low
+stage: [onsite, phone-screen]
+format: 60 min
+order: 11

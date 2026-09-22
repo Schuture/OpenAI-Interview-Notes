@@ -1,0 +1,12 @@
+title: Online Chess Platform (Chess.com-style)
+title_zh: 在线国际象棋平台（类 Chess.com）
+summary: 'Real-time one-on-one chess: match players by rating, relay moves with low latency over WebSockets, and keep an authoritative server clock without writing to the database every second.'
+summary_zh: 实时一对一国际象棋：按等级分匹配，通过 WebSocket 低延迟转发走子，服务器权威计时，但不能每秒写一次数据库。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE, Infra Eng]
+topics: [websocket, matchmaking, game-state, idempotency, consistent-hashing]
+frequency: very-high
+stage: [phone-screen, onsite]
+order: 2

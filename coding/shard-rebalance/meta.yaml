@@ -1,0 +1,13 @@
+title: Shard Rebalancing with an Overlap Limit
+title_zh: 带重叠上限的分片再平衡
+summary: 'Two parts on shards: cap every key''s coverage at `limit` by pushing overlapping ranges'' starts forward, dropping shards squeezed empty and stretching an end over each hole; then route keys with consistent hashing so that adding or removing a shard moves only the keys that must move.'
+summary_zh: 分片的两问：先让重叠区间的起点后移、丢弃被挤空的分片、延长终点补上空洞，使每个键最多被 limit 个分片覆盖；再用一致性哈希把键路由到分片上，使增删一个分片时只迁移必须迁移的键。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE]
+topics: [intervals, greedy, heap, consistent-hashing]
+difficulty: medium
+frequency: medium
+format: 2 parts
+order: 17

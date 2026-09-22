@@ -1,0 +1,13 @@
+title: Payment System / Coffee-Shop Ordering
+title_zh: 支付系统 / 咖啡店点单
+summary: 'In-store card payments at a coffee chain: the hold-to-capture state machine, idempotency at every step, a double-entry ledger, and a nightly batch that settles and reconciles with the payment processors.'
+summary_zh: 连锁咖啡店门店的刷卡支付：从预授权到扣款的状态机、各环节的幂等、复式记账的账本，以及每晚与支付处理方结算并对账的批处理任务。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE]
+topics: [payment, idempotency, ledger]
+difficulty: medium
+frequency: very-high
+stage: [phone-screen, onsite]
+order: 1

@@ -1,0 +1,13 @@
+title: Search & RAG ML Design (spoken)
+title_zh: 搜索与 RAG 的 ML 设计（口述）
+summary: 'A spoken ML design round on search: training a text embedding model contrastively (loss, positives and negatives, batch size), combining dense and lexical retrieval, reranking, and offline and online evaluation.'
+summary_zh: 纯口述的 ML 设计轮，偏搜索方向：怎么用对比学习训练文本向量模型（损失函数、正负样本、batch size）、稠密检索与关键词检索如何结合、如何重排，以及离线与线上怎么评测。
+category: system-design
+kind: Spoken ML design
+kind_zh: 口述 ML 设计
+roles: [RE, MLE]
+topics: [retrieval, contrastive-learning, ranking, evaluation]
+frequency: low
+stage: [onsite]
+format: 60 min
+order: 14

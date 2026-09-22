@@ -1,0 +1,13 @@
+title: 'ChatGPT Enterprise: RAG over Company Data'
+title_zh: ChatGPT Enterprise：基于企业数据的 RAG
+summary: 'Companies upload internal documents and get an assistant grounded in them: ingestion, chunking and embedding, retrieval and ranking, permissions, evaluation and freshness.'
+summary_zh: 企业上传内部文档，得到一个基于这些文档回答的助手：数据接入、切块与向量化、检索与排序、权限、评测和时效性。
+category: system-design
+kind: ML system design
+kind_zh: ML 系统设计
+roles: [MLE, RE]
+topics: [rag, retrieval, access-control]
+frequency: rare
+stage: [onsite]
+format: 60 min
+order: 7

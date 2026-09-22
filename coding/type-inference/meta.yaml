@@ -1,0 +1,13 @@
+title: Type Inference for a Toy Language
+title_zh: 玩具语言的类型推断
+summary: Types are primitives, generics and nested tuples. Print them, then infer a function's return type by unifying its generic parameters with concrete arguments and reporting conflicts.
+summary_zh: 类型由基本类型、泛型和嵌套元组组成。先实现打印，再把函数的泛型参数和实参做合一，推出返回类型，并报告冲突。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE, RE]
+topics: [recursion, unification, tree]
+difficulty: medium
+frequency: high
+format: 2 parts
+order: 11

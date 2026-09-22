@@ -1,0 +1,14 @@
+# local working files
+_dev/
+_raw/
+*.docx
+
+# Python and editors
+__pycache__/
+*.pyc
+.venv/
+*.log
+*.whl
+.DS_Store
+.idea/
+.vscode/

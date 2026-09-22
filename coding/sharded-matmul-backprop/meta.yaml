@@ -1,0 +1,13 @@
+title: 'Sharded Matmul: Forward, Backward, Bug Hunt'
+title_zh: 分片矩阵乘法：前向、反向与找 bug
+summary: Derive and implement forward and backward for a matrix multiply whose operands are split across devices, then track down several planted bugs by tracing shapes.
+summary_zh: 对操作数被切到多个设备上的矩阵乘法，推导并实现前向和反向，然后靠追踪张量形状找出几个埋好的 bug。
+category: coding
+kind: Derivation, coding and debugging · NumPy / PyTorch
+kind_zh: 推导 + 编程 + 调试 · NumPy / PyTorch
+roles: [MLE, RE]
+topics: [linear-algebra, parallelism, autograd, numpy, pytorch, debugging]
+difficulty: hard
+frequency: rare
+format: 3 parts
+order: 26

@@ -1,0 +1,13 @@
+title: Cross-Entropy Loss from Scratch
+title_zh: 从零实现交叉熵损失
+summary: Cross-entropy on top of NumPy starter code, then masking and label smoothing, with a running conversation about the ML behind it and its link to KL divergence.
+summary_zh: 在 NumPy 起始代码上实现交叉熵，再加 mask 和 label smoothing，边写边聊背后的 ML 概念以及它和 KL 散度的关系。
+category: coding
+kind: Coding with ML concepts · NumPy
+kind_zh: 编程（含 ML 概念问答）· NumPy
+roles: [MLE, RE]
+topics: [numpy, numerical-stability, loss-functions, kl-divergence]
+difficulty: medium
+frequency: rare
+format: 4 parts
+order: 21

@@ -1,0 +1,12 @@
+This repository uses two licenses.
+
+1. Code — every fenced code block inside the notes and everything under
+   scripts/ — is released under the MIT License (see LICENSE-CODE).
+
+2. Text — all prose, tables and diagrams — is released under
+   Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0).
+   Full text: https://creativecommons.org/licenses/by-nc/4.0/legalcode
+
+You may share and adapt the text for non-commercial purposes as long as you
+give appropriate credit and link back to this repository:
+https://github.com/Schuture/OpenAI-Interview-Notes

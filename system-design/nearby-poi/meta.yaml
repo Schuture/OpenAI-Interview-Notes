@@ -1,0 +1,12 @@
+title: Nearby Places (POI / Yelp-style)
+title_zh: 附近地点（POI / 类 Yelp）
+summary: 'Find nearby places among hundreds of millions of locations under heavy read load: geohash vs. quadtree, exact radius and K-nearest search across cell edges, an in-memory index replicated to every node, and a sharded primary store.'
+summary_zh: 在数亿个地点里查“附近的店”，读流量大：geohash 与四叉树怎么选，跨格子边界的精确半径与最近 K 个搜索，内存索引整份复制到每个节点、主存储分片。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE]
+topics: [geospatial-index, sharding, caching]
+frequency: low
+stage: [onsite]
+order: 18

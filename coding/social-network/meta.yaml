@@ -1,0 +1,13 @@
+title: Follow Graph & Recommendations (Social Network)
+title_zh: 关注图与两跳推荐（社交网络）
+summary: Maintain who follows whom, with either time-travel queries or immutable snapshots, then recommend accounts two hops away ranked by how many of your followees already follow them.
+summary_zh: 维护关注关系，支持按时间点查询或不可变快照，再做两跳推荐：按“你关注的人里有多少人关注了 TA”排序。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE, RE]
+topics: [graph, hashmap, snapshot, binary-search]
+difficulty: medium
+frequency: very-high
+format: 4 parts
+order: 2

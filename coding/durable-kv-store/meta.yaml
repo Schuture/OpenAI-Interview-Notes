@@ -1,0 +1,13 @@
+title: 'Durable KV Store: Custom Serialization'
+title_zh: 可持久化 KV 存储：自定义序列化
+summary: Persist a string-to-string map without JSON or pickle so that any characters round-trip; then split it across size-capped files so that an interrupted save can never be seen half-done; then an append-only log that recovers from a torn write, with tombstones and compaction.
+summary_zh: 不用 JSON / pickle 把字符串 KV 落盘，键值里可以有任意字符；再切分到有大小上限的多个文件，保存中途崩溃也不能留下半成品；最后改成只追加日志，从写坏的尾巴中恢复，带墓碑删除和压缩。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE, Infra Eng]
+topics: [serialization, persistence, parsing, storage, fault-tolerance]
+difficulty: medium
+frequency: medium
+format: 3 parts
+order: 13

@@ -1,0 +1,13 @@
+title: Cluster Node Count & Topology (Tree Messaging)
+title_zh: 集群节点计数与拓扑（树上消息传递）
+summary: Machines form a tree and can only message their parent and children. Write the one receive handler that lets the root count the cluster, then gather the full topology, then cope with duplicated or lost messages.
+summary_zh: 机器组成一棵树，只能和父子节点异步通信。实现唯一的消息处理函数，让根节点统计机器总数、再汇总整棵树的拓扑，最后处理消息重复或丢失。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE]
+topics: [tree, message-passing, distributed-systems, idempotency]
+difficulty: medium
+frequency: high
+format: 3 parts
+order: 3

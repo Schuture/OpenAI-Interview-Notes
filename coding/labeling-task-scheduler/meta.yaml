@@ -1,0 +1,13 @@
+title: Data Labeling Task Scheduler
+title_zh: 数据标注任务调度
+summary: Emit a list of (task, model, human) assignments so that every labeller gets at least k tasks, nobody repeats a task, and model usage per task stays balanced at every prefix of the list.
+summary_zh: 生成一串（任务, 模型, 标注员）分配：每个标注员至少 k 个任务、不重复做同一任务，并且在列表的任意前缀上每个任务的模型使用次数都保持均衡。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE, RE, MLE]
+topics: [scheduling, greedy, fairness]
+difficulty: medium
+frequency: high
+format: 3 parts
+order: 12

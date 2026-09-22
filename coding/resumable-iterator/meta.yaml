@@ -1,0 +1,13 @@
+title: Resumable Iterators (1D, 2D, Arbitrary Depth)
+title_zh: 可恢复迭代器（一维、二维到任意深度）
+summary: 'Iterators that can hand out their position and later be restored to it: an abstract interface, a flat list, a list of lists with empty rows, then nesting of any depth.'
+summary_zh: 可以导出当前位置、之后再恢复的迭代器：先定义抽象接口，再做一维列表、含空行的二维列表，最后是任意深度的嵌套。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE]
+topics: [iterator, oop-design, state]
+difficulty: medium
+frequency: rare
+format: 4 parts
+order: 27

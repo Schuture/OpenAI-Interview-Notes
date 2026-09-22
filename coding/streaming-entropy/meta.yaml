@@ -1,0 +1,13 @@
+title: Streaming Entropy
+title_zh: 流式熵计算
+summary: 'Entropy of softmax(logits): directly, then numerically safe, then block by block in constant extra memory, and finally a one-pass online version that rescales its accumulators when the running maximum changes.'
+summary_zh: 计算 softmax(logits) 的熵：先直接算，再做数值稳定版，然后分块、只用常数额外内存，最后是单遍在线版本——running max 变化时要重新缩放累加量。
+category: coding
+kind: Coding with derivation · NumPy
+kind_zh: 编程（含数学推导）· NumPy
+roles: [RS, RE, MLE]
+topics: [numerical-stability, softmax, streaming]
+difficulty: medium
+frequency: medium
+format: 4 parts / 60 min
+order: 14

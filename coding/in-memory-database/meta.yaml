@@ -1,0 +1,13 @@
+title: In-Memory SQL-like Database
+title_zh: 类 SQL 的内存数据库
+summary: 'An in-memory table store driven by method calls: create and insert with column projection, WHERE as AND-ed comparisons, ORDER BY over several columns each with its own direction, then hash and sorted indexes that must return exactly what a full scan would.'
+summary_zh: 用方法调用操作的内存表格数据库：建表、插入与列投影，AND 组合的 WHERE，多列各自指定升降序的 ORDER BY，最后加上哈希索引和有序索引，且结果必须与全表扫描完全一致。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE]
+topics: [data-structure, oop-design, sql]
+difficulty: medium
+frequency: rare
+format: 4 parts
+order: 29

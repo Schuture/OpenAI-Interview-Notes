@@ -1,0 +1,12 @@
+title: Novel-Data Mining from an Unlabeled Corpus
+title_zh: 从无标注语料中挖掘新数据
+summary: 'From 8 billion unlabeled web images, mine those novel relative to an existing training set and retrieve those containing 200 target objects: defining novelty, a retrieval cascade, precision and recall from samples, cost at this scale.'
+summary_zh: 从 80 亿张无标注网页图片里，挖出相对已有训练集“新”的图片，并找出包含 200 个目标物体的图片：新颖性的定义、检索级联、靠抽样估计精度与召回、这个规模下的成本。
+category: system-design
+kind: ML system design
+kind_zh: ML 系统设计
+roles: [MLE]
+topics: [ml-system-design, data-mining, retrieval]
+frequency: rare
+stage: [onsite]
+order: 6

@@ -1,0 +1,12 @@
+title: Multi-Tenant CI/CD
+title_zh: 多租户 CI/CD
+summary: 'Run a workflow DAG on every git push for many tenants: jobs execute at least once but commit their result exactly once, tenants are isolated and fairly scheduled, and the UI shows live status.'
+summary_zh: 为多个租户在每次 git push 时运行工作流 DAG：job 至少执行一次、结果恰好提交一次，租户隔离且公平调度，界面实时显示状态。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE, Infra Eng]
+topics: [scheduling, exactly-once, multi-tenancy]
+frequency: low
+stage: [phone-screen, onsite]
+order: 12

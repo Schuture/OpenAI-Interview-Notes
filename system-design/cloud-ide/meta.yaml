@@ -1,0 +1,13 @@
+title: Cloud IDE
+title_zh: 云端 IDE
+summary: 'A browser IDE in the style of Replit or Codespaces: per-user sandboxes, workspace lifecycle, file storage and streamed terminal output, with isolation and reconnects as the hard parts.'
+summary_zh: 类似 Replit / Codespaces 的浏览器 IDE：每个用户独立沙箱、工作区生命周期、文件存储、终端输出流式传输；难点是隔离和断线重连。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE, Infra Eng, EM]
+topics: [sandbox, vm-lifecycle, websocket, streaming]
+difficulty: hard
+frequency: medium
+stage: [phone-screen, onsite]
+order: 4

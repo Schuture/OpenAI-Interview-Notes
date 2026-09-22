@@ -1,0 +1,13 @@
+title: Technical Deep Dive (with slides)
+title_zh: 技术深挖（带幻灯片）
+summary: 'Present one past project from slides and defend every decision: architecture, trade-offs, measured impact, what you would change, and “why not X”.'
+summary_zh: 用幻灯片讲一个做过的项目，并为每个决定辩护：架构、取舍、可量化的影响、重来会改什么，以及“为什么不用 X”。
+category: behavioral
+kind: Presentation and Q&A
+kind_zh: 演讲 + 问答
+roles: [SWE, MLE, RE, Infra Eng]
+topics: [presentation, project-deep-dive]
+frequency: very-high
+stage: [onsite]
+format: 60 min
+order: 4

@@ -1,0 +1,13 @@
+title: cd Command / Path Resolution
+title_zh: cd 命令 / 路径解析
+summary: 'Work out where `cd` lands you: normalise relative paths, add absolute paths and `~`, resolve symbolic links with cycle detection, and discuss why `cd` has to be a shell built-in.'
+summary_zh: 算出执行 cd 之后所在的目录：先规范化相对路径，再支持绝对路径和 ~，然后解析符号链接并检测环，最后讨论 cd 为什么必须是 shell 内建命令。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE]
+topics: [string-processing, stack, symlinks]
+difficulty: medium
+frequency: rare
+format: 4 parts
+order: 23

@@ -1,0 +1,13 @@
+title: ModalLock and FairModalLock
+title_zh: ModalLock 与 FairModalLock
+summary: A lock that many threads may hold together as long as they ask for the same mode, then a fair version that serves waiting modes in arrival order so that none of them starves.
+summary_zh: 一把“模式锁”：请求同一模式的线程可以同时持有，不同模式互斥；再实现公平版本，按到达顺序服务等待中的模式，避免饿死。
+category: coding
+kind: Coding · concurrency, Python
+kind_zh: 编程 · 并发，Python
+roles: [SWE, MLE]
+topics: [concurrency, threading, fairness]
+difficulty: hard
+frequency: rare
+format: 2 parts
+order: 25

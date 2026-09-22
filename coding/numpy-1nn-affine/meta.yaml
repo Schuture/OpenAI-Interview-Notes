@@ -1,0 +1,13 @@
+title: NumPy 1-NN as an Affine Layer
+title_zh: NumPy 1-NN 写成一层 Wx+b
+summary: Write 1-nearest-neighbour classification in NumPy without Python loops, then show that the same computation is a single affine layer followed by argmax or softmax.
+summary_zh: 不用 for 循环写出 NumPy 版 1-NN 分类，然后说明同样的计算就是一层 Wx+b 接 argmax 或 softmax。
+category: coding
+kind: Coding with derivation · NumPy
+kind_zh: 编程（含数学推导）· NumPy
+roles: [MLE, RE]
+topics: [numpy, vectorization, broadcasting, linear-algebra]
+difficulty: medium
+frequency: high
+format: 2 parts / 60 min
+order: 6

@@ -1,0 +1,13 @@
+title: Transformer Bug Hunt
+title_zh: Transformer 找 bug
+summary: A small Transformer and training script that almost work. Find the handful of planted bugs so the loss converges, then extend the model with a classification head or a KV cache.
+summary_zh: 给你一个差一点就能跑通的小 Transformer 和训练脚本，找出埋好的几个 bug 让 loss 收敛，再做扩展：分类头或 KV cache。
+category: coding
+kind: Debugging · PyTorch
+kind_zh: 调试 · PyTorch
+roles: [MLE, RS, RE]
+topics: [transformer, debugging, kv-cache, pytorch]
+difficulty: medium
+frequency: high
+format: 4 bugs + 1 follow-up
+order: 8

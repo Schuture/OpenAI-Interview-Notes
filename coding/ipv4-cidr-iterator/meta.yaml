@@ -1,0 +1,13 @@
+title: IPv4 / CIDR Iterator
+title_zh: IPv4 / CIDR 迭代器
+summary: 'An iterator over IPv4 addresses in five parts: forward, reverse, confined to a CIDR block, with a step size, and with batch reads, rejecting malformed input with ValueError.'
+summary_zh: IPv4 地址迭代器的五问：正向、反向、限定在 CIDR 块内、加步长、批量读取，非法输入一律抛出 ValueError。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE]
+topics: [bit-manipulation, iterator, string]
+difficulty: medium
+frequency: medium
+format: 5 parts
+order: 16

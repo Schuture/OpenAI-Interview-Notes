@@ -1,0 +1,13 @@
+title: Recruiter / HR Screen
+title_zh: Recruiter / HR 初筛
+summary: 'A walk through your background, motivation and preferred kind of work, a leadership and a conflict story, plus logistics: compensation expectations, start date, other processes, location and visa, references.'
+summary_zh: 过一遍背景、动机和方向偏好，讲一个带人、一个冲突的故事，再聊流程性问题：薪资期望、入职时间、其他在面的流程、工作地点与签证、推荐人。
+category: behavioral
+kind: Behavioral
+kind_zh: 行为面
+roles: [All]
+topics: [behavioral, process, compensation]
+frequency: high
+stage: [recruiter-screen]
+format: 30 min
+order: 2

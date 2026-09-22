@@ -1,0 +1,13 @@
+title: Infection Spread (Grid Cellular Automaton)
+title_zh: 感染扩散（网格元胞自动机）
+summary: 'A grid infection spreads one step per day and every part adds a rule: immune walls, recovery after D days, neighbour thresholds and deaths. Multi-source BFS first, then a synchronous simulation.'
+summary_zh: 网格上的感染每天向外扩散一步，每个 Part 加一条新规则：免疫墙、D 天后康复、邻居阈值与死亡。前两问用多源 BFS，之后改成同步更新的模拟。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE, MLE, RE, RS, EM]
+topics: [bfs, simulation, grid]
+difficulty: medium
+frequency: very-high
+format: 5 parts / 60 min
+order: 1

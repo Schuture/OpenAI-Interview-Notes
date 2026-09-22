@@ -1,0 +1,13 @@
+title: Monster Battle
+title_zh: 怪兽对战
+summary: 'A turn-based fight between two teams built in three steps: plain attacks, an elemental chart that scales damage, and picking the attacker that hits hardest, each step added without rewriting the battle loop.'
+summary_zh: 两队怪兽回合制对战，分三步：普通攻击、属性克制倍率、自动选伤害最高的攻击者；每一步都不改写战斗主循环。
+category: coding
+kind: Coding · object-oriented design
+kind_zh: 编程 · 面向对象设计
+roles: [SWE]
+topics: [oop-design, simulation]
+difficulty: medium
+frequency: high
+format: 3 parts
+order: 7

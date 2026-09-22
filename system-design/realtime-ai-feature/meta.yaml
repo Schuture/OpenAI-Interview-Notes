@@ -1,0 +1,12 @@
+title: Streaming AI Product Feature
+title_zh: 流式 AI 产品功能
+summary: 'An AI rewrite feature in a collaborative editor that streams its output to many users: SSE and cancellation, cost-weighted admission with a bounded queue, prefix caching, incremental rendering with resume, monitoring, and 10x scale.'
+summary_zh: 协作文档编辑器里流式返回的 AI 改写功能：SSE 与取消、按成本计的准入控制与有界队列、提示词前缀缓存、增量渲染与断线续传、监控，以及流量涨 10 倍时怎么变。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE]
+topics: [streaming, api-design, rate-limiting, fullstack]
+frequency: rare
+stage: [onsite]
+order: 5

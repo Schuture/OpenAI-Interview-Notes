@@ -1,0 +1,13 @@
+title: Noisy Annotators
+title_zh: 含噪标注者
+summary: Training labels come from several annotators and some are unreliable. Identify them, drop or down-weight their labels, and check whether the classifier actually improves.
+summary_zh: 训练标签来自多个标注者，其中有人不靠谱。找出这些人，剔除或降低他们标签的权重，再验证分类器是否真的变好。
+category: coding
+kind: ML coding · Python
+kind_zh: ML 编程 · Python
+roles: [MLE, RS, RE]
+topics: [data-cleaning, label-noise, evaluation, numpy]
+difficulty: medium
+frequency: high
+format: 3 parts
+order: 10

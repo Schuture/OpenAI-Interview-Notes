@@ -1,0 +1,13 @@
+title: Slack-style Messaging
+title_zh: 类 Slack 即时通讯
+summary: Direct messages and channels delivered to every connected device of each user, with notifications, deletes, per-channel ordering and reconnect gap-fill, workspace isolation, and a separate delivery mode for very large channels.
+summary_zh: 私信和频道消息送达每个用户的每台已连接设备，包括通知、删除、频道内顺序与重连补洞、工作区隔离，以及超大频道的另一种投递方式。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE, EM]
+topics: [messaging, pubsub, multi-device, multi-tenancy]
+frequency: low
+stage: [phone-screen, onsite]
+format: 60 min
+order: 13

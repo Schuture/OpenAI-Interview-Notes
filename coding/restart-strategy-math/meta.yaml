@@ -1,0 +1,13 @@
+title: Restart Strategies under a Known Mean (Las Vegas)
+title_zh: 只知道均值时的重启策略（Las Vegas）
+summary: Only the mean latency of a request is known. Bound the tail, work out what restarts guarantee inside a time budget, find the best number of equal attempts, show when restarting cannot help, and beat equal timeouts with unequal ones.
+summary_zh: 只知道一次请求的平均耗时。给出尾概率的界，分析在时间预算内重启能保证多少成功率，求等长超时下的最优尝试次数，说明什么分布下重启毫无帮助，再用不等长的超时做得更好。
+category: coding
+kind: Spoken maths · probability, no code
+kind_zh: 口述数学题 · 概率，不写代码
+roles: [RS, RE]
+topics: [probability, inequalities, algorithm-design]
+difficulty: hard
+frequency: medium
+format: 6 oral parts
+order: 18

@@ -1,0 +1,12 @@
+title: Webhook Delivery
+title_zh: Webhook 投递
+summary: 'Tenants register callback URLs and receive every matching event at least once, about 650 million deliveries a day: retries with backoff, isolating slow or dead endpoints, signed requests, and SSRF protection.'
+summary_zh: 租户注册回调地址，每个匹配的事件至少投递一次，每天约 6.5 亿次投递：退避重试、隔离慢或挂掉的端点、请求签名与 SSRF 防护。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE, Infra Eng]
+topics: [queueing, retry, idempotency, security]
+frequency: low
+stage: [onsite]
+order: 17

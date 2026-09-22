@@ -1,0 +1,13 @@
+title: Fault-Tolerant Work Queue
+title_zh: 容错工作队列
+summary: A work queue whose reserve, complete and fail are checked against per-reservation tokens, extended with lease timeouts on a manual clock, a retry cap and a dead-letter queue.
+summary_zh: 一个工作队列：reserve / complete / fail 凭每次预约签发的 token 校验，再加上按手动时钟计时的租约超时、重试上限和死信队列。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [Infra Eng]
+topics: [queue, state-machine, retry]
+difficulty: medium
+frequency: rare
+format: 3 parts
+order: 20

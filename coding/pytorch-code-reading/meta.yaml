@@ -1,0 +1,12 @@
+title: PyTorch Code Reading & Extension
+title_zh: PyTorch 读代码与扩展
+summary: A long, untidy PyTorch training script for a classifier with noisy annotators; answer time and memory questions about the existing code, extend it, then vectorise its slowest function.
+summary_zh: 一份又长又乱的 PyTorch 训练脚本（含噪标注者的分类器）：回答现有代码的时间与内存复杂度问题，在它的基础上扩展功能，再把最慢的函数向量化。
+category: coding
+kind: Code reading · PyTorch
+kind_zh: 读代码 · PyTorch
+roles: [RE, MLE]
+topics: [code-reading, pytorch, complexity]
+frequency: rare
+format: 3 parts + bonus
+order: 28

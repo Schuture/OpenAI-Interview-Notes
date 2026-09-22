@@ -1,0 +1,13 @@
+title: Memory Allocator
+title_zh: 内存分配器
+summary: malloc and free over a fixed address range, with first-fit placement and merging of adjacent free blocks. The linear scan is only the opening move; both operations then have to come down to logarithmic time.
+summary_zh: 在固定地址空间上实现 malloc / free：首次适配、释放时合并相邻空闲块。线性扫描只是起点，接下来要把两个操作都降到对数时间。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE, MLE, RE]
+topics: [data-structure, intervals, balanced-bst]
+difficulty: hard
+frequency: high
+format: 75 min
+order: 9

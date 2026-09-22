@@ -1,0 +1,12 @@
+title: URL Shortener
+title_zh: 短链接服务
+summary: 'Turn long URLs into short codes and redirect them: code length and random generation, custom aliases, per-owner dedup, a cached multi-region redirect path, and approximate click counts.'
+summary_zh: 把长网址变成短码并完成重定向：短码长度与随机生成、自定义别名、按所有者去重、带缓存的多区域重定向路径、近似点击计数。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE]
+topics: [hashing, caching, scaling, database]
+frequency: low
+stage: [onsite]
+order: 16

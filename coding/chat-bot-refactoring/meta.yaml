@@ -1,0 +1,13 @@
+title: Chat Bot Refactoring
+title_zh: 聊天机器人重构
+summary: Read a working but tangled chat service whose three slash-command bots share global state, refactor it into bot classes behind one interface without changing a single log line, add a cross-bot rule over an event bus, and write the tests.
+summary_zh: 读一份能运行但很乱、三个斜杠命令机器人共用全局状态的聊天服务代码，把它重构成同一接口下的机器人类且日志一行不变，再通过事件总线加一条机器人之间的联动规则，并写出测试。
+category: coding
+kind: Refactoring
+kind_zh: 重构
+roles: [SWE]
+topics: [refactoring, oop-design, event-driven, testing]
+difficulty: medium
+frequency: medium
+format: 4 parts
+order: 15

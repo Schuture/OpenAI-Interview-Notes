@@ -1,0 +1,11 @@
+# Libraries used by the code in the pages
+numpy>=2.0
+scipy>=1.14
+scikit-learn>=1.5
+torch>=2.4            # CPU build is enough: pip install torch --index-url https://download.pytorch.org/whl/cpu
+pillow>=10.4
+tzdata>=2024.1        # time-zone data for zoneinfo on systems without it (Windows)
+
+# Helper scripts under scripts/
+pyyaml>=6.0
+markdown-it-py>=3.0

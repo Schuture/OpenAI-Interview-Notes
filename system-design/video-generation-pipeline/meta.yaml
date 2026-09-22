@@ -1,0 +1,14 @@
+title: Video Generation Pipeline (Sora-style)
+title_zh: 视频生成流水线（类 Sora）
+summary: 'Run video-generation jobs on a scarce, fluctuating multi-provider GPU pool: leases with fencing tokens, a checkpoint interval from Young''s approximation, retries and cancellation, preemption order and admission control.'
+summary_zh: 在稀缺且容量波动的多云 GPU 池上运行视频生成任务：带隔离令牌的租约、用 Young 近似选检查点间隔、重试与取消、抢占顺序与准入控制。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE, Infra Eng, EM]
+topics: [gpu-scheduling, queueing, fault-tolerance]
+difficulty: medium
+frequency: very-high
+stage: [phone-screen, onsite]
+format: 60 min
+order: 3

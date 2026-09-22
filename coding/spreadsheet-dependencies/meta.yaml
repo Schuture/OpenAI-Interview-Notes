@@ -1,0 +1,13 @@
+title: Spreadsheet with Cell Dependencies (OpenSheet)
+title_zh: 带单元格依赖的电子表格（OpenSheet）
+summary: Cells hold numbers or formulas over other cells. Evaluate on demand with cycle detection first, then keep values fresh eagerly through a dependency graph so that reads become constant time.
+summary_zh: 单元格里是数字或引用其他单元格的公式。先做按需求值加环检测，再用依赖图在写入时级联更新，让读取变成常数时间。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE]
+topics: [graph, dfs, topological-sort, recursion]
+difficulty: medium
+frequency: rare
+format: 3 parts
+order: 24

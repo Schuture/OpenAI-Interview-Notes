@@ -1,0 +1,12 @@
+title: GPT-3 Playground (Full-Stack)
+title_zh: GPT-3 Playground（全栈）
+summary: 'Architecture for a playground site: take a prompt and sampling parameters, stream the completion back, and save presets, covering both backend data layout and frontend state.'
+summary_zh: Playground 网站的整体架构：输入提示词和采样参数、流式返回补全、保存预设，涵盖后端的数据组织和前端的状态管理。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE]
+topics: [fullstack, frontend, streaming, schema-design]
+frequency: rare
+stage: [tech-screen]
+order: 8

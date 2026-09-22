@@ -1,0 +1,13 @@
+title: GPU Credits
+title_zh: GPU 额度账本
+summary: A ledger of credit grants that each expire. Spending drains the grant that expires soonest, events can arrive out of order, and balances are queried for arbitrary timestamps.
+summary_zh: 带过期时间的额度账本：消费时先扣最早过期的那笔，事件可能乱序到达，余额查询可以针对任意时间点。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE]
+topics: [data-structure, simulation, heap]
+difficulty: medium
+frequency: high
+format: 3 parts
+order: 4

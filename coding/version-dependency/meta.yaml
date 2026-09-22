@@ -1,0 +1,13 @@
+title: Version Dependency
+title_zh: 版本依赖
+summary: 'Package-manager questions in four parts: find the earliest version that supports a feature with as few calls to a slow API as possible (monotone, with regressions, hierarchical bisection), then resolve dependency constraints with backtracking and a topological install order.'
+summary_zh: 包管理器背景下的四问：用尽量少的慢速 API 调用找出最早支持某特性的版本（单调、有回退、分层二分），再用回溯加拓扑排序解析依赖约束并给出安装顺序。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE, RE]
+topics: [binary-search, backtracking, topological-sort]
+difficulty: medium
+frequency: medium
+format: 4 parts / 75 min
+order: 19

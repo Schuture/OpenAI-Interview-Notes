@@ -1,0 +1,80 @@
+# Study tracks. scripts/build_index.py turns this file into ROADMAP.md and ROADMAP.zh.md.
+# A track has either curated `stages` (ordered lists of problem folders) or `auto_roles`
+# (every problem tagged with one of those roles, highest priority first).
+
+title: Study roadmap
+title_zh: 学习路线
+intro: >-
+  Three study orders over the same problems. Pick the track that matches the role you are interviewing for
+  and work down it. ★ shows how often a question comes up, from ★★★★★ (again and again) to ★☆☆☆☆ (rarely).
+intro_zh: 同一批题目的三种学习顺序。选和你投递岗位对应的路线，从上往下做。★ 表示题目出现的频率，从 ★★★★★（反复出现）到 ★☆☆☆☆（少见）。
+
+tracks:
+  - id: research
+    title: Research track (RS / RE)
+    title_zh: 研究方向（RS / RE）
+    intro: >-
+      Every problem tagged RS or RE, ordered by priority and by what builds on what. ML coding comes first
+      because it is the part that practising general algorithm problems does not cover.
+    intro_zh: 所有带 RS 或 RE 标签的题目，按优先级和知识依赖排序。ML 编程题放在最前面，因为这是平时刷通用算法题覆盖不到的部分。
+    stages:
+      - name: 1 · ML coding core
+        name_zh: 1 · ML 编程核心
+        note: The three ML coding problems that come up most. They share two skills, tracing tensor shapes and differentiating matrix products.
+        note_zh: 出现最多的三道 ML 编程题，共用两项基本功：追踪张量形状，对矩阵乘法求导。
+        items:
+          - coding/transformer-bug-hunt
+          - coding/numpy-1nn-affine
+          - coding/autograd-hillis-steele
+      - name: 2 · Most frequent general coding
+        name_zh: 2 · 频率最高的通用编程题
+        note: The two most frequent coding problems overall; research roles get them too.
+        note_zh: 整体频率最高的两道编程题，研究岗同样会遇到。
+        items:
+          - coding/infection-spread
+          - coding/social-network
+      - name: 3 · Frequent, research-tagged
+        name_zh: 3 · 高频且面向研究岗
+        items:
+          - coding/noisy-annotators
+          - coding/labeling-task-scheduler
+          - coding/type-inference
+          - coding/memory-allocator
+      - name: 4 · Medium frequency
+        name_zh: 4 · 中频
+        note: Streaming Entropy reuses the log-sum-exp tools from stage 1; the restart question is pure probability.
+        note_zh: 流式熵计算复用第 1 阶段的 log-sum-exp 技巧；重启策略那道是纯概率题。
+        items:
+          - coding/streaming-entropy
+          - coding/restart-strategy-math
+          - coding/version-dependency
+      - name: 5 · Less common, same fundamentals
+        name_zh: 5 · 较少见，但考的是同一套基本功
+        items:
+          - coding/cross-entropy-loss
+          - coding/sharded-matmul-backprop
+          - coding/pytorch-code-reading
+      - name: 6 · ML design, deep dive and behavioral
+        name_zh: 6 · ML 设计、技术深挖与行为面
+        note: Start the deep dive and the hiring-manager round early. Both are ★★★★★, and a story that survives follow-up questions takes longer to prepare than a coding problem.
+        note_zh: 技术深挖和用人经理面要尽早准备。两者都是 ★★★★★，而一个经得起追问的故事，准备起来比一道编程题花的时间更长。
+        items:
+          - system-design/chatgpt-enterprise-rag
+          - system-design/rag-search-ml-design
+          - behavioral/technical-deep-dive
+          - behavioral/hiring-manager-why-openai
+          - behavioral/recruiter-screen
+
+  - id: mle
+    title: MLE track
+    title_zh: MLE 方向
+    intro: Every problem tagged MLE, highest priority first.
+    intro_zh: 所有带 MLE 标签的题目，优先级高的在前。
+    auto_roles: [MLE, All]
+
+  - id: swe
+    title: SWE / Infra track
+    title_zh: SWE / Infra 方向
+    intro: Every problem tagged SWE or Infra Eng, highest priority first.
+    intro_zh: 所有带 SWE 或 Infra Eng 标签的题目，优先级高的在前。
+    auto_roles: [SWE, Infra Eng, All]

@@ -1,0 +1,12 @@
+title: Distributed Crossword Solver
+title_zh: 分布式填字游戏求解器
+summary: A service that fills a large crossword from a million-word dictionary. One machine cannot search the space, so the design splits a depth-first search across workers with pruning and early stop.
+summary_zh: 用百万词词典填满一个大号填字盘的服务。单机搜不完，所以要把深度优先搜索拆给多个工作节点，配合剪枝和提前终止。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE, Infra Eng]
+topics: [distributed-search, backtracking, job-system]
+frequency: low
+stage: [onsite]
+order: 10

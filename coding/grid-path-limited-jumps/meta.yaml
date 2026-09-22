@@ -1,0 +1,13 @@
+title: Best Grid Path with K Row Skips
+title_zh: 最多跳过 K 行的网格最优路径
+summary: Walk down a grid by stepping to one of the three adjacent cells in the next row or, at most K times, skipping a row by jumping straight down to the same column two rows below. Maximise the score, recover the lexicographically smallest best path, count all best paths, then add bonuses that depend on the last few cells.
+summary_zh: 从顶行走到底行，每步走到下一行相邻的三个格子之一，或最多 K 次越过一行、直接落到两行之下的同一列。求最大得分、还原字典序最小的最优路径、统计最优路径数，最后加入依赖最近几格的奖励分。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE]
+topics: [dp, grid, counting]
+difficulty: hard
+frequency: rare
+format: 4 parts
+order: 22

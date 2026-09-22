@@ -1,0 +1,13 @@
+title: Image Sharing with Deduplication
+title_zh: 带去重的图片分享
+summary: Upload, view and delete images while storing identical bytes once under a content hash. The interesting parts are concurrent uploads, blob and metadata consistency, and safe deletion.
+summary_zh: 图片上传、查看、删除，内容相同的只按哈希存一份；看点是并发上传、blob 与元数据的一致性，以及安全删除。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE]
+topics: [storage, deduplication, consistency]
+difficulty: medium
+frequency: low
+stage: [phone-screen, onsite]
+order: 9
