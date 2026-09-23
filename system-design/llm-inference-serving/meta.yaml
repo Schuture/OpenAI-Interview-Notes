@@ -1,0 +1,13 @@
+title: LLM Inference Serving
+title_zh: 大模型推理服务
+summary: 'A consumer LLM chat backend: continuous batching with chunked prefill vs. disaggregated pools, paged KV-cache memory with preemption and swap for long context, and tiered quotas that protect paid-tier time-to-first-token under overload.'
+summary_zh: 面向终端用户的大模型对话服务后端：连续批处理与分块 prefill 的取舍、长上下文下的分页 KV cache 显存管理与抢占换出，以及在过载时仍保住付费档首 token 延迟目标的分档限流。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE, Infra Eng, MLE]
+topics: [gpu-scheduling, batching, streaming, rate-limiting, cost]
+frequency: high
+stage: [phone-screen, onsite]
+format: 60 min
+order: 20

@@ -5,7 +5,7 @@
 <!-- meta:begin -->
 | Type | Priority | Difficulty | Roles | Topics | Format | Round |
 | --- | --- | --- | --- | --- | --- | --- |
-| Behavioral | ★★★★☆ | — | All | behavioral, process, compensation | 30 min | Recruiter screen |
+| Behavioral | ★★★★☆ | — | All | behavioral, process, compensation, ai-safety | 30 min | Recruiter screen |
 <!-- meta:end -->
 
 ## Problem
@@ -25,6 +25,7 @@ process — timeline, compensation expectations, and work location. The question
 - Why do you want to join OpenAI specifically, rather than another company?
 - Which kind of work do you prefer: product-facing, infrastructure, or research?
 - Why are you leaving your current position?
+- What's your own view on AGI, and how do you think about AI safety?
 
 ### Leadership and conflict
 
@@ -84,6 +85,11 @@ that reads as complaining about your current employer. Fix: name something concr
 itself rather than the company's reputation, and give the reason for leaving only as what you want to
 do next, without running down where you are now.
 
+For AGI and AI safety, this call doesn't go deep — give a short version: your working definition of
+AGI in a sentence, one specific safety concern you actually think about, and how it connects to the
+kind of work you want to do here. Save the fuller version, with a timeframe and named risks, for the
+round built for it.
+
 ### Leadership and conflict
 
 What it probes: whether you can describe your own role in a leadership or conflict situation concretely,
@@ -142,6 +148,8 @@ hang up:
 - What format and length are the remaining rounds, and how many are there?
 - Roughly how much time is there between rounds?
 - What level is the role scoped at?
+- Given the background you just described, what level would that calibrate to? Asking this now, rather
+  than waiting for a later round, is what surfaces a mismatch early.
 - Is the role tied to a specific team, or is the team decided later in the process — and if later, when?
 - What should you prepare or bring to the next round?
 
@@ -161,6 +169,8 @@ Two-minute self-introduction:
 
 One-sentence why OpenAI:
 
+Short version of your view on AGI and AI safety (one sentence + one concern):
+
 Direction preference (product-facing / infrastructure / research) and why:
 
 Leadership example (how many people, what kind of authority):
@@ -177,12 +187,13 @@ Location and work authorization:
 
 References (who, and whether you've asked them):
 
-Five questions to ask your recruiter:
+Six questions to ask your recruiter:
   1.
   2.
   3.
   4.
   5.
+  6.
 ```
 
 </details>

@@ -5,7 +5,7 @@
 <!-- meta:begin -->
 | Type | Priority | Difficulty | Roles | Topics | Format |
 | --- | --- | --- | --- | --- | --- |
-| Debugging · PyTorch | ★★★★☆ | Medium | MLE · RS · RE | transformer, debugging, kv-cache, pytorch | 4 bugs + 1 follow-up |
+| Debugging · PyTorch | ★★★★☆ | Medium | MLE · RS · RE | transformer, debugging, kv-cache, pytorch | 4 bugs + 2 follow-ups |
 <!-- meta:end -->
 
 ## Problem
@@ -195,14 +195,16 @@ class KVCache:
 Implement `update`, and add an optional argument `cache` to `TinyGPT.forward`, `Block.forward` and
 `SelfAttention.forward`. A call `model(idx, cache)` receives only the new tokens `idx` of shape
 `(B, T_new)`, appends their keys and values to the cache, and returns the logits of these `T_new`
-positions. For any batch `seq` from `make_batch`, they must equal the corresponding slice of a forward
-pass over the whole sequence:
+positions. A sequence is handed over as chunks of arbitrary lengths, in order, one call per chunk, and
+a call processes its own `T_new` positions only: the keys and values of the earlier positions are read
+from the cache, never recomputed. For any batch `seq` from `make_batch`, the logits of the chunks must
+equal the matching slices of a forward pass over the whole sequence:
 
 ```py
 cache = KVCache(n_layer=len(model.blocks))
-first = model(seq[:, :4], cache)                                        # four tokens in one call
-rest = [model(seq[:, t:t + 1], cache) for t in range(4, seq.shape[1])]  # then one token per call
-assert torch.allclose(torch.cat([first] + rest, dim=1), model(seq), atol=1e-5)
+chunks = [(0, 3), (3, 4), (4, 9), (9, 11), (11, 13)]        # chunk lengths 3, 1, 5, 2, 2
+out = [model(seq[:, a:b], cache) for a, b in chunks]
+assert torch.allclose(torch.cat(out, dim=1), model(seq), atol=1e-5)
 ```
 
 Then give `generate` a flag `use_cache`: the first call processes the prompt, and every later call
@@ -380,6 +382,7 @@ without the cache. Attention in one decoding step costs $O(T)$ instead of $O(T^2
   `RuntimeError: value cannot be converted to type c10::Half without overflow`. In exchange, a fully
   masked row, which padding masks can produce, becomes NaN under softmax.
 - Other bugs of the same kind: a reduction over the wrong axis, a missing scale factor `d_head ** 0.5`, a
+  hand-written softmax that exponentiates the scores without subtracting each row's maximum first, a
   one-character typo in a variable name. With `softmax(dim=-2)` this file still reaches a loss of 0.0014, yet test 1
   fails and `generate` gets 2% of the prompts right.
 - `torch.cat` copies the whole cache at every step. Production code allocates
@@ -551,15 +554,19 @@ numbers = torch.randint(0, 10, (1000, N_DIGITS), generator=rng)
 with torch.no_grad():
     assert torch.equal(clf(numbers).argmax(dim=-1), numbers[:, -1] % 2)
 
-# Part 3: four tokens in one call, then one token per call, against one full forward pass (two layers)
+# Part 3: chunks of lengths 3, 1, 5, 2, 2 against one full forward pass (two layers)
 deep = TinyGPT(n_layer=2)
 seq = make_batch(8, rng)
 with torch.no_grad():
-    cache = KVCache(n_layer=2)
-    first = deep(seq[:, :4], cache)
-    rest = [deep(seq[:, t:t + 1], cache) for t in range(4, seq.shape[1])]
-    assert cache.length == seq.shape[1]
-    assert torch.allclose(torch.cat([first] + rest, dim=1), deep(seq), atol=1e-5)
+    cache, out = KVCache(n_layer=2), []
+    for a, b in [(0, 3), (3, 4), (4, 9), (9, 11), (11, 13)]:
+        out.append(deep(seq[:, a:b], cache))
+        assert cache.length == b                    # NOTE: a call adds its own positions and no others
+    assert torch.allclose(torch.cat(out, dim=1), deep(seq), atol=1e-5)
+
+row = torch.tensor([[0.0, 120.0, float("-inf")]])   # a softmax that skips the row maximum: exp(120) overflows
+naive = row.exp() / row.exp().sum(dim=-1, keepdim=True)
+assert naive.isnan().any() and torch.equal(row.softmax(dim=-1), torch.tensor([[0.0, 1.0, 0.0]]))
 prompts = seq[:, :N_DIGITS + 1]
 assert torch.equal(generate(model, prompts, N_DIGITS, use_cache=True), generate(model, prompts, N_DIGITS))
 assert torch.equal(generate(model, prompts, N_DIGITS, use_cache=True), seq)

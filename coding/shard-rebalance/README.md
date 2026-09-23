@@ -73,12 +73,16 @@ coast: [130, 150]
                     # inland is dropped: every key of [6, 42] already has coverage 2
 ```
 
+Write your own test cases for the rule as well, covering at least a hole between two shards, one
+shard's range contained in another's, several shards with identical ranges, and `limit = 1`.
+
 ### Part 2 — Incremental shards and key routing
 
 Rebalancing a fixed batch, as in Part 1, does not fit a shard being added or removed one at a
 time: narrowing one range in the middle of the key space can shift several neighbours' boundaries.
-Implement `ShardRouter`, which assigns every integer key to one shard of a set that changes one
-shard at a time.
+This part starts over rather than building on Part 1: a shard no longer owns a range of keys, and
+the mapping from key to shard is yours to design. Implement `ShardRouter`, which assigns every
+integer key to one shard of a set that changes one shard at a time.
 
 ```py
 class ShardRouter:

@@ -268,6 +268,10 @@ not disproven yet.
 - The 64-worker cap only bounds one puzzle's claim; at peak, dozens of puzzles could each want that many
   at once, so sharing the pool fairly across puzzles, not just tasks within one, would need weighted
   scheduling by priority or age.
+- A task requeued after a crash re-searches whatever its owner covered since claiming it. Most
+  tasks are far too short for that to matter, but a long one heartbeats, and the conditional write
+  that renews its lease can also advance `slice.lo` past the top-level candidates it has finished,
+  capping the redo at one heartbeat interval.
 - A slot whose length has no words in the dictionary is rejected at submission with an immediate
   `unsat`, without creating a root task.
 

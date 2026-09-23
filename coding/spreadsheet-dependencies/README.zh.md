@@ -70,6 +70,8 @@ class Spreadsheet:
 - 一条公式可以引用一个还没有被 `set` 过的单元格（读作 `0`）；之后再 `set` 这个单元格时，所有传递依赖它的单元格都要更新。
 - 在一个“菱形”结构里——两个单元格都读同一个单元格，第四个单元格又同时读这两者——对公共单元格的一次 `set`
   只应把第四个单元格重算一次，而不是按到它的路径数重算多次。
+- 覆盖一个原本是字面量的单元格、改成公式时，新的依赖边要立即生效：这次 `set` 调用之后，该单元格自己缓存的值、
+  以及所有传递依赖它的单元格，都要反映这条新公式，而不是那个已经过期的字面量。
 
 ## 参考解答
 
@@ -255,6 +257,8 @@ class Spreadsheet:
 前三条由上面的代码直接保证：旧依赖边由 `set` 里判环之后的那个循环删除；从未 `set` 的单元格经 `.get(name, 0)`
 读作 `0`，之后 `set` 它时照常从 `dependents` 找到读它的单元格；`LazySpreadsheet` 不保存依赖图，只能靠递归走进环才发现它。
 菱形依赖靠拓扑序：每个单元格只被 `_affected` 收集一次、被 `_topological_order` 发出一次，一次 `set` 里不会重算两次。
+最后一条是同一段代码反过来看：`set` 在写入之前先读 `self.dependencies.get(name, ())`——`name` 第一次变成公式时这
+自然就是空的——所以字面量变公式时加边、公式变别的东西时删边，走的是同样这四行代码，不是两套要分别维护的逻辑。
 
 ### 追问
 
@@ -354,6 +358,14 @@ sh.set('K1', 70)
 assert 'K1' not in sh.dependents['J1']
 sh.set('J1', 500)
 assert sh.get('K1') == 70
+
+sh = Spreadsheet()  # ... and the reverse: a literal overwritten with a formula picks up edges at once
+sh.set('J1', 4)
+sh.set('K1', 70)
+sh.set('K1', '=J1 + 6')
+assert 'K1' in sh.dependents['J1'] and sh.get('K1') == 10
+sh.set('J1', 500)
+assert sh.get('K1') == 506
 
 sh = Spreadsheet()  # a formula may reference a cell that is set only later
 sh.set('M1', '=N1 + 5')

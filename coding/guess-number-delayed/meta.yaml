@@ -1,0 +1,17 @@
+title: Binary Search with Delayed Answers
+title_zh: 反馈延迟一轮的二分查找
+summary: 'A guessing-number interface whose answer to call i only arrives on call i+1: find one
+  secret with as few calls as possible (single guesses, then batches of two that cut the interval
+  to a third), then pipeline many independent secrets through the same one-round lag so the total
+  number of rounds barely grows with the number of games.'
+summary_zh: 猜数接口的回答总是延迟一轮才送达：先用单个猜测、再用能把区间砍到三分之一的两点一批，尽量少调用几次找到一个秘密数字；再把多个互相独立的秘密数字通过同一条延迟一轮的通道流水线化，让总轮数几乎不随游戏数量增长。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE, RE]
+topics: [binary-search, interaction, algorithm-design]
+difficulty: medium
+frequency: rare
+stage: [phone-screen]
+format: 3 parts
+order: 38

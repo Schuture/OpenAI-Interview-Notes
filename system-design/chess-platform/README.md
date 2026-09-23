@@ -10,24 +10,29 @@
 
 ## Problem
 
-Design the real-time backend for a one-on-one online chess platform. A registered player joins a queue
-for a time control (for example, 5 minutes with a 3-second increment added after each move) and a mode
-(rated or casual); the system pairs them with an opponent of comparable rating and starts a game. Once a
-game starts, both players submit moves over a persistent connection and must see the opponent's move
-appear almost immediately. Each player has an individual chess clock, and the server is the sole
-authority over both clocks: a player's on-screen timer is only a display and is never trusted to decide
-when time has run out. A dropped connection never pauses a game: the clock of the side to move keeps
-running whether or not either player is connected, and a player who reconnects must resume from the
-exact current position and the exact current clock reading. A finished game's full move history is
-recorded permanently, and both players' ratings are updated.
+Design the real-time backend for a one-on-one online chess platform. A registered player joins a
+queue for a time control (for example, 5 minutes with a 3-second increment added after each move)
+and a mode (rated or casual); the system pairs them with an opponent of comparable rating and starts
+a game. Once a game starts, both players submit moves over a persistent connection and must see the
+opponent's move appear almost immediately. Each player has an individual chess clock, and the server
+is the sole authority over both clocks: a player's on-screen timer is only a display and is never
+trusted to decide when time has run out. A dropped connection never pauses a game: the clock of the
+side to move keeps running whether or not either player is connected, and a player who reconnects
+must resume from the exact current position and the exact current clock reading. The server also
+decides how a game ends: a game that is under way ends in exactly one of seven ways — checkmate;
+stalemate (the side to move has no legal move and is not in check); resignation; a clock reaching
+zero; an agreed draw; threefold repetition (the same position occurring for the third time); and the
+fifty-move rule (fifty moves by each side with neither a capture nor a pawn move). The last two are
+declared as soon as they happen; a player does not have to claim them. A finished game's full move
+history is recorded permanently, and both players' ratings are updated.
 
 Scale this design for:
 
 - 5,000,000 players play at least one game on a typical day.
 - At peak, 300,000 players are online at once (6% of daily players), which puts 150,000 games in
   progress simultaneously.
-- An average game lasts about 8 minutes and runs about 80 moves in total, 40 by each side (a "move" here
-  is one player's turn — chess notation calls this a *ply*).
+- A game runs between about 1 and 30 minutes, averaging about 8 minutes and about 80 moves in total,
+  40 by each side (a "move" here is one player's turn — chess notation calls this a *ply*).
 - Target match wait time: 95th percentile under 4 seconds.
 - Target move relay latency, from one player submitting a move to the opponent's screen showing it: 95th
   percentile under 120 ms.
@@ -38,12 +43,12 @@ Scale this design for:
   twice or accepted out of turn, even when a client retries a request or reconnects mid-game.
 
 In scope: joining a queue and matchmaking by rating; validating, applying, and relaying moves for a
-single game in real time; the server-authoritative clock and timeout detection; resigning and
-offering/accepting a draw; handling disconnects and reconnects; and persisting a finished game's move
-history while updating both players' ratings. Out of scope: spectating an in-progress game, tournaments,
-a computer opponent, cheat or engine-assistance detection, chat, and the rating formula itself — assume a
-rating-update function that takes two ratings and a game result and returns the two updated ratings is
-available as a library call.
+single game in real time; the server-authoritative clock and timeout detection; resignation, draw
+offers, and the drawn endings the server declares on its own; handling disconnects and reconnects;
+and persisting a finished game's move history while updating both players' ratings. Out of scope:
+spectating an in-progress game, tournaments, a computer opponent, cheat or engine-assistance
+detection, chat, and the rating formula itself — assume a rating-update function that takes two
+ratings and a game result and returns the two updated ratings is available as a library call.
 
 Produce:
 
@@ -97,11 +102,6 @@ games/day — daily growth of $9\times10^6 \times 6.4\text{ KB} \approx 57.6$ GB
 replication. The history store takes one write per finished game, so one well-sharded relational
 cluster is enough.
 
-**Matchmaking queue.** At peak, $150{,}000 / 480 \approx 312$ games start per second, so about 625
-players join the queue each second. With a mean wait of at most about 2 s (the p95 target is 4 s),
-Little's law puts only $625 \times 2 = 1{,}250$ entries in the queue at once, spread across every
-(time control, mode) pool.
-
 ### Data model and API
 
 **Player** — `player_id`, `username`, `rating_bullet`, `rating_blitz`, `rating_rapid` (one rating per
@@ -111,13 +111,16 @@ time-control category), `created_at`.
 (`{base_s, increment_s}`), `rating_snapshot`, `joined_at`, `status`
 (`waiting`/`matched`/`cancelled`/`expired`), `matched_game_id`.
 
-**Game** — `game_id`, `white_player_id`, `black_player_id`, `mode`, `time_control`, `status`, `result`
-(`white`/`black`/`draw`, null while active), `result_reason`
-(`checkmate`/`resignation`/`timeout`/`draw_agreement`/`abandonment`), `current_fen` (the position as a
-one-line FEN string, kept as a read cache), `ply` (next move number expected), `turn`,
-`white_remaining_ms`, `black_remaining_ms`, `turn_started_at_ms` (server time the side to move's turn
-began), `version` (bumped on every accepted move, resignation, draw, or timeout), `owner_epoch`
-(fencing token, bumped each time the game is reassigned to a new owner), `started_at`, `ended_at`.
+**Game** — `game_id`, `white_player_id`, `black_player_id`, `mode`, `time_control`, `status`,
+`result` (`white`/`black`/`draw`, null while active), `result_reason`
+(`checkmate`/`stalemate`/`resignation`/`timeout`/`draw_agreement`/`threefold_repetition`/`fifty_move`/`abandonment`),
+`current_fen` (the position as a one-line FEN string, kept as a read cache), `repetition_counts`
+(how many times each position key — placement, side to move, castling rights, en passant square —
+has occurred since the last capture or pawn move, which clear it; the fifty-move count is the FEN's
+own halfmove clock), `ply` (next move number expected), `turn`, `white_remaining_ms`,
+`black_remaining_ms`, `turn_started_at_ms` (server time the side to move's turn began), `version`
+(bumped on every accepted move, resignation, draw, or timeout), `owner_epoch` (fencing token, bumped
+each time the game is reassigned to a new owner), `started_at`, `ended_at`.
 
 **MoveRecord** (append-only) — `game_id`, `ply`, `player_id`, `uci` (e.g. `g1f3`), `client_move_id`
 (client-generated idempotency key), `white_remaining_ms_after`, `black_remaining_ms_after`,
@@ -171,15 +174,18 @@ flowchart LR
     gateway --> client
 ```
 
-Walk-through of one move: the client sends `move` to its gateway, which looks up the game's owner in its
-cached copy of the routing table and forwards the message without checking any chess rules. The owner
-stamps the move with its own receive time as it enters the game's event queue. When the move reaches the
-head of that queue, the owner first recognizes a retry by its `client_move_id`, then checks the turn and
-`ply`, and validates legality with an existing chess-rules library (en passant, castling and repetition
-are where hand-written validators go wrong). It then computes the new clock reading, writes the new game
-state together with the appended `MoveRecord` to the live-state store in one fenced write, re-arms the
-timeout timer for the new side to move, and pushes `move.applied` through the gateways to both sockets;
-a rejected move gets `move.rejected` back to the sender only.
+Walk-through of one move: the client sends `move` to its gateway, which looks up the game's owner in
+its cached copy of the routing table and forwards the message without checking any chess rules. The
+owner stamps the move with its own receive time as it enters the game's event queue. When the move
+reaches the head of that queue, the owner first recognizes a retry by its `client_move_id`, then
+checks the turn and `ply`, and validates legality with an existing chess-rules library (en passant,
+castling and repetition are where hand-written validators go wrong). It then computes the new clock
+reading and looks for an ending the move itself produces — no legal reply for the opponent,
+checkmate if that side is in check and stalemate if it is not; a third occurrence of the new
+position in `repetition_counts`; a halfmove clock that has reached 100 — writes the new game state
+together with the appended `MoveRecord` to the live-state store in one fenced write, re-arms the
+timeout timer for the new side to move, and pushes `move.applied` through the gateways to both
+sockets; a rejected move gets `move.rejected` back to the sender only.
 
 ### Deep dives
 
@@ -217,10 +223,19 @@ itself measures on that socket, at most e.g. 100 ms per move and never more than
 removes most of this bias; the cap also
 bounds what a client gains by delaying its pong replies to inflate the measurement. Without it, a player
 on a 100 ms connection loses about 4 s over 40 moves, a lot in a one-minute game and little at 5+3, so
-turn it on for bullet only. The 50 ms detection target is measured on the server's clock and is
-unaffected.
+turn it on for bullet only.
 
-**Move consistency and routing within a game.** Two ways to route a game's messages to the process owning
+**Move consistency and routing within a game.** Where a game's state lives comes first. A stateless
+fleet — any instance serves any move, reading the game's row from a store sharded by `game_id`,
+validating, writing it back under a conditional update — owns nothing, so it needs neither lease nor
+fencing token, and 25,000 moves/s over 30 shards is under 900 moves/s each. It loses on the clock: the
+50 ms target wants one in-process timer per game, which a stateless fleet has to replace with a
+scheduler sweeping 150,000 deadlines on a period shorter than 50 ms, and a move has to be ordered
+against its own timeout firing by its receive stamp, which a per-game event queue settles in memory
+and two independent writers settle only by re-reading after a lost conditional update. So games are owned here, and owning them costs leases, fencing tokens, and a gap at
+takeover.
+
+Two ways to route a game's messages to the process owning
 its state: pure consistent hashing on `game_id`, every gateway computing the owner from a shared ring;
 or an explicit routing table (`game_id` → current owner) that gateways look up and cache. Both are used,
 for different jobs: the ring (with virtual nodes) only computes placement — where a new game goes, and
@@ -243,20 +258,23 @@ error. Any other move must come from the side to move with `ply` equal to the ga
 optimistic-concurrency check that rejects a stale or out-of-turn move before it mutates anything. The
 order matters: checking `ply` first would reject the retry of a move that was in fact applied.
 
-Recovery when an instance dies: a move is acknowledged only after its fenced write (the new game state
-plus the appended `MoveRecord`) is on a majority of the live-state store's replicas — a few milliseconds
-inside one region, small next to the two client legs of the 120 ms budget. So no acknowledged move is
-lost, and a move written but not yet acknowledged when the owner crashed is found by its
-`client_move_id` when the client retries, so it is not applied twice. A live game's entry is never
-evicted. The new owner loads the game from live state and re-arms the timer of the side to move. The
-failover gap, when no move could be accepted, is not charged: the side to move is charged only up to the
-old owner's last lease renewal (nothing if the turn began after it), and $t_{\text{turn}}$ restarts at
-the takeover. When the game ends, the owner writes the move list, the result and both new ratings to the
-history store in one transaction that first inserts the finished game's row and does nothing if that row
-already exists, so a retry after a crash never applies a rating change twice; only then is the live
-entry deleted.
+Recovery when an instance dies: a move is acknowledged only after its fenced write (the new game
+state plus the appended `MoveRecord`) is on a majority of the live-state store's replicas — a few
+milliseconds inside one region, small next to the two client legs of the 120 ms budget. With no
+majority reachable the move is rejected and the client retries; it is never acknowledged first and
+written afterwards. So no acknowledged move is lost, and a move written but not yet acknowledged
+when the owner crashed is found by its `client_move_id` when the client retries, so it is not
+applied twice. A live game's entry is never evicted. The new owner loads the game from live state
+and re-arms the timer of the side to move. The failover gap, when no move could be accepted, is not
+charged: the side to move is charged only up to the old owner's last lease renewal (nothing if the
+turn began after it), and $t_{\text{turn}}$ restarts at the takeover. When the game ends, the owner
+writes the move list, the result and both new ratings to the history store in one transaction that
+first inserts the finished game's row and does nothing if that row already exists, so a retry after
+a crash never applies a rating change twice; only then is the live entry deleted.
 
-Reconnect: a client sends `reconnect {game_id, last_seen_version}` once its socket is back up; the
+Reconnect (the client's own network, or the gateway holding its socket dying and taking 20,000 sockets
+with it, which is why reconnects carry jitter): the client sends
+`reconnect {game_id, last_seen_version}` once its socket is back up; the
 gateway routes it through the table, which may now point elsewhere, and the owner records that gateway
 as the player's new delivery address. The owner replies with `moves.backfill` — every `MoveRecord`
 whose `version_after` exceeds `last_seen_version`, taken from the live game, since the history store
@@ -273,13 +291,15 @@ Widening rule: $\Delta(w) = \min(\Delta_0 + \text{rate} \times w, \Delta_{\max})
 waited — e.g. ±40 points at join, +20 points per second, reaching the ±400 cap after 18 s. Too strict
 leaves players in a thin pool (an off-peak time control, an extreme rating) waiting indefinitely; too
 loose gives lopsided pairings to players who would have found a close match a moment later; a window
-that grows keeps most matches close, and nobody stays unmatched forever because of an unusual rating.
+that grows keeps both from happening.
 
 Pairing and sharding: each pool is owned by one single-threaded matcher that, every 100 ms, walks its
 entries oldest first, pairs each with the closest-rated entry inside that entry's window, removes both,
 and asks the game service to create the game; with one thread per pool, a player can never be handed to
-two games, and no lock is needed. The load is small — about 625 joins/s and 1,250 waiting entries at
-peak, far below one core — so the service is split by pool for failure isolation, not throughput: each
+two games, and no lock is needed. The load is small: at peak $150{,}000/480 \approx 312$ games start per
+second, so about 625 players join per second, and with a mean wait of at most 2 s (the p95 target is
+4 s) Little's law puts only $625 \times 2 = 1{,}250$ entries in all the pools at once — far below one
+core, so the service is split by pool for failure isolation, not throughput: each
 pool lives whole on one shard, so range queries never cross shards, and a standby rebuilds a failed
 shard's pools from the `waiting` queue entries.
 
@@ -287,11 +307,8 @@ shard's pools from the `waiting` queue entries.
 
 - Spectating needs a separate broadcast path (one game, unboundedly many watchers) rather than the 1:1
   relay above, which is sized and ordered for exactly two recipients.
-- A game could be placed in a region near both players to cut relay latency for a cross-region match, at
-  the cost of fewer placement choices or an extra hop for the farther player.
-- A daily (multi-day) time control should not keep a game resident in memory for days: load it on each
-  move, and keep its deadline in a durable table indexed by deadline and polled by a scheduler, instead of
-  an in-process timer.
+- A daily (multi-day) time control should not keep a game resident in memory for days: load it per
+  move, and put its deadline in the durable table a scheduler polls.
 
 <details>
 <summary>Estimate check (runnable)</summary>
@@ -318,6 +335,10 @@ assert ws_msgs_per_sec == 50_000
 move_msg_bytes = 150
 bandwidth_mb_s = ws_msgs_per_sec * move_msg_bytes / 1e6
 assert round(bandwidth_mb_s, 1) == 7.5
+
+stateless_shards = 30                        # the stateless variant: one store shard per game_id range
+moves_per_shard = peak_moves_per_sec / stateless_shards
+assert round(moves_per_shard) == 833
 
 per_gateway_conns = 20_000
 gateways_bare = math.ceil(peak_online / per_gateway_conns)

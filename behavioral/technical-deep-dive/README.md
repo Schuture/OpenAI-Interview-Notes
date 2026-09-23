@@ -19,9 +19,13 @@ Expect the follow-ups to fall into five groups.
 
 ### Architecture and key decisions
 
+- Before the architecture: what problem were you solving, and what did you decide would count as
+  success before you started building it?
 - Walk through the architecture: the main components and how a request or a piece of data moves
   through them.
 - For each key decision, what alternatives did you consider, and why did you rule them out?
+- For each key decision, which of these did you trade off against which: accuracy, latency, cost,
+  scalability, reliability, complexity, or how fast you could iterate?
 - Why did you use your actual choice instead of a specific named alternative, for a specific piece of
   the system?
 - Which part of the design would you defend most strongly if someone pushed back on it?
@@ -68,6 +72,8 @@ Expect the follow-ups to fall into five groups.
 
 Confirm two things with your recruiter before you prepare: how the 60 minutes splits between your
 presentation and questions, and whether you should share your screen or send the deck ahead of time.
+The project doesn't need to involve AI at all — this round is judged on your decisions and trade-offs,
+not on the technology.
 
 ### Slide outline
 
@@ -100,8 +106,14 @@ the round for questions; use the split your recruiter confirms rather than assum
 This tests whether you actually made the decision, or the "decision" was really the only option you
 looked at.
 
+For "what problem were you solving and what counted as success", state the problem itself first — who
+had it, how bad it was — then give the success bar you set before you started building: a specific
+number or a pass/fail line, not one you reverse-engineered from the result afterward.
+
 Skeleton for each decision: state the decision, the constraint that drove it, the alternative(s) you
-considered, why you ruled them out, and the condition under which you would choose differently today.
+considered, why you ruled them out, which of accuracy, latency, cost, scalability, reliability,
+complexity or iteration speed it traded against which, and the condition under which you would choose
+differently today.
 Prepare this as a table, one row per alternative, for every decision you expect to be asked about. A
 fictional example, for a batch pipeline that merges small files and loads them into a warehouse once an
 hour:
@@ -190,21 +202,25 @@ Copy this into `my/` and fill it in with your own project.
 
 ```text
 Project in one sentence:
+Problem you were solving, and the success bar you set before you started:
 Constraints (time / team size / existing systems / budget):
 
 Key decision 1:
   Alternative:
   Why not, at the time:
+  Trade-off axis (accuracy / latency / cost / scalability / reliability / complexity / iteration speed):
   Under what condition you'd switch:
 
 Key decision 2:
   Alternative:
   Why not, at the time:
+  Trade-off axis:
   Under what condition you'd switch:
 
 Key decision 3:
   Alternative:
   Why not, at the time:
+  Trade-off axis:
   Under what condition you'd switch:
 
 Three numbers (the metric, what it's compared against, your individual share of it):

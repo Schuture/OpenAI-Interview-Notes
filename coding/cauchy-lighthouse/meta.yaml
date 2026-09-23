@@ -1,0 +1,13 @@
+title: Lighthouse Beams and Heavy Tails
+title_zh: 灯塔光束与重尾分布
+summary: A lighthouse sweeps a beam at a uniformly random angle. Derive the law of the point it lands on, show its mean does not exist and that averaging flashes changes nothing, find estimators of the lighthouse position that do converge and how fast, and say what a simulation would have to measure.
+summary_zh: 灯塔以均匀随机的角度射出光束。推导光束落点的分布，说明它的期望不存在、对多次闪光取平均毫无作用，给出真正会收敛的灯塔位置估计量及其收敛速度，再说明模拟该测量什么。
+category: coding
+kind: Spoken maths · probability
+kind_zh: 口述数学题 · 概率
+roles: [RS, RE]
+topics: [probability, heavy-tails, simulation, estimation]
+difficulty: hard
+frequency: rare
+format: 4 parts
+order: 31

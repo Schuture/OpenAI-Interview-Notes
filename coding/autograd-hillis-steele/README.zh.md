@@ -211,6 +211,9 @@ def scan_backward(tape, G):
 - 降低 tape 的内存：在反向传播时重新计算各轮，或者改用 Blelloch 的 work-efficient 扫描，它的计算量是 $O(N)$，轮数约为 $2 \log_2 N$。
 - 实际用途：线性递推 $h_t = A_t h_{t-1} + b_t$ 是在二元组 $(A_t, b_t)$ 上对一个满足结合律的运算做前缀扫描，
   线性循环网络和状态空间模型就是靠它在序列维度上并行训练的。
+- 取 $D = 1$，Part 3–4 就变成一个一维版本——对标量 $x_1, \dots, x_n$（$n \le 2 \times 10^5$）求前缀积，
+  并由上游梯度 $g$ 算出 $dx$——Part 3 的同一个 carry 递推本身就只用乘法完成这件事，不需要除法，
+  即便某个 $x_i = 0$，$dx$ 依然正确。
 
 <details>
 <summary>验证代码与 torch.autograd.Function 封装（可运行）</summary>
@@ -272,6 +275,15 @@ for N in (1, 2, 5, 8, 11):                                      # includes lengt
     assert torch.allclose(scan_backward(tape, G), by_hand)
     assert len(tape) == (N - 1).bit_length()                    # ceil(log2 N) rounds
 assert torch.autograd.gradcheck(PrefixProducts.apply, (W,))
+
+# Follow-up: D = 1 is the 1D vector variant; the same carry recurrence needs no division and stays
+# correct where x_i = 0.
+x_vec = torch.tensor([[[2.]], [[0.]], [[3.]], [[-1.]]], dtype=torch.float64, requires_grad=True)
+g_vec = torch.randn(4, 1, 1, dtype=torch.float64)
+p_vec = prefix_products(x_vec)
+(dx_autograd,) = torch.autograd.grad((p_vec * g_vec).sum(), x_vec)
+dx_hand = prefix_products_backward(x_vec.detach(), p_vec.detach(), g_vec)
+assert torch.allclose(dx_hand, dx_autograd)
 ```
 
 </details>

@@ -37,7 +37,8 @@ A page has exactly two sections.
 3. One block per part: the rule or task, the function signature, one example. Trace an example step by step
    when the rule is about time or order.
 4. No commentary: no sentences that explain the wording, talk about where the problem comes from, or refer to
-   the page itself. What type of question it is goes into `kind` in `meta.yaml`, which the page header shows.
+   the page itself. Anything about the process itself — rounds, timings, tooling — belongs in
+   [INTERVIEW-PROCESS.md](INTERVIEW-PROCESS.md), not in a problem page. What type of question it is goes into `kind` in `meta.yaml`, which the page header shows.
 5. Do not economise on words that state the task. Do economise on everything else.
 
 **Reference solution.** Everything about the answer, in one section wrapped in a collapsed `<details>` block and

@@ -1,0 +1,14 @@
+title: Sliding-Window Event Aggregation
+title_zh: 滑动窗口事件聚合
+summary: A chat product's event stream, with a hard constraint that state may only grow with the keys currently inside the window, never with history; escalates from a per-chat recent-event count to per-user active-session tracking, first with events in order, then arbitrarily out of order.
+summary_zh: 聊天产品的事件流，核心约束是内部状态只能随窗口内仍活跃的 key 增长，不能随历史见过的 key 数增长；由每个会话的近期事件计数，递进到每个用户的活跃会话数，先假设事件按时间到达，再放开这个假设。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE, Infra Eng]
+topics: [sliding-window, streaming, hashmap, heap]
+difficulty: medium
+frequency: medium
+stage: [phone-screen, onsite]
+format: 4 parts
+order: 32

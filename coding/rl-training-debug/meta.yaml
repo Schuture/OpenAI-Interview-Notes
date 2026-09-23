@@ -1,0 +1,13 @@
+title: RL Training Loop Bug Hunt
+title_zh: 强化学习训练循环找 bug
+summary: A policy-gradient loop on a small grid world runs without an error but the reward never moves. Find the four reinforcement-learning bugs, say what each does to the gradient, and fix them so the reward climbs.
+summary_zh: 一个小网格世界上的策略梯度训练循环跑完不报错，回报却一动不动。找出四个强化学习特有的 bug，说明每个对梯度做了什么，修好它们让回报涨起来。
+category: coding
+kind: Debugging · PyTorch
+kind_zh: 调试 · PyTorch
+roles: [RS, RE, MLE]
+topics: [reinforcement-learning, policy-gradient, debugging, pytorch]
+difficulty: hard
+frequency: rare
+format: 4 bugs + 5 follow-ups
+order: 33

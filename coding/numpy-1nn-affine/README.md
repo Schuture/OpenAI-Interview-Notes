@@ -24,7 +24,9 @@ and when several training points are equally close, the one with the smallest in
 
 $$\mathrm{nn}(q) = \text{the smallest } i \text{ such that } \lVert q - x_i \rVert^2 = \min_k \lVert q - x_k \rVert^2 .$$
 
-The predicted label of $q$ is `y_train[nn(q)]`. Implement the following two parts in NumPy.
+The predicted label of $q$ is `y_train[nn(q)]`. Take $1 \le n, m \le 2000$ and $1 \le d \le 50$
+throughout. Implement the following two parts using NumPy only, without calling `scipy.spatial`,
+`sklearn`, or any other external distance or machine-learning library.
 
 ### Part 1 — 1-NN without Python loops
 

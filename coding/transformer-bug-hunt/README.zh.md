@@ -5,7 +5,7 @@
 <!-- meta:begin -->
 | 题型 | 优先级 | 难度 | 岗位 | 考点 | 形式 |
 | --- | --- | --- | --- | --- | --- |
-| 调试 · PyTorch | ★★★★☆ | 中等 | MLE · RS · RE | transformer, debugging, kv-cache, pytorch | 4 个 bug + 1 个追问 |
+| 调试 · PyTorch | ★★★★☆ | 中等 | MLE · RS · RE | transformer, debugging, kv-cache, pytorch | 4 个 bug + 2 个追问 |
 <!-- meta:end -->
 
 ## 题目
@@ -184,13 +184,15 @@ class KVCache:
 
 实现 `update`，并给 `TinyGPT.forward`、`Block.forward` 和 `SelfAttention.forward` 增加一个可选参数 `cache`。
 调用 `model(idx, cache)` 时只传入新的 token，`idx` 的形状是 `(B, T_new)`；模型把它们的键和值追加进缓存，
-返回这 `T_new` 个位置的 logits。对 `make_batch` 生成的任意一批 `seq`，结果必须与对整条序列做一次前向得到的对应切片相等：
+返回这 `T_new` 个位置的 logits。序列是按顺序、分成若干长度任意的块（chunk）交过来的，一块一次调用；一次
+调用只处理自己这 `T_new` 个位置，更早位置的键和值从缓存里读，不重算。对 `make_batch` 生成的任意一批
+`seq`，各块的 logits 必须与对整条序列做一次前向得到的对应切片相等：
 
 ```py
 cache = KVCache(n_layer=len(model.blocks))
-first = model(seq[:, :4], cache)                                        # four tokens in one call
-rest = [model(seq[:, t:t + 1], cache) for t in range(4, seq.shape[1])]  # then one token per call
-assert torch.allclose(torch.cat([first] + rest, dim=1), model(seq), atol=1e-5)
+chunks = [(0, 3), (3, 4), (4, 9), (9, 11), (11, 13)]        # chunk lengths 3, 1, 5, 2, 2
+out = [model(seq[:, a:b], cache) for a, b in chunks]
+assert torch.allclose(torch.cat(out, dim=1), model(seq), atol=1e-5)
 ```
 
 然后给 `generate` 加一个开关 `use_cache`：第一次调用处理整个提示（prompt），之后每次调用只处理最新的那个 token。
@@ -350,7 +352,8 @@ def generate(model, prompt, n_new, use_cache=False):
 - 为什么用 `float("-inf")` 而不用 `-1e9`：在 float16 下，`scores.masked_fill(mask, -1e9)` 会报
   `RuntimeError: value cannot be converted to type c10::Half without overflow`。代价是：如果某一行的所有位置都被屏蔽（padding mask 可能造成），
   softmax 之后这一行会变成 NaN。
-- 同类的其他 bug：在错误的维度上做归约、漏掉缩放因子 `d_head ** 0.5`、变量名里一个字符的笔误。
+- 同类的其他 bug：在错误的维度上做归约、漏掉缩放因子 `d_head ** 0.5`、手写 softmax 时没有先减去每行的
+  最大值就取指数、变量名里一个字符的笔误。
   把本文件改成 `softmax(dim=-2)`，损失照样能降到 0.0014，但测试 1 失败，`generate` 只有 2% 的提示补全正确。
 - `torch.cat` 每一步都会把整个缓存复制一遍。实际系统会一次性分配 `(B, n_head, max_len, d_head)`，再把新的键和值写进切片 `[:, :, past:past + T]`。
 - 长度不同的数需要填充（padding）。填充位置在注意力里要作为键被屏蔽，在 Part 2 取平均时也要排除。
@@ -519,15 +522,19 @@ numbers = torch.randint(0, 10, (1000, N_DIGITS), generator=rng)
 with torch.no_grad():
     assert torch.equal(clf(numbers).argmax(dim=-1), numbers[:, -1] % 2)
 
-# Part 3: four tokens in one call, then one token per call, against one full forward pass (two layers)
+# Part 3: chunks of lengths 3, 1, 5, 2, 2 against one full forward pass (two layers)
 deep = TinyGPT(n_layer=2)
 seq = make_batch(8, rng)
 with torch.no_grad():
-    cache = KVCache(n_layer=2)
-    first = deep(seq[:, :4], cache)
-    rest = [deep(seq[:, t:t + 1], cache) for t in range(4, seq.shape[1])]
-    assert cache.length == seq.shape[1]
-    assert torch.allclose(torch.cat([first] + rest, dim=1), deep(seq), atol=1e-5)
+    cache, out = KVCache(n_layer=2), []
+    for a, b in [(0, 3), (3, 4), (4, 9), (9, 11), (11, 13)]:
+        out.append(deep(seq[:, a:b], cache))
+        assert cache.length == b                    # NOTE: a call adds its own positions and no others
+    assert torch.allclose(torch.cat(out, dim=1), deep(seq), atol=1e-5)
+
+row = torch.tensor([[0.0, 120.0, float("-inf")]])   # a softmax that skips the row maximum: exp(120) overflows
+naive = row.exp() / row.exp().sum(dim=-1, keepdim=True)
+assert naive.isnan().any() and torch.equal(row.softmax(dim=-1), torch.tensor([[0.0, 1.0, 0.0]]))
 prompts = seq[:, :N_DIGITS + 1]
 assert torch.equal(generate(model, prompts, N_DIGITS, use_cache=True), generate(model, prompts, N_DIGITS))
 assert torch.equal(generate(model, prompts, N_DIGITS, use_cache=True), seq)

@@ -22,6 +22,9 @@ no move at all. Write $v_0, v_1, \dots, v_L$ for the values of the cells visited
 visited ($v_0 = board[0][p]$, $v_L$ is the value at row `N - 1`). The *base score* of a path is
 $\sum_{t=0}^{L} v_t$.
 
+$N$ and $M$ are each at most $200$, $K$ satisfies $0 \le K \le N$, and every cell of `board` holds an
+integer with absolute value at most $10^9$.
+
 Implement the following four parts.
 
 ### Part 1 — Maximum score
@@ -30,7 +33,7 @@ Return the largest base score over all paths from `(0, p)` to row `N - 1`.
 
 ```py
 def max_score(board: list[list[int]], p: int, K: int) -> int:
-    """board has N >= 1 rows and M >= 1 columns, 0 <= p < M, K >= 0. Returns the largest base score."""
+    """1 <= N, M <= 200, |board[i][j]| <= 10**9, 0 <= p < M, 0 <= K <= N. Returns the largest base score."""
 ```
 
 Example: with
@@ -93,7 +96,7 @@ so `count_optimal_paths(board, 0, 1) == 2`.
 
 Two bonus rules apply on top of the base score, both stated in terms of the order cells are *visited* —
 a special move still makes its two endpoints visited consecutively, exactly like a step. Given integers
-`X` and `Y`:
+`X` and `Y`, each between `0` and `10^9`:
 
 - For every `t` with `1 <= t <= L` such that $v_{t-1} = v_t$, add `X`.
 - For every `t` with `2 <= t <= L` such that $v_{t-2} < v_{t-1} < v_t$, add `Y`.
@@ -102,8 +105,8 @@ Return the largest score (base score plus both bonuses) over all paths from `(0,
 
 ```py
 def max_score_with_bonuses(board: list[list[int]], p: int, K: int, X: int, Y: int) -> int:
-    """Same input as max_score, plus bonus amounts X and Y. Returns the largest base
-    score plus bonuses over all paths."""
+    """Same input as max_score, plus bonus amounts 0 <= X, Y <= 10**9. Returns the largest
+    base score plus bonuses over all paths."""
 ```
 
 Example: with

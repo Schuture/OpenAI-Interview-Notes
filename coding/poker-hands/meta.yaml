@@ -1,0 +1,14 @@
+title: Three-Card Hands and Folding
+title_zh: 三张牌的牌型与弃牌
+summary: Three-card poker hands ranked by a fixed hand-type and tie-break order across many players, extended with a flush type and then with a per-player fold rule after the second card that can end play with a walkover or a stalemate before any showdown.
+summary_zh: 多名玩家的三张牌按固定的牌型与并列比较顺序判定胜负，先加入同花，再加入发到第二张牌后各自的弃牌规则，弃牌可能在摆牌比较之前就直接分出胜负或导致流局。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE]
+topics: [simulation, sorting, rules-engine]
+difficulty: medium
+frequency: medium
+stage: [phone-screen]
+format: 3 parts
+order: 35

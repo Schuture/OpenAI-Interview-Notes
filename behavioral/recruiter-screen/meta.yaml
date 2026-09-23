@@ -6,7 +6,7 @@ category: behavioral
 kind: Behavioral
 kind_zh: 行为面
 roles: [All]
-topics: [behavioral, process, compensation]
+topics: [behavioral, process, compensation, ai-safety]
 frequency: high
 stage: [recruiter-screen]
 format: 30 min

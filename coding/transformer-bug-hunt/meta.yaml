@@ -9,5 +9,5 @@ roles: [MLE, RS, RE]
 topics: [transformer, debugging, kv-cache, pytorch]
 difficulty: medium
 frequency: high
-format: 4 bugs + 1 follow-up
+format: 4 bugs + 2 follow-ups
 order: 8

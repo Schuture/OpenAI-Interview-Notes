@@ -83,15 +83,18 @@
 | 7 | [内存分配器](coding/memory-allocator/README.zh.md) | ★★★★☆ | 困难 | 在固定地址空间上实现 malloc / free：首次适配、释放时合并相邻空闲块。线性扫描只是起点，接下来要把两个操作都降到对数时间。 |
 | 8 | [含噪标注者](coding/noisy-annotators/README.zh.md) | ★★★★☆ | 中等 | 训练标签来自多个标注者，其中有人不靠谱。找出这些人，剔除或降低他们标签的权重，再验证分类器是否真的变好。 |
 | 9 | [数据标注任务调度](coding/labeling-task-scheduler/README.zh.md) | ★★★★☆ | 中等 | 生成一串（任务, 模型, 标注员）分配：每个标注员至少 k 个任务、不重复做同一任务，并且在列表的任意前缀上每个任务的模型使用次数都保持均衡。 |
-| 10 | [Recruiter / HR 初筛](behavioral/recruiter-screen/README.zh.md) | ★★★★☆ | — | 过一遍背景、动机和方向偏好，讲一个带人、一个冲突的故事，再聊流程性问题：薪资期望、入职时间、其他在面的流程、工作地点与签证、推荐人。 |
-| 11 | [流式熵计算](coding/streaming-entropy/README.zh.md) | ★★★☆☆ | 中等 | 计算 softmax(logits) 的熵：先直接算，再做数值稳定版，然后分块、只用常数额外内存，最后是单遍在线版本——running max 变化时要重新缩放累加量。 |
-| 12 | [搜索与 RAG 的 ML 设计（口述）](system-design/rag-search-ml-design/README.zh.md) | ★★☆☆☆ | — | 纯口述的 ML 设计轮，偏搜索方向：怎么用对比学习训练文本向量模型（损失函数、正负样本、batch size）、稠密检索与关键词检索如何结合、如何重排，以及离线与线上怎么评测。 |
-| 13 | [从零实现交叉熵损失](coding/cross-entropy-loss/README.zh.md) | ★☆☆☆☆ | 中等 | 在 NumPy 起始代码上实现交叉熵，再加 mask 和 label smoothing，边写边聊背后的 ML 概念以及它和 KL 散度的关系。 |
-| 14 | [ModalLock 与 FairModalLock](coding/modal-lock/README.zh.md) | ★☆☆☆☆ | 困难 | 一把“模式锁”：请求同一模式的线程可以同时持有，不同模式互斥；再实现公平版本，按到达顺序服务等待中的模式，避免饿死。 |
-| 15 | [分片矩阵乘法：前向、反向与找 bug](coding/sharded-matmul-backprop/README.zh.md) | ★☆☆☆☆ | 困难 | 对操作数被切到多个设备上的矩阵乘法，推导并实现前向和反向，然后靠追踪张量形状找出几个埋好的 bug。 |
-| 16 | [PyTorch 读代码与扩展](coding/pytorch-code-reading/README.zh.md) | ★☆☆☆☆ | — | 一份又长又乱的 PyTorch 训练脚本（含噪标注者的分类器）：回答现有代码的时间与内存复杂度问题，在它的基础上扩展功能，再把最慢的函数向量化。 |
-| 17 | [从无标注语料中挖掘新数据](system-design/mining-novel-data/README.zh.md) | ★☆☆☆☆ | — | 从 80 亿张无标注网页图片里，挖出相对已有训练集“新”的图片，并找出包含 200 个目标物体的图片：新颖性的定义、检索级联、靠抽样估计精度与召回、这个规模下的成本。 |
-| 18 | [ChatGPT Enterprise：基于企业数据的 RAG](system-design/chatgpt-enterprise-rag/README.zh.md) | ★☆☆☆☆ | — | 企业上传内部文档，得到一个基于这些文档回答的助手：数据接入、切块与向量化、检索与排序、权限、评测和时效性。 |
+| 10 | [大模型推理服务](system-design/llm-inference-serving/README.zh.md) | ★★★★☆ | — | 面向终端用户的大模型对话服务后端：连续批处理与分块 prefill 的取舍、长上下文下的分页 KV cache 显存管理与抢占换出，以及在过载时仍保住付费档首 token 延迟目标的分档限流。 |
+| 11 | [Recruiter / HR 初筛](behavioral/recruiter-screen/README.zh.md) | ★★★★☆ | — | 过一遍背景、动机和方向偏好，讲一个带人、一个冲突的故事，再聊流程性问题：薪资期望、入职时间、其他在面的流程、工作地点与签证、推荐人。 |
+| 12 | [流式熵计算](coding/streaming-entropy/README.zh.md) | ★★★☆☆ | 中等 | 计算 softmax(logits) 的熵：先直接算，再做数值稳定版，然后分块、只用常数额外内存，最后是单遍在线版本——running max 变化时要重新缩放累加量。 |
+| 13 | [搜索与 RAG 的 ML 设计（口述）](system-design/rag-search-ml-design/README.zh.md) | ★★☆☆☆ | — | 纯口述的 ML 设计轮，偏搜索方向：怎么用对比学习训练文本向量模型（损失函数、正负样本、batch size）、稠密检索与关键词检索如何结合、如何重排，以及离线与线上怎么评测。 |
+| 14 | [从零实现交叉熵损失](coding/cross-entropy-loss/README.zh.md) | ★☆☆☆☆ | 中等 | 在 NumPy 起始代码上实现交叉熵，再加 mask 和 label smoothing，边写边聊背后的 ML 概念以及它和 KL 散度的关系。 |
+| 15 | [ModalLock 与 FairModalLock](coding/modal-lock/README.zh.md) | ★☆☆☆☆ | 困难 | 一把“模式锁”：请求同一模式的线程可以同时持有，不同模式互斥；再实现公平版本，按到达顺序服务等待中的模式，避免饿死。 |
+| 16 | [分片矩阵乘法：前向、反向与找 bug](coding/sharded-matmul-backprop/README.zh.md) | ★☆☆☆☆ | 困难 | 对操作数被切到多个设备上的矩阵乘法，推导并实现前向和反向，然后靠追踪张量形状找出几个埋好的 bug。 |
+| 17 | [PyTorch 读代码与扩展](coding/pytorch-code-reading/README.zh.md) | ★☆☆☆☆ | — | 一份又长又乱的 PyTorch 训练脚本（含噪标注者的分类器）：回答现有代码的时间与内存复杂度问题，在它的基础上扩展功能，再把最慢的函数向量化。 |
+| 18 | [强化学习训练循环找 bug](coding/rl-training-debug/README.zh.md) | ★☆☆☆☆ | 困难 | 一个小网格世界上的策略梯度训练循环跑完不报错，回报却一动不动。找出四个强化学习特有的 bug，说明每个对梯度做了什么，修好它们让回报涨起来。 |
+| 19 | [从无标注语料中挖掘新数据](system-design/mining-novel-data/README.zh.md) | ★☆☆☆☆ | — | 从 80 亿张无标注网页图片里，挖出相对已有训练集“新”的图片，并找出包含 200 个目标物体的图片：新颖性的定义、检索级联、靠抽样估计精度与召回、这个规模下的成本。 |
+| 20 | [ChatGPT Enterprise：基于企业数据的 RAG](system-design/chatgpt-enterprise-rag/README.zh.md) | ★☆☆☆☆ | — | 企业上传内部文档，得到一个基于这些文档回答的助手：数据接入、切块与向量化、检索与排序、权限、评测和时效性。 |
+| 21 | [Agent 执行框架与评测体系](system-design/agent-harness-eval/README.zh.md) | ★☆☆☆☆ | — | 为多步、可调用工具的 agent 设计执行框架，以及构建在它之上的离线评测体系：工具调用的隔离、超时与重试；轨迹的记录、回放与采样；以及如何防止评测集泄漏与过拟合，并把回归测试接入 CI。 |
 
 ## SWE / Infra 方向
 
@@ -112,29 +115,37 @@
 | 11 | [内存分配器](coding/memory-allocator/README.zh.md) | ★★★★☆ | 困难 | 在固定地址空间上实现 malloc / free：首次适配、释放时合并相邻空闲块。线性扫描只是起点，接下来要把两个操作都降到对数时间。 |
 | 12 | [玩具语言的类型推断](coding/type-inference/README.zh.md) | ★★★★☆ | 中等 | 类型由基本类型、泛型和嵌套元组组成。先实现打印，再把函数的泛型参数和实参做合一，推出返回类型，并报告冲突。 |
 | 13 | [数据标注任务调度](coding/labeling-task-scheduler/README.zh.md) | ★★★★☆ | 中等 | 生成一串（任务, 模型, 标注员）分配：每个标注员至少 k 个任务、不重复做同一任务，并且在列表的任意前缀上每个任务的模型使用次数都保持均衡。 |
-| 14 | [Recruiter / HR 初筛](behavioral/recruiter-screen/README.zh.md) | ★★★★☆ | — | 过一遍背景、动机和方向偏好，讲一个带人、一个冲突的故事，再聊流程性问题：薪资期望、入职时间、其他在面的流程、工作地点与签证、推荐人。 |
-| 15 | [可持久化 KV 存储：自定义序列化](coding/durable-kv-store/README.zh.md) | ★★★☆☆ | 中等 | 不用 JSON / pickle 把字符串 KV 落盘，键值里可以有任意字符；再切分到有大小上限的多个文件，保存中途崩溃也不能留下半成品；最后改成只追加日志，从写坏的尾巴中恢复，带墓碑删除和压缩。 |
-| 16 | [聊天机器人重构](coding/chat-bot-refactoring/README.zh.md) | ★★★☆☆ | 中等 | 读一份能运行但很乱、三个斜杠命令机器人共用全局状态的聊天服务代码，把它重构成同一接口下的机器人类且日志一行不变，再通过事件总线加一条机器人之间的联动规则，并写出测试。 |
-| 17 | [IPv4 / CIDR 迭代器](coding/ipv4-cidr-iterator/README.zh.md) | ★★★☆☆ | 中等 | IPv4 地址迭代器的五问：正向、反向、限定在 CIDR 块内、加步长、批量读取，非法输入一律抛出 ValueError。 |
-| 18 | [带重叠上限的分片再平衡](coding/shard-rebalance/README.zh.md) | ★★★☆☆ | 中等 | 分片的两问：先让重叠区间的起点后移、丢弃被挤空的分片、延长终点补上空洞，使每个键最多被 limit 个分片覆盖；再用一致性哈希把键路由到分片上，使增删一个分片时只迁移必须迁移的键。 |
-| 19 | [版本依赖](coding/version-dependency/README.zh.md) | ★★★☆☆ | 中等 | 包管理器背景下的四问：用尽量少的慢速 API 调用找出最早支持某特性的版本（单调、有回退、分层二分），再用回溯加拓扑排序解析依赖约束并给出安装顺序。 |
-| 20 | [云端 IDE](system-design/cloud-ide/README.zh.md) | ★★★☆☆ | 困难 | 类似 Replit / Codespaces 的浏览器 IDE：每个用户独立沙箱、工作区生命周期、文件存储、终端输出流式传输；难点是隔离和断线重连。 |
-| 21 | [带去重的图片分享](system-design/image-dedup-sharing/README.zh.md) | ★★☆☆☆ | 中等 | 图片上传、查看、删除，内容相同的只按哈希存一份；看点是并发上传、blob 与元数据的一致性，以及安全删除。 |
-| 22 | [分布式填字游戏求解器](system-design/crossword-solver/README.zh.md) | ★★☆☆☆ | — | 用百万词词典填满一个大号填字盘的服务。单机搜不完，所以要把深度优先搜索拆给多个工作节点，配合剪枝和提前终止。 |
-| 23 | [AI 聊天机器人前端](system-design/ai-chatbot-frontend/README.zh.md) | ★★☆☆☆ | — | 类 ChatGPT 的聊天网站，重点在前端：流式渲染、对话状态只保存在浏览器内存里、登录与凭证处理，以及错误处理与重试。 |
-| 24 | [多租户 CI/CD](system-design/multi-tenant-ci-cd/README.zh.md) | ★★☆☆☆ | — | 为多个租户在每次 git push 时运行工作流 DAG：job 至少执行一次、结果恰好提交一次，租户隔离且公平调度，界面实时显示状态。 |
-| 25 | [类 Slack 即时通讯](system-design/slack/README.zh.md) | ★★☆☆☆ | — | 私信和频道消息送达每个用户的每台已连接设备，包括通知、删除、频道内顺序与重连补洞、工作区隔离，以及超大频道的另一种投递方式。 |
-| 26 | [日历（类 Google Calendar）](system-design/google-calendar/README.zh.md) | ★★☆☆☆ | — | 日历服务：单次与重复日程及其单次例外、邀请与回复、时区与全天日程、快速的日 / 周 / 月 / 年视图，改动要在几秒内同步到用户的其他设备，包括离线过的设备。 |
-| 27 | [短链接服务](system-design/url-shortener/README.zh.md) | ★★☆☆☆ | — | 把长网址变成短码并完成重定向：短码长度与随机生成、自定义别名、按所有者去重、带缓存的多区域重定向路径、近似点击计数。 |
-| 28 | [Webhook 投递](system-design/webhook-delivery/README.zh.md) | ★★☆☆☆ | — | 租户注册回调地址，每个匹配的事件至少投递一次，每天约 6.5 亿次投递：退避重试、隔离慢或挂掉的端点、请求签名与 SSRF 防护。 |
-| 29 | [附近地点（POI / 类 Yelp）](system-design/nearby-poi/README.zh.md) | ★★☆☆☆ | — | 在数亿个地点里查“附近的店”，读流量大：geohash 与四叉树怎么选，跨格子边界的精确半径与最近 K 个搜索，内存索引整份复制到每个节点、主存储分片。 |
-| 30 | [容错工作队列](coding/fault-tolerant-work-queue/README.zh.md) | ★☆☆☆☆ | 中等 | 一个工作队列：reserve / complete / fail 凭每次预约签发的 token 校验，再加上按手动时钟计时的租约超时、重试上限和死信队列。 |
-| 31 | [最多跳过 K 行的网格最优路径](coding/grid-path-limited-jumps/README.zh.md) | ★☆☆☆☆ | 困难 | 从顶行走到底行，每步走到下一行相邻的三个格子之一，或最多 K 次越过一行、直接落到两行之下的同一列。求最大得分、还原字典序最小的最优路径、统计最优路径数，最后加入依赖最近几格的奖励分。 |
-| 32 | [cd 命令 / 路径解析](coding/cd-command/README.zh.md) | ★☆☆☆☆ | 中等 | 算出执行 cd 之后所在的目录：先规范化相对路径，再支持绝对路径和 ~，然后解析符号链接并检测环，最后讨论 cd 为什么必须是 shell 内建命令。 |
-| 33 | [带单元格依赖的电子表格（OpenSheet）](coding/spreadsheet-dependencies/README.zh.md) | ★☆☆☆☆ | 中等 | 单元格里是数字或引用其他单元格的公式。先做按需求值加环检测，再用依赖图在写入时级联更新，让读取变成常数时间。 |
-| 34 | [ModalLock 与 FairModalLock](coding/modal-lock/README.zh.md) | ★☆☆☆☆ | 困难 | 一把“模式锁”：请求同一模式的线程可以同时持有，不同模式互斥；再实现公平版本，按到达顺序服务等待中的模式，避免饿死。 |
-| 35 | [可恢复迭代器（一维、二维到任意深度）](coding/resumable-iterator/README.zh.md) | ★☆☆☆☆ | 中等 | 可以导出当前位置、之后再恢复的迭代器：先定义抽象接口，再做一维列表、含空行的二维列表，最后是任意深度的嵌套。 |
-| 36 | [类 SQL 的内存数据库](coding/in-memory-database/README.zh.md) | ★☆☆☆☆ | 中等 | 用方法调用操作的内存表格数据库：建表、插入与列投影，AND 组合的 WHERE，多列各自指定升降序的 ORDER BY，最后加上哈希索引和有序索引，且结果必须与全表扫描完全一致。 |
-| 37 | [按时间点查询的 KV 存储](coding/time-based-kv-store/README.zh.md) | ★☆☆☆☆ | 中等 | 每个键保存多个带时间戳的值，用二分回答“t 时刻的值是什么”；再通过注入时钟让它可测试，保证每个键的时间戳严格递增，并做到线程安全。 |
-| 38 | [流式 AI 产品功能](system-design/realtime-ai-feature/README.zh.md) | ★☆☆☆☆ | — | 协作文档编辑器里流式返回的 AI 改写功能：SSE 与取消、按成本计的准入控制与有界队列、提示词前缀缓存、增量渲染与断线续传、监控，以及流量涨 10 倍时怎么变。 |
-| 39 | [GPT-3 Playground（全栈）](system-design/gpt3-playground/README.zh.md) | ★☆☆☆☆ | — | Playground 网站的整体架构：输入提示词和采样参数、流式返回补全、保存预设，涵盖后端的数据组织和前端的状态管理。 |
+| 14 | [大模型推理服务](system-design/llm-inference-serving/README.zh.md) | ★★★★☆ | — | 面向终端用户的大模型对话服务后端：连续批处理与分块 prefill 的取舍、长上下文下的分页 KV cache 显存管理与抢占换出，以及在过载时仍保住付费档首 token 延迟目标的分档限流。 |
+| 15 | [Recruiter / HR 初筛](behavioral/recruiter-screen/README.zh.md) | ★★★★☆ | — | 过一遍背景、动机和方向偏好，讲一个带人、一个冲突的故事，再聊流程性问题：薪资期望、入职时间、其他在面的流程、工作地点与签证、推荐人。 |
+| 16 | [可持久化 KV 存储：自定义序列化](coding/durable-kv-store/README.zh.md) | ★★★☆☆ | 中等 | 不用 JSON / pickle 把字符串 KV 落盘，键值里可以有任意字符；再切分到有大小上限的多个文件，保存中途崩溃也不能留下半成品；最后改成只追加日志，从写坏的尾巴中恢复，带墓碑删除和压缩。 |
+| 17 | [聊天机器人重构](coding/chat-bot-refactoring/README.zh.md) | ★★★☆☆ | 中等 | 读一份能运行但很乱、三个斜杠命令机器人共用全局状态的聊天服务代码，把它重构成同一接口下的机器人类且日志一行不变，再通过事件总线加一条机器人之间的联动规则，并写出测试。 |
+| 18 | [IPv4 / CIDR 迭代器](coding/ipv4-cidr-iterator/README.zh.md) | ★★★☆☆ | 中等 | IPv4 地址迭代器的五问：正向、反向、限定在 CIDR 块内、加步长、批量读取，非法输入一律抛出 ValueError。 |
+| 19 | [带重叠上限的分片再平衡](coding/shard-rebalance/README.zh.md) | ★★★☆☆ | 中等 | 分片的两问：先让重叠区间的起点后移、丢弃被挤空的分片、延长终点补上空洞，使每个键最多被 limit 个分片覆盖；再用一致性哈希把键路由到分片上，使增删一个分片时只迁移必须迁移的键。 |
+| 20 | [版本依赖](coding/version-dependency/README.zh.md) | ★★★☆☆ | 中等 | 包管理器背景下的四问：用尽量少的慢速 API 调用找出最早支持某特性的版本（单调、有回退、分层二分），再用回溯加拓扑排序解析依赖约束并给出安装顺序。 |
+| 21 | [滑动窗口事件聚合](coding/event-window-aggregation/README.zh.md) | ★★★☆☆ | 中等 | 聊天产品的事件流，核心约束是内部状态只能随窗口内仍活跃的 key 增长，不能随历史见过的 key 数增长；由每个会话的近期事件计数，递进到每个用户的活跃会话数，先假设事件按时间到达，再放开这个假设。 |
+| 22 | [三张牌的牌型与弃牌](coding/poker-hands/README.zh.md) | ★★★☆☆ | 中等 | 多名玩家的三张牌按固定的牌型与并列比较顺序判定胜负，先加入同花，再加入发到第二张牌后各自的弃牌规则，弃牌可能在摆牌比较之前就直接分出胜负或导致流局。 |
+| 23 | [文本编辑器：缓冲区、撤销、补全](coding/text-editor/README.zh.md) | ★★★☆☆ | 中等 | 分四步搭建一个文本缓冲区：按字符偏移的插入/删除/读取，以单次调用为粒度的撤销/重做历史，基于缓冲区自身词表的前缀树自动补全，以及一个在乱序、重复投递下都能让各副本收敛的最小 CRDT。 |
+| 24 | [云端 IDE](system-design/cloud-ide/README.zh.md) | ★★★☆☆ | 困难 | 类似 Replit / Codespaces 的浏览器 IDE：每个用户独立沙箱、工作区生命周期、文件存储、终端输出流式传输；难点是隔离和断线重连。 |
+| 25 | [大规模设备监控与指令下发](system-design/device-fleet-monitoring/README.zh.md) | ★★★☆☆ | — | 需求响应平台通过不可靠的公网向百万级联网设备下发限电指令并跟踪每台设备的送达/接受/拒绝/执行状态，设备所有者可以拒绝或撤销指令，迟到的遥测还要能修正已经发布的报表。 |
+| 26 | [带去重的图片分享](system-design/image-dedup-sharing/README.zh.md) | ★★☆☆☆ | 中等 | 图片上传、查看、删除，内容相同的只按哈希存一份；看点是并发上传、blob 与元数据的一致性，以及安全删除。 |
+| 27 | [分布式填字游戏求解器](system-design/crossword-solver/README.zh.md) | ★★☆☆☆ | — | 用百万词词典填满一个大号填字盘的服务。单机搜不完，所以要把深度优先搜索拆给多个工作节点，配合剪枝和提前终止。 |
+| 28 | [AI 聊天机器人前端](system-design/ai-chatbot-frontend/README.zh.md) | ★★☆☆☆ | — | 类 ChatGPT 的聊天网站，重点在前端：流式渲染、对话状态只保存在浏览器内存里、登录与凭证处理，以及错误处理与重试。 |
+| 29 | [多租户 CI/CD](system-design/multi-tenant-ci-cd/README.zh.md) | ★★☆☆☆ | — | 为多个租户在每次 git push 时运行工作流 DAG：job 至少执行一次、结果恰好提交一次，租户隔离且公平调度，界面实时显示状态。 |
+| 30 | [类 Slack 即时通讯](system-design/slack/README.zh.md) | ★★☆☆☆ | — | 私信和频道消息送达每个用户的每台已连接设备，包括通知、删除、频道内顺序与重连补洞、工作区隔离，以及超大频道的另一种投递方式。 |
+| 31 | [日历（类 Google Calendar）](system-design/google-calendar/README.zh.md) | ★★☆☆☆ | — | 日历服务：单次与重复日程及其单次例外、邀请与回复、时区与全天日程、快速的日 / 周 / 月 / 年视图，改动要在几秒内同步到用户的其他设备，包括离线过的设备。 |
+| 32 | [短链接服务](system-design/url-shortener/README.zh.md) | ★★☆☆☆ | — | 把长网址变成短码并完成重定向：短码长度与随机生成、自定义别名、按所有者去重、带缓存的多区域重定向路径、近似点击计数。 |
+| 33 | [Webhook 投递](system-design/webhook-delivery/README.zh.md) | ★★☆☆☆ | — | 租户注册回调地址，每个匹配的事件至少投递一次，每天约 6.5 亿次投递：退避重试、隔离慢或挂掉的端点、请求签名与 SSRF 防护。 |
+| 34 | [附近地点（POI / 类 Yelp）](system-design/nearby-poi/README.zh.md) | ★★☆☆☆ | — | 在数亿个地点里查“附近的店”，读流量大：geohash 与四叉树怎么选，跨格子边界的精确半径与最近 K 个搜索，内存索引整份复制到每个节点、主存储分片。 |
+| 35 | [容错工作队列](coding/fault-tolerant-work-queue/README.zh.md) | ★☆☆☆☆ | 中等 | 一个工作队列：reserve / complete / fail 凭每次预约签发的 token 校验，再加上按手动时钟计时的租约超时、重试上限和死信队列。 |
+| 36 | [最多跳过 K 行的网格最优路径](coding/grid-path-limited-jumps/README.zh.md) | ★☆☆☆☆ | 困难 | 从顶行走到底行，每步走到下一行相邻的三个格子之一，或最多 K 次越过一行、直接落到两行之下的同一列。求最大得分、还原字典序最小的最优路径、统计最优路径数，最后加入依赖最近几格的奖励分。 |
+| 37 | [cd 命令 / 路径解析](coding/cd-command/README.zh.md) | ★☆☆☆☆ | 中等 | 算出执行 cd 之后所在的目录：先规范化相对路径，再支持绝对路径和 ~，然后解析符号链接并检测环，最后讨论 cd 为什么必须是 shell 内建命令。 |
+| 38 | [带单元格依赖的电子表格（OpenSheet）](coding/spreadsheet-dependencies/README.zh.md) | ★☆☆☆☆ | 中等 | 单元格里是数字或引用其他单元格的公式。先做按需求值加环检测，再用依赖图在写入时级联更新，让读取变成常数时间。 |
+| 39 | [ModalLock 与 FairModalLock](coding/modal-lock/README.zh.md) | ★☆☆☆☆ | 困难 | 一把“模式锁”：请求同一模式的线程可以同时持有，不同模式互斥；再实现公平版本，按到达顺序服务等待中的模式，避免饿死。 |
+| 40 | [可恢复迭代器（一维、二维到任意深度）](coding/resumable-iterator/README.zh.md) | ★☆☆☆☆ | 中等 | 可以导出当前位置、之后再恢复的迭代器：先定义抽象接口，再做一维列表、含空行的二维列表，最后是任意深度的嵌套。 |
+| 41 | [类 SQL 的内存数据库](coding/in-memory-database/README.zh.md) | ★☆☆☆☆ | 中等 | 用方法调用操作的内存表格数据库：建表、插入与列投影，AND 组合的 WHERE，多列各自指定升降序的 ORDER BY，最后加上哈希索引和有序索引，且结果必须与全表扫描完全一致。 |
+| 42 | [按时间点查询的 KV 存储](coding/time-based-kv-store/README.zh.md) | ★☆☆☆☆ | 中等 | 每个键保存多个带时间戳的值，用二分回答“t 时刻的值是什么”；再通过注入时钟让它可测试，保证每个键的时间戳严格递增，并做到线程安全。 |
+| 43 | [限流器找 bug](coding/rate-limiter-debug/README.zh.md) | ★☆☆☆☆ | 中等 | 一个按分钟/小时/天设了三档规则的限流器，看起来能跑、也过了唯一那个只测 happy path 的测试，但其实藏着四个真实的 bug；逐个定位、用测试钉住、修复，不重写这个类。 |
+| 44 | [带依赖的工具调用调度](coding/agent-tool-scheduler/README.zh.md) | ★☆☆☆☆ | 中等 | 用离散事件模拟在并发上限下调度各个 agent 里有依赖关系的工具调用：由单个 agent 自己的并发上限，到多个 agent 各自独立的上限，再到所有 agent 共享同一个全局上限；确定性的字典序并列规则，用事件驱动模拟取代逐时间步扫描。 |
+| 45 | [反馈延迟一轮的二分查找](coding/guess-number-delayed/README.zh.md) | ★☆☆☆☆ | 中等 | 猜数接口的回答总是延迟一轮才送达：先用单个猜测、再用能把区间砍到三分之一的两点一批，尽量少调用几次找到一个秘密数字；再把多个互相独立的秘密数字通过同一条延迟一轮的通道流水线化，让总轮数几乎不随游戏数量增长。 |
+| 46 | [流式 AI 产品功能](system-design/realtime-ai-feature/README.zh.md) | ★☆☆☆☆ | — | 协作文档编辑器里流式返回的 AI 改写功能：SSE 与取消、按成本计的准入控制与有界队列、提示词前缀缓存、增量渲染与断线续传、监控，以及流量涨 10 倍时怎么变。 |
+| 47 | [GPT-3 Playground（全栈）](system-design/gpt3-playground/README.zh.md) | ★☆☆☆☆ | — | Playground 网站的整体架构：输入提示词和采样参数、流式返回补全、保存预设，涵盖后端的数据组织和前端的状态管理。 |

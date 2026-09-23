@@ -84,6 +84,9 @@ Implement and pass tests for the following behaviors of `Spreadsheet` (and, wher
   afterwards updates every cell that transitively depends on it.
 - In a "diamond" — two cells that both read a common cell, and a fourth cell that reads both of them —
   a single `set` on the common cell recomputes the fourth cell exactly once, not once per path to it.
+- Overwriting a cell that held a literal with a formula adds its new dependency edges immediately: the
+  cell's own cached value and every cell that transitively reads it reflect the formula from that same
+  `set` call, not a stale literal.
 
 ## Reference solution
 
@@ -281,7 +284,11 @@ The first three fall out of the pieces above: dropping old edges is the loop rig
 check in `set`; a never-`set` cell reads as `0` through `.get(name, 0)`, and setting it later finds its
 readers in `dependents` like any other `set`; `LazySpreadsheet` keeps no graph, so it finds a cycle
 only by recursing into one. The diamond is what the topological order is for: `_affected` collects each cell
-once and `_topological_order` emits each once, so no cell is recomputed twice in one `set`.
+once and `_topological_order` emits each once, so no cell is recomputed twice in one `set`. The last
+point is the same code path seen from the other side: `set` reads `self.dependencies.get(name, ())`
+before writing anything, which is simply empty the first time `name` holds a formula, so adding edges
+for a literal-to-formula change and dropping edges for the reverse are the same four lines, not two
+separate cases to keep in sync.
 
 ### Follow-ups
 
@@ -385,6 +392,14 @@ sh.set('K1', 70)
 assert 'K1' not in sh.dependents['J1']
 sh.set('J1', 500)
 assert sh.get('K1') == 70
+
+sh = Spreadsheet()  # ... and the reverse: a literal overwritten with a formula picks up edges at once
+sh.set('J1', 4)
+sh.set('K1', 70)
+sh.set('K1', '=J1 + 6')
+assert 'K1' in sh.dependents['J1'] and sh.get('K1') == 10
+sh.set('J1', 500)
+assert sh.get('K1') == 506
 
 sh = Spreadsheet()  # a formula may reference a cell that is set only later
 sh.set('M1', '=N1 + 5')

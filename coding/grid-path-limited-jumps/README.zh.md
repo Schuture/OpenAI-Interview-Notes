@@ -19,6 +19,8 @@
 （$v_0 = board[0][p]$，$v_L$ 是第 `N - 1` 行上的值）。路径的*基础分数*（base score）是
 $\sum_{t=0}^{L} v_t$。
 
+$N$ 和 $M$ 都至多为 $200$，$K$ 满足 $0 \le K \le N$，`board` 每个格子的整数绝对值至多为 $10^9$。
+
 完成下面四个部分。
 
 ### Part 1 —— 最大分数
@@ -27,7 +29,7 @@ $\sum_{t=0}^{L} v_t$。
 
 ```py
 def max_score(board: list[list[int]], p: int, K: int) -> int:
-    """board has N >= 1 rows and M >= 1 columns, 0 <= p < M, K >= 0. Returns the largest base score."""
+    """1 <= N, M <= 200, |board[i][j]| <= 10**9, 0 <= p < M, 0 <= K <= N. Returns the largest base score."""
 ```
 
 例子，取
@@ -86,7 +88,7 @@ board = [[ 2,  5],
 ### Part 4 —— 奖励分
 
 在基础分数之上叠加两条奖励规则，都是针对格子被*访问*（visited）的先后顺序定义的——一次特殊移动同样会让
-它的两个端点被连续访问，效果与一次普通移动完全一样。给定整数 `X` 和 `Y`：
+它的两个端点被连续访问，效果与一次普通移动完全一样。给定整数 `X` 和 `Y`，取值范围都是 `0` 到 `10^9`：
 
 - 对每个满足 `1 <= t <= L` 且 $v_{t-1} = v_t$ 的 `t`，加上 `X`。
 - 对每个满足 `2 <= t <= L` 且 $v_{t-2} < v_{t-1} < v_t$ 的 `t`，加上 `Y`。
@@ -95,8 +97,8 @@ board = [[ 2,  5],
 
 ```py
 def max_score_with_bonuses(board: list[list[int]], p: int, K: int, X: int, Y: int) -> int:
-    """Same input as max_score, plus bonus amounts X and Y. Returns the largest base
-    score plus bonuses over all paths."""
+    """Same input as max_score, plus bonus amounts 0 <= X, Y <= 10**9. Returns the largest
+    base score plus bonuses over all paths."""
 ```
 
 例子，取

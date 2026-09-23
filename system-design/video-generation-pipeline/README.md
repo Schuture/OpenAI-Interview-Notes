@@ -46,13 +46,20 @@ Scale for this design:
   must still surface a wait-time estimate and apply admission control instead of assuming capacity
   is unlimited.
 
+The system is built on these components. The job store is a transactional database: a conditional
+`UPDATE` reports how many rows it changed, and the statements of one transaction commit together or
+not at all. It publishes a change stream that delivers every committed row change at least once, in
+commit order, and a consumer that crashes resumes from the last position it acknowledged. Object
+storage writes each key atomically but cannot make a write conditional on anything in the job store,
+and queues take no part in job-store transactions.
+
 In scope: everything about scheduling, worker lifecycle, checkpoint/resume, cancellation, capacity
 fluctuation, priority and fair-share scheduling, and storing and delivering the output. Out of
 scope: the generative model itself and its inference kernels — assume "generate `duration_sec`
 seconds of video at `resolution` from a prompt" is available as a GPU-bound unit of work with the
-per-second costs given above; prompt-safety checks and content moderation, which exist as a
-pipeline stage a request passes through before being queued but are not designed further here; and
-billing.
+per-second costs given above; prompt-safety checks and content moderation, which run on the prompt
+before a request is queued and on the finished video before it may be downloaded, but are not
+designed further here; and billing.
 
 Produce:
 
@@ -72,7 +79,7 @@ Produce:
 <summary>Show the reference solution</summary>
 
 Worth confirming before designing: whether a run can be snapshotted mid-generation and resumed on
-another worker. This design assumes it can, at about 50 MB and 3 seconds per snapshot.
+another worker. This design assumes it can, at about 3 seconds per snapshot.
 
 ### Requirements and scale
 
@@ -108,9 +115,7 @@ draining takes $\approx 1{,}970$ seconds, **about 33 minutes**, assuming arrival
 past the 30-second target, so it has to surface as an ETA and trigger admission control.
 
 **Storage.** Weighting output size the same way gives $2.275$ MB per output-second, or
-$\approx 13.65$ MB per average job — about **2.36 TB/day** across 172,800 jobs. Checkpoints are
-separate and transient: at most two per running job caps them at about **264 GB** at peak; they
-are deleted when the job ends, with a short TTL as the backstop for orphaned uploads.
+$\approx 13.65$ MB per average job — about **2.36 TB/day** across 172,800 jobs.
 
 ### Data model and API
 
@@ -135,9 +140,8 @@ External API:
    carrying a seen `idempotency_key` returns the existing job.
 2. `GET /jobs/{job_id}` — `{status, progress_pct, attempt_count, result_url, failure_reason}`.
 3. `POST /jobs/{job_id}/cancel` — a terminal job is left as is; a `queued` job becomes `cancelled`
-   through a compare-and-swap on `status = 'queued'`, and its leftover ready-queue entry later
-   fails the claim's own compare-and-swap; a `running` job, including one a claim grabbed first,
-   only gets `cancel_requested` set. Returns the resulting status.
+   through a compare-and-swap on `status = 'queued'`; a `running` job, including one a claim
+   grabbed first, only gets `cancel_requested` set. Returns the resulting status.
 4. `GET /jobs/{job_id}/result` — once `status = succeeded`, redirects to a short-lived signed URL.
 
 Internal, worker-facing API — every call after `claim` carries the `fencing_token` it was issued;
@@ -178,12 +182,15 @@ flowchart LR
 A submission lands at the API service, which validates it and writes a `Job` row to the job store —
 the one place a job's state is authoritative — before acknowledging the client, since a crash
 between the two would let the client believe a job exists that the system has no record of. A
-background dispatcher turns queued jobs in the store into entries in the ready queue, a disposable,
-rebuildable index the scheduler uses to find candidates quickly. A GPU worker asking for work gets a
-candidate from the ready queue, but only a compare-and-swap against the job's row in the store
-claims it; the scheduler then hands the worker a 30-second lease (three heartbeat intervals) and a
-fencing token. The
-worker generates the video, periodically persisting checkpoints and progress and renewing its lease,
+background dispatcher tails the store's change stream and turns queued jobs into entries in the
+ready queue, a disposable, rebuildable index. The API
+does not enqueue the job as it writes the row, because no transaction spans a database and a queue:
+a crash between those two writes would strand the job, or leave an entry for a job that does not
+exist. The stream delivers at least once, and a duplicate entry is harmless because only the claim's
+compare-and-swap assigns the job. A GPU worker asking for work gets a candidate from the ready
+queue, but only a compare-and-swap against the job's row in the store claims it; the scheduler then
+hands the worker a 30-second lease (three heartbeat intervals) and a fencing token. The worker
+generates the video, periodically persisting checkpoints and progress and renewing its lease,
 then uploads the finished video to object storage and calls `complete`; the status change fans out
 through the notifier as a webhook or SSE event. Two components run continuously alongside this path
 rather than per-request: the lease monitor requeues any job whose lease expired without a
@@ -207,8 +214,8 @@ dead while it keeps running.
   = 'running'`; zero rows updated means the attempt is stale — superseded by a new claim, or
   already requeued or cancelled — and the `409` tells the worker to abandon it.
 
-The object store never sees the job row, so it can't run that check on uploads. Instead each
-attempt writes its checkpoints and result under keys containing its token
+The object store cannot run that check on an upload, so each attempt writes its checkpoints and
+result under keys containing its token
 (`{job_id}/{fencing_token}/...`), never overwriting another attempt's objects, and an upload only
 becomes current when the `checkpoint` or `complete` call commits its URI into the row under the
 same condition; a fenced-off worker's uploads stay orphans until the TTL removes them. Cost: one
@@ -228,17 +235,15 @@ loss. Over each $T$ seconds of work a checkpoint costs $C$, and an unannounced w
 crash, a reclaim without warning), arriving on average every $\text{MTBF}$ seconds, redoes on
 average $T/2$; the fraction of GPU time lost is therefore $C/T + T/(2 \cdot \text{MTBF})$, smallest
 at $T^* = \sqrt{2 C \cdot \text{MTBF}}$ (Young's approximation). It assumes losses form a Poisson
-process — a constant hazard, whatever a job has already done — and $C \ll \text{MTBF}$, so that
-$T^* \ll \text{MTBF}$ and two losses within one interval are negligible. A restart cost $R$
-(reloading the model and checkpoint) adds about $R/\text{MTBF}$ to the loss but does not move
-$T^*$. Losses spread across providers fit this picture; a provider-wide outage is a burst rather
-than a rate, which is why $\text{MTBF}$ below comes from a volatile period.
+process (a constant hazard, whatever a job has already done) with $C \ll \text{MTBF}$, so two
+losses within one interval are negligible; a restart cost $R$ adds about $R/\text{MTBF}$ to the
+loss but does not move $T^*$. A provider-wide outage is a burst rather than a rate, which is why
+$\text{MTBF}$ below comes from a volatile period.
 
 With $C = 3$ s and $\text{MTBF} = 900$ s, $T^* = \sqrt{2 \times 3 \times 900} \approx 73$ s — call
 it 75 s. The loss there is under 9%, and the minimum is flat: 50 s or 100 s would cost less than
 one percentage point more. At worst a crash lands just before a checkpoint commits and redoes
-$T + C = 78$ s, inside the 90-second target. In calm periods $\text{MTBF}$ runs to hours and $T^*$
-would pass 90 s, so there the target, not Young, caps the interval.
+$T + C = 78$ s, inside the 90-second target.
 
 Each job carries `attempt_count` and `max_attempts = 4`; a retryable `fail` other than a
 preemption, or a lease expiry, increments it, a non-retryable one (an input the model rejects) ends the job at once, and reaching
@@ -246,7 +251,7 @@ the cap moves the job to terminal `failed` — `failure_reason` set, user notifi
 to `queued`. A requeued job waits out an exponential backoff (base 5 s, factor 2, cap 60 s,
 jitter) before it can be claimed again. That isn't to protect the pool — workers pull one job at a
 time, so the queue absorbs a mass requeue — but to slow a job that crashes every worker it lands on
-(a poison input, running out of GPU memory) and to give transient faults time to clear.
+(a poison input, running out of GPU memory).
 
 *Preemption* with notice (tens of seconds): the capacity manager marks the worker `draining`, the
 worker takes an out-of-band checkpoint and fails with `reason: "preempted"`, and the job is
@@ -278,8 +283,11 @@ job at its head that needs a type the asking worker lacks block the compatible j
 ready queue is instead partitioned by `(priority_tier, gpu_class)` and pulled with weighted
 round-robin (`enterprise : plus : free` roughly `6 : 3 : 1`), skipping empty partitions. That share
 is the guarantee against starvation: while `free` has queued work it gets at least a tenth of
-dispatches however heavy paid traffic is, and within a partition jobs leave in submission order, so
-a job only moves forward as it waits.
+dispatches however heavy paid traffic is. Tier is not the only input: within a partition the
+scheduler rotates between users instead of following submission time strictly, so one account
+queueing 500 jobs cannot push a same-tier account behind all of them, and inside one user
+submission order holds, so a job only moves forward as it waits. A job requeued after a preemption
+rejoins at the front of its user's jobs, so yielding a GPU does not also cost it its place in line.
 
 At submission the API computes the job's ETA: GPU-seconds queued ahead of it in its partition,
 divided by the GPU-seconds per second that partition received over the last minute. `free`-tier
@@ -287,16 +295,20 @@ submissions with an ETA over 10 minutes get `429` instead of an indefinite queue
 always accepted and shown their ETA, which stays bounded as long as paid arrivals alone fit within
 the shrunken pool.
 
+Preemption's own cost is invisible in a job's latency, so it is measured separately: GPU-seconds
+redone after a preemption as a share of GPU-seconds spent, preemptions per running job per hour by
+tier, how many jobs reached their `preemption_count` cap, and each partition's share of dispatches —
+the last is the starvation alarm: `free` with queued work and under a tenth of dispatches means the
+weighted round-robin is being bypassed.
+
 ### Follow-ups
 
-- One worker runs one job here — GPU memory allows more, but shared occupancy makes checkpoint
-  timing and failure isolation unpredictable. Batching pays off mainly for a lower-quality tier on
-  smaller models, where every job sharing a worker can share one checkpoint cadence.
+- Moderating the finished video adds a condition to the download: the check runs on the `complete`
+  path and records its verdict on the `Result` row, and `GET /jobs/{job_id}/result` signs a URL only
+  for a job that is both `succeeded` and cleared.
 - A worker whose `complete` call times out retries it, though the first call may already have gone
-  through. The row keeps the token after success, so a `complete` whose token matches an already
+  through: the row keeps the token after success, so a `complete` whose token matches an already
   `succeeded` job returns success instead of `409`.
-- `model_version` is pinned at submission and every retry stays on it; resuming attempt 2 on a
-  different model than attempt 1's checkpoint was written for would silently corrupt its meaning.
 
 <details>
 <summary>Estimate check (runnable)</summary>
@@ -373,11 +385,6 @@ assert round(avg_video_mb, 2) == 13.65
 daily_storage_tb = requests_per_day * avg_video_mb / 1e6
 assert round(daily_storage_tb, 2) == 2.36
 
-# transient checkpoint storage at peak (at most 2 checkpoints/job, ~50MB each)
-checkpoint_mb, checkpoints_per_job = 50, 2
-transient_checkpoint_gb = L_peak * checkpoints_per_job * checkpoint_mb / 1000
-assert transient_checkpoint_gb == 264.0
-
 # ---- checkpoint interval: Young's approximation ----
 C = 3                         # seconds per checkpoint
 M = 900                       # seconds between unannounced worker losses, volatile period
@@ -393,7 +400,6 @@ assert 0.08 < loss_first_order(T) < 0.09
 for other in (50, 100):
     assert 0 < loss_first_order(other) - loss_first_order(T) < 0.01     # the minimum is flat
 assert T + C <= 90                                     # worst-case redo meets the target
-assert math.sqrt(2 * C * 3600) > 90                    # calm period (MTBF 1 h): the target binds
 
 # independent check: exact expected time per segment under Poisson losses with restart cost R,
 # e^(R/M) * M * (e^((t+C)/M) - 1), minimized numerically

@@ -252,6 +252,9 @@ class FollowTimeline:
         events = self._events.get(key)
         if not events:
             return False
+        # NOTE: binary search over this one pair's own event list; the alternative -- keeping a
+        # full graph snapshot for every past instant and deep-copying one on each event -- would
+        # cost O(n + m) per event instead of the O(1) amortized appends follow()/unfollow() do
         i = bisect.bisect_right(events, t)   # NOTE: bisect_right, so a stop/start AT t is already in effect
         return i % 2 == 1                    # NOTE: relies on the log alternating start/stop, first event a start
 
@@ -291,6 +294,8 @@ class FollowTimeline:
   写时复制方案，读者甚至完全不需要加锁）就能让 `follow()` 的写操作与它们互斥，而不阻塞读。
 - `recommend` 可以不对每个中间人一视同仁，而是按 `user_id` 与其互动的新近程度加权；也可以把同一个
   计数步骤再往外推一层，得到三跳推荐。
+- 这四个 Part 也可以拆成两道题来考：一道只到快照与历史查询为止（Part 1、2、4）；另一道换一套说法，把
+  同样的快照接口包装成一个带版本号的键值存储（按版本号 `SET`/`GET`，而不是 `follow`/`is_following`）。
 
 <details>
 <summary>验证代码（可运行）</summary>

@@ -12,7 +12,8 @@
 
 A *work queue* holds tasks that workers pull, process, and report back on. Each task is submitted with
 a caller-chosen `task_id`, unique among every task ever submitted, and an opaque `payload` that the
-queue never inspects. A worker is identified by a `worker_id` string.
+queue never inspects. A worker is identified by a `worker_id` string. In one run, the calls to the
+methods below number at most $2 \times 10^5$ in total.
 
 Every public method call is atomic: no two calls are ever interleaved with each other. A task moves
 through a small state machine. This part only needs three of its states:
@@ -106,7 +107,8 @@ class ManualClock:
 `WorkQueue`'s constructor now also takes `clock` (a `ManualClock`) and a positive integer
 `lease_duration`. When `reserve` issues a reservation at time `t = clock.now()`, its *lease deadline* is
 `t + lease_duration`; the reservation stays valid through and including that instant, and has *expired*
-once `clock.now()` is strictly greater than the deadline.
+once `clock.now()` is strictly greater than the deadline. `lease_duration` and every value the clock
+returns are at most $10^9$.
 
 There is no background thread scanning for expirations. Instead, every call to a `WorkQueue` method,
 `submit` included, begins with a *reclaiming pass*: each reservation whose lease has expired by then is
@@ -298,8 +300,7 @@ equal to the task's *current* token means the task is still on that reservation 
 expired; any other token means the task was completed, failed or re-reserved since the push, and the
 stale entry is simply dropped. Let $n$ be the number of method calls so far; the heap never holds more
 than $n$ entries. Each reservation is pushed once and popped at most once, so the heap work over $n$
-calls totals $O(n \log n)$: amortized $O(\log n)$ per call, although a single call that finds $k$
-expired leases pays $O(k \log n)$.
+calls totals $O(n \log n)$: amortized $O(\log n)$ per call.
 
 ```python
 def __init__(self, clock, lease_duration):
@@ -417,8 +418,7 @@ WorkQueue.requeue_dead = requeue_dead
 ```
 
 `max_attempts = 1` needs no special case: the first reservation already brings `attempts` to `1`, so a
-single `fail` (or a single expiry) sends the task straight to `dead`. With $d$ dead tasks, `dead_letters`
-costs $O(d)$ because it copies every id out, and so does the `list.remove` in `requeue_dead`.
+single `fail` (or a single expiry) sends the task straight to `dead`.
 
 ### Follow-ups
 
@@ -431,6 +431,10 @@ costs $O(d)$ because it copies every id out, and so does the `list.remove` in `r
   forward lets the lease stay short.
 - The queue lives in memory, so a crash loses everything. Durability means logging each state transition
   before applying it in memory and replaying the log after a restart.
+- Tasks that carry a list of `dependencies`: a task waits in a fifth state, `blocked`, and joins the
+  back of `ready` only once every dependency has reached `completed`. A dependency may name a task
+  not submitted yet, so `submit` has to walk the dependency edges out of the new task and reject the
+  submission when they lead back to it.
 
 <details>
 <summary>Checks (runnable)</summary>

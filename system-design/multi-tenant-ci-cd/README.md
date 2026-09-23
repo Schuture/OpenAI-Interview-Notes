@@ -284,6 +284,13 @@ connections, and stateless gateways need no pinning, since any instance can subs
   digest, the step's command), read before a job runs and written back on a miss. Concurrent writers
   need no coordination, since a key is written atomically and either copy is valid; the tenant prefix
   keeps one tenant from reading or poisoning another's.
+- A key can also skip a step instead of restoring its inputs: a unit-test job whose command, image
+  digest and source tree hash to an earlier run's may report that run's result, which turns anything
+  the key omits — a system package, a network response — from a slow rebuild into a wrong pass.
+  Where the cache lives is the other trade-off: on the node's own disk a hit costs nothing but
+  serves only the jobs that land there, so the scheduler can prefer, never require, a node that
+  recently ran the same repo, while an object-store cache serves every node through a download a
+  130-second job may not earn back.
 - To pass artifacts between jobs, each attempt uploads under a key containing its `fencing_token`, so
   it never overwrites the winner's; downstream jobs read only the `Artifact` rows the winning
   `complete` committed, by `(workflow_run_id, job_id)`, never another run's.

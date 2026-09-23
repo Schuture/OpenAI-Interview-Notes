@@ -152,6 +152,12 @@ Match over: Skyfleet wins!
 <details>
 <summary>Show the reference solution</summary>
 
+Confirm with the interviewer which rule Part 3 means: attack with whoever's `calculate_damage` against
+the current defender is highest (the rule used below), or attack with whoever is type-advantaged against
+the defender regardless of the raw number — the two disagree whenever a `1x` attacker's attack stat is
+high enough to out-damage a `2x` one, e.g. attack `10` at `1x` (damage `10`) against attack `3` at `2x`
+(damage `6`): the highest-damage rule below picks the first, the type-advantage rule the second.
+
 Write `Monster` and `Team` first, then turn "who attacks" and "what the log line says about the hit"
 into two swappable hooks with the simplest possible default; Part 2 only has to supply a new hit
 description, and Part 3 only a new attacker choice — `run_battle` itself never needs to change again.

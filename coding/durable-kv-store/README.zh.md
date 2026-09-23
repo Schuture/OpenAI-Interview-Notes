@@ -120,7 +120,7 @@ class ChunkedKVStore:
 
 ### Part 3 —— 只追加日志与崩溃恢复
 
-`LogKVStore` 没有 `save()`：`put` 和 `delete` 一返回就已经持久化。两者都不能重写已经存下的内容——每次操作只用一次 `fs.append` 把自己记下来，写入的大小只取决于这次操作自己的键和值。新实例通过 `load()` 恢复。这里的 `fs` 是普通的 `FileSystem()`，没有大小上限。
+`LogKVStore` 没有 `save()`：`put` 和 `delete` 一返回就已经持久化。两者都不能重写已经存下的内容——每次操作只用一次 `fs.append` 把自己记下来，写入的大小只取决于这次操作自己的键和值，因此 `put`、`delete`、`get` 各自的耗时都必须与日志里已有多少条记录无关。新实例通过 `load()` 恢复，`load()` 必须在 $O(N)$ 时间内重放完 $N$ 条记录的日志，而不是 $O(N^2)$。这里的 `fs` 是普通的 `FileSystem()`，没有大小上限。
 
 `delete(key)` 删除 `key`：此后 `get(key)` 返回 `None`，在新实例上 `load()` 之后也一样，直到 `key` 再次被 `put`。
 

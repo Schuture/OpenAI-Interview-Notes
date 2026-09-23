@@ -41,7 +41,10 @@ not `None`.
 
 Amounts, timestamps and durations are non-negative integers. Across `add_credit` and `subtract`
 together, no two calls ever carry the same `timestamp`; two different grants may still expire at the
-same instant.
+same instant. Across the whole call sequence, $U$ (calls to `add_credit`/`subtract`) and $Q$ (calls
+to `get_balance`) are each at most $2 \times 10^4$; every `timestamp` and `expiration` is at most
+$10^9$, `amount` is between $1$ and $10^9$, and a running total can exceed the range of a 32-bit
+integer.
 
 ### Part 1 — In-order arrival
 
@@ -107,13 +110,12 @@ get_balance(70) -> 0            # s2 and s3 have expired; the debt they repaid d
 ### Part 3 — Answering many queries quickly
 
 Implement `GPUCreditLedgerFast`, with the same behavior as `GPUCreditLedgerAnyOrder`, so that a long
-call sequence dominated by `get_balance` is fast. Across $U$ calls to `add_credit`/`subtract` and $Q$
-calls to `get_balance` with non-decreasing timestamps, each made after every `add_credit`/`subtract`
-whose `timestamp` is at most its own, the time spent inside all $Q$ calls to `get_balance` together
-must be $O(U \log U + Q)$ — against the $O(Q \cdot U \log U)$ of replaying every call from scratch on
-each query. Other arrival patterns (a query out of that order, or an `add_credit`/`subtract` landing at or
-behind a timestamp already queried) may fall back to a slower path, but `get_balance` must still
-return the value defined above.
+call sequence dominated by `get_balance` is fast. When the $Q$ calls to `get_balance` have
+non-decreasing timestamps, each made after every `add_credit`/`subtract` whose `timestamp` is at most
+its own, the time spent inside all $Q$ of them together must be $O(U \log U + Q)$ — against the
+$O(Q \cdot U \log U)$ of replaying every call from scratch on each query. Other arrival patterns (a
+query out of that order, or an `add_credit`/`subtract` landing at or behind a timestamp already
+queried) may fall back to a slower path, but `get_balance` must still return the value defined above.
 
 ```py
 class GPUCreditLedgerFast:
@@ -323,6 +325,8 @@ queries faster than Part 2 by well over two orders of magnitude.
   credit expires.
 - Two events at the same `timestamp`: once that is allowed, the ledger needs an explicit tie-break as a
   secondary sort key — grants before subtracts, say, then call order.
+- Rejecting a late `add_credit` instead of absorbing it: track the highest timestamp any `get_balance`
+  has already answered, and raise on any `add_credit`/`subtract` landing at or before it.
 
 <details>
 <summary>Checks (runnable)</summary>
@@ -390,6 +394,15 @@ ops = [('sub', 4, 15), ('add', 'c', 6, 20, 5)]          # spent before c activat
 assert [reference_balance(ops, t) for t in (14, 15, 19, 20, 25, 26)] == [0, None, None, 2, 2, 0]
 ops = [('add', 'z', 5, 7, 0)]                           # expiration 0: valid at exactly one instant
 assert [reference_balance(ops, t) for t in (6, 7, 8)] == [0, 5, 0]
+
+# amounts beyond a 32-bit range: five grants of 10**9 each, none expired by the time they are all queried
+big_ops = [('add', f'big{i}', 10 ** 9, i, 100) for i in range(5)]
+for cls in (GPUCreditLedger, GPUCreditLedgerAnyOrder, GPUCreditLedgerFast):
+    ledger = cls()
+    for op in big_ops:
+        feed(ledger, op)
+    got = ledger.get_balance(4)
+    assert got == 5 * 10 ** 9 == reference_balance(big_ops, 4) and got > 2 ** 32, (cls.__name__, got)
 
 
 def random_ops(rng, n, ts_max):

@@ -8,7 +8,7 @@
 [English](README.md) · 中文
 
 [![Check](https://github.com/Schuture/OpenAI-Interview-Notes/actions/workflows/check.yml/badge.svg)](https://github.com/Schuture/OpenAI-Interview-Notes/actions/workflows/check.yml)
-![Problems](https://img.shields.io/badge/problems-52-blue)
+![Problems](https://img.shields.io/badge/problems-63-blue)
 ![Languages](https://img.shields.io/badge/languages-English%20%7C%20%E4%B8%AD%E6%96%87-blue)
 [![Text: CC BY-NC 4.0](https://img.shields.io/badge/text-CC%20BY--NC%204.0-lightgrey)](LICENSE)
 [![Code: MIT](https://img.shields.io/badge/code-MIT-green)](LICENSE-CODE)
@@ -25,9 +25,12 @@
 
 | 分类 | 题数 | 覆盖内容 |
 | --- | ---: | --- |
-| [编程](#编程-30) | 30 | 数据结构、模拟、并发、解析、面向对象设计与重构；另有 9 道 ML 题：从零写 NumPy 和 PyTorch、数学推导、调试、读代码和概率 |
-| [系统设计](#系统设计-18) | 18 | 产品与基础设施系统（支付、即时通讯、CI/CD、Webhook、视频生成），以及 3 道围绕检索和数据挖掘的 ML 系统设计 |
-| [行为面与其他](#行为面与其他-4) | 4 | HR 初筛、用人经理面、带幻灯片的技术深挖、工程管理 |
+| [编程](#题目) | 37 | 数据结构、模拟、并发、解析、面向对象设计与重构；另有 12 道 ML 与数学题：从零写 NumPy 和 PyTorch、数学推导、调试、强化学习和概率 |
+| [系统设计](#题目) | 22 | 产品与基础设施系统（支付、即时通讯、CI/CD、Webhook、设备集群），以及 4 道 AI 系统：推理服务、视频生成、检索、Agent 评测 |
+| [行为面与其他](#题目) | 4 | HR 初筛、用人经理面、带幻灯片的技术深挖、工程管理 |
+
+除了题目，[面试流程](INTERVIEW-PROCESS.zh.md)汇总了公开反馈里一致的部分：怎么拿到面试、流程的形状、一轮里题目是怎么给的、
+以及什么决定结果。
 
 这些页面的特点：
 
@@ -43,7 +46,7 @@
 
 ### 1. 选路线，定节奏
 
-从[学习路线](ROADMAP.zh.md)里和你岗位对应的那条开始。★ 表示题目出现的频率，从 ★★★★★（反复出现）到 ★☆☆☆☆（少见），
+先把[面试流程](INTERVIEW-PROCESS.zh.md)读一遍，再从[学习路线](ROADMAP.zh.md)里和你岗位对应的那条开始。★ 表示题目出现的频率，从 ★★★★★（反复出现）到 ★☆☆☆☆（少见），
 每条路线都按收益排好了序，越靠前越值得先做。
 
 | 可用时间 | [研究方向（RS / RE）](ROADMAP.zh.md#研究方向rs--re) | [MLE](ROADMAP.zh.md#mle-方向) | [SWE / Infra](ROADMAP.zh.md#swe--infra-方向) |
@@ -96,7 +99,7 @@ python scripts/run_snippets.py --all                # 全部页面
 每个分类内按优先级排序。难度一栏为 — 表示未评定。
 
 <!-- index:begin -->
-### 编程 (30)
+### 编程 (38)
 
 | # | 题目 | 优先级 | 难度 | 岗位 | 考点 |
 | ---: | --- | --- | --- | --- | --- |
@@ -119,40 +122,51 @@ python scripts/run_snippets.py --all                # 全部页面
 | 17 | [带重叠上限的分片再平衡](coding/shard-rebalance/README.zh.md) | ★★★☆☆ | 中等 | SWE | intervals, greedy, heap, consistent-hashing |
 | 18 | [只知道均值时的重启策略（Las Vegas）](coding/restart-strategy-math/README.zh.md) | ★★★☆☆ | 困难 | RS · RE | probability, inequalities, algorithm-design |
 | 19 | [版本依赖](coding/version-dependency/README.zh.md) | ★★★☆☆ | 中等 | SWE · RE | binary-search, backtracking, topological-sort |
-| 20 | [容错工作队列](coding/fault-tolerant-work-queue/README.zh.md) | ★☆☆☆☆ | 中等 | Infra Eng | queue, state-machine, retry |
-| 21 | [从零实现交叉熵损失](coding/cross-entropy-loss/README.zh.md) | ★☆☆☆☆ | 中等 | MLE · RE | numpy, numerical-stability, loss-functions, kl-divergence |
-| 22 | [最多跳过 K 行的网格最优路径](coding/grid-path-limited-jumps/README.zh.md) | ★☆☆☆☆ | 困难 | SWE | dp, grid, counting |
-| 23 | [cd 命令 / 路径解析](coding/cd-command/README.zh.md) | ★☆☆☆☆ | 中等 | SWE | string-processing, stack, symlinks |
-| 24 | [带单元格依赖的电子表格（OpenSheet）](coding/spreadsheet-dependencies/README.zh.md) | ★☆☆☆☆ | 中等 | SWE | graph, dfs, topological-sort, recursion |
-| 25 | [ModalLock 与 FairModalLock](coding/modal-lock/README.zh.md) | ★☆☆☆☆ | 困难 | SWE · MLE | concurrency, threading, fairness |
-| 26 | [分片矩阵乘法：前向、反向与找 bug](coding/sharded-matmul-backprop/README.zh.md) | ★☆☆☆☆ | 困难 | MLE · RE | linear-algebra, parallelism, autograd, numpy, pytorch, debugging |
-| 27 | [可恢复迭代器（一维、二维到任意深度）](coding/resumable-iterator/README.zh.md) | ★☆☆☆☆ | 中等 | SWE | iterator, oop-design, state |
-| 28 | [PyTorch 读代码与扩展](coding/pytorch-code-reading/README.zh.md) | ★☆☆☆☆ | — | RE · MLE | code-reading, pytorch, complexity |
-| 29 | [类 SQL 的内存数据库](coding/in-memory-database/README.zh.md) | ★☆☆☆☆ | 中等 | SWE | data-structure, oop-design, sql |
-| 30 | [按时间点查询的 KV 存储](coding/time-based-kv-store/README.zh.md) | ★☆☆☆☆ | 中等 | SWE | binary-search, testing, concurrency |
+| 20 | [滑动窗口事件聚合](coding/event-window-aggregation/README.zh.md) | ★★★☆☆ | 中等 | SWE · Infra Eng | sliding-window, streaming, hashmap, heap |
+| 21 | [三张牌的牌型与弃牌](coding/poker-hands/README.zh.md) | ★★★☆☆ | 中等 | SWE | simulation, sorting, rules-engine |
+| 22 | [文本编辑器：缓冲区、撤销、补全](coding/text-editor/README.zh.md) | ★★★☆☆ | 中等 | SWE · RE | data-structure, stack, trie, collaboration |
+| 23 | [容错工作队列](coding/fault-tolerant-work-queue/README.zh.md) | ★☆☆☆☆ | 中等 | Infra Eng | queue, state-machine, retry |
+| 24 | [从零实现交叉熵损失](coding/cross-entropy-loss/README.zh.md) | ★☆☆☆☆ | 中等 | MLE · RE | numpy, numerical-stability, loss-functions, kl-divergence |
+| 25 | [最多跳过 K 行的网格最优路径](coding/grid-path-limited-jumps/README.zh.md) | ★☆☆☆☆ | 困难 | SWE | dp, grid, counting |
+| 26 | [cd 命令 / 路径解析](coding/cd-command/README.zh.md) | ★☆☆☆☆ | 中等 | SWE | string-processing, stack, symlinks |
+| 27 | [带单元格依赖的电子表格（OpenSheet）](coding/spreadsheet-dependencies/README.zh.md) | ★☆☆☆☆ | 中等 | SWE | graph, dfs, topological-sort, recursion |
+| 28 | [ModalLock 与 FairModalLock](coding/modal-lock/README.zh.md) | ★☆☆☆☆ | 困难 | SWE · MLE | concurrency, threading, fairness |
+| 29 | [分片矩阵乘法：前向、反向与找 bug](coding/sharded-matmul-backprop/README.zh.md) | ★☆☆☆☆ | 困难 | MLE · RE | linear-algebra, parallelism, autograd, numpy, pytorch, debugging |
+| 30 | [可恢复迭代器（一维、二维到任意深度）](coding/resumable-iterator/README.zh.md) | ★☆☆☆☆ | 中等 | SWE | iterator, oop-design, state |
+| 31 | [PyTorch 读代码与扩展](coding/pytorch-code-reading/README.zh.md) | ★☆☆☆☆ | — | RE · MLE | code-reading, pytorch, complexity |
+| 32 | [类 SQL 的内存数据库](coding/in-memory-database/README.zh.md) | ★☆☆☆☆ | 中等 | SWE | data-structure, oop-design, sql |
+| 33 | [按时间点查询的 KV 存储](coding/time-based-kv-store/README.zh.md) | ★☆☆☆☆ | 中等 | SWE | binary-search, testing, concurrency |
+| 34 | [灯塔光束与重尾分布](coding/cauchy-lighthouse/README.zh.md) | ★☆☆☆☆ | 困难 | RS · RE | probability, heavy-tails, simulation, estimation |
+| 35 | [强化学习训练循环找 bug](coding/rl-training-debug/README.zh.md) | ★☆☆☆☆ | 困难 | RS · RE · MLE | reinforcement-learning, policy-gradient, debugging, pytorch |
+| 36 | [限流器找 bug](coding/rate-limiter-debug/README.zh.md) | ★☆☆☆☆ | 中等 | SWE · Infra Eng | debugging, concurrency, sliding-window, testing |
+| 37 | [带依赖的工具调用调度](coding/agent-tool-scheduler/README.zh.md) | ★☆☆☆☆ | 中等 | SWE · RE · Infra Eng | scheduling, dag, simulation, concurrency |
+| 38 | [反馈延迟一轮的二分查找](coding/guess-number-delayed/README.zh.md) | ★☆☆☆☆ | 中等 | SWE · RE | binary-search, interaction, algorithm-design |
 
-### 系统设计 (18)
+### 系统设计 (21)
 
 | # | 题目 | 优先级 | 难度 | 岗位 | 考点 |
 | ---: | --- | --- | --- | --- | --- |
 | 1 | [支付系统 / 咖啡店点单](system-design/payment-coffee-shop/README.zh.md) | ★★★★★ | 中等 | SWE | payment, idempotency, ledger |
 | 2 | [在线国际象棋平台（类 Chess.com）](system-design/chess-platform/README.zh.md) | ★★★★★ | — | SWE · Infra Eng | websocket, matchmaking, game-state, idempotency, consistent-hashing |
 | 3 | [视频生成流水线（类 Sora）](system-design/video-generation-pipeline/README.zh.md) | ★★★★★ | 中等 | SWE · Infra Eng · EM | gpu-scheduling, queueing, fault-tolerance |
-| 4 | [云端 IDE](system-design/cloud-ide/README.zh.md) | ★★★☆☆ | 困难 | SWE · Infra Eng · EM | sandbox, vm-lifecycle, websocket, streaming |
-| 5 | [带去重的图片分享](system-design/image-dedup-sharing/README.zh.md) | ★★☆☆☆ | 中等 | SWE | storage, deduplication, consistency |
-| 6 | [分布式填字游戏求解器](system-design/crossword-solver/README.zh.md) | ★★☆☆☆ | — | SWE · Infra Eng | distributed-search, backtracking, job-system |
-| 7 | [AI 聊天机器人前端](system-design/ai-chatbot-frontend/README.zh.md) | ★★☆☆☆ | — | SWE | frontend, streaming, client-state, auth |
-| 8 | [多租户 CI/CD](system-design/multi-tenant-ci-cd/README.zh.md) | ★★☆☆☆ | — | SWE · Infra Eng | scheduling, exactly-once, multi-tenancy |
-| 9 | [类 Slack 即时通讯](system-design/slack/README.zh.md) | ★★☆☆☆ | — | SWE · EM | messaging, pubsub, multi-device, multi-tenancy |
-| 10 | [搜索与 RAG 的 ML 设计（口述）](system-design/rag-search-ml-design/README.zh.md) | ★★☆☆☆ | — | RE · MLE | retrieval, contrastive-learning, ranking, evaluation |
-| 11 | [日历（类 Google Calendar）](system-design/google-calendar/README.zh.md) | ★★☆☆☆ | — | SWE | schema-design, caching, sync |
-| 12 | [短链接服务](system-design/url-shortener/README.zh.md) | ★★☆☆☆ | — | SWE | hashing, caching, scaling, database |
-| 13 | [Webhook 投递](system-design/webhook-delivery/README.zh.md) | ★★☆☆☆ | — | SWE · Infra Eng | queueing, retry, idempotency, security |
-| 14 | [附近地点（POI / 类 Yelp）](system-design/nearby-poi/README.zh.md) | ★★☆☆☆ | — | SWE | geospatial-index, sharding, caching |
-| 15 | [流式 AI 产品功能](system-design/realtime-ai-feature/README.zh.md) | ★☆☆☆☆ | — | SWE | streaming, api-design, rate-limiting, fullstack |
-| 16 | [从无标注语料中挖掘新数据](system-design/mining-novel-data/README.zh.md) | ★☆☆☆☆ | — | MLE | ml-system-design, data-mining, retrieval |
-| 17 | [ChatGPT Enterprise：基于企业数据的 RAG](system-design/chatgpt-enterprise-rag/README.zh.md) | ★☆☆☆☆ | — | MLE · RE | rag, retrieval, access-control |
-| 18 | [GPT-3 Playground（全栈）](system-design/gpt3-playground/README.zh.md) | ★☆☆☆☆ | — | SWE | fullstack, frontend, streaming, schema-design |
+| 4 | [大模型推理服务](system-design/llm-inference-serving/README.zh.md) | ★★★★☆ | — | SWE · Infra Eng · MLE | gpu-scheduling, batching, streaming, rate-limiting, cost |
+| 5 | [云端 IDE](system-design/cloud-ide/README.zh.md) | ★★★☆☆ | 困难 | SWE · Infra Eng · EM | sandbox, vm-lifecycle, websocket, streaming |
+| 6 | [大规模设备监控与指令下发](system-design/device-fleet-monitoring/README.zh.md) | ★★★☆☆ | — | SWE · Infra Eng | iot, messaging, idempotency, reconciliation, telemetry |
+| 7 | [带去重的图片分享](system-design/image-dedup-sharing/README.zh.md) | ★★☆☆☆ | 中等 | SWE | storage, deduplication, consistency |
+| 8 | [分布式填字游戏求解器](system-design/crossword-solver/README.zh.md) | ★★☆☆☆ | — | SWE · Infra Eng | distributed-search, backtracking, job-system |
+| 9 | [AI 聊天机器人前端](system-design/ai-chatbot-frontend/README.zh.md) | ★★☆☆☆ | — | SWE | frontend, streaming, client-state, auth |
+| 10 | [多租户 CI/CD](system-design/multi-tenant-ci-cd/README.zh.md) | ★★☆☆☆ | — | SWE · Infra Eng | scheduling, exactly-once, multi-tenancy |
+| 11 | [类 Slack 即时通讯](system-design/slack/README.zh.md) | ★★☆☆☆ | — | SWE · EM | messaging, pubsub, multi-device, multi-tenancy |
+| 12 | [搜索与 RAG 的 ML 设计（口述）](system-design/rag-search-ml-design/README.zh.md) | ★★☆☆☆ | — | RE · MLE | retrieval, contrastive-learning, ranking, evaluation |
+| 13 | [日历（类 Google Calendar）](system-design/google-calendar/README.zh.md) | ★★☆☆☆ | — | SWE | schema-design, caching, sync |
+| 14 | [短链接服务](system-design/url-shortener/README.zh.md) | ★★☆☆☆ | — | SWE | hashing, caching, scaling, database |
+| 15 | [Webhook 投递](system-design/webhook-delivery/README.zh.md) | ★★☆☆☆ | — | SWE · Infra Eng | queueing, retry, idempotency, security |
+| 16 | [附近地点（POI / 类 Yelp）](system-design/nearby-poi/README.zh.md) | ★★☆☆☆ | — | SWE | geospatial-index, sharding, caching |
+| 17 | [流式 AI 产品功能](system-design/realtime-ai-feature/README.zh.md) | ★☆☆☆☆ | — | SWE | streaming, api-design, rate-limiting, fullstack |
+| 18 | [从无标注语料中挖掘新数据](system-design/mining-novel-data/README.zh.md) | ★☆☆☆☆ | — | MLE | ml-system-design, data-mining, retrieval |
+| 19 | [ChatGPT Enterprise：基于企业数据的 RAG](system-design/chatgpt-enterprise-rag/README.zh.md) | ★☆☆☆☆ | — | MLE · RE | rag, retrieval, access-control |
+| 20 | [GPT-3 Playground（全栈）](system-design/gpt3-playground/README.zh.md) | ★☆☆☆☆ | — | SWE | fullstack, frontend, streaming, schema-design |
+| 21 | [Agent 执行框架与评测体系](system-design/agent-harness-eval/README.zh.md) | ★☆☆☆☆ | — | RE · MLE · RS | agent, evaluation, tooling, observability |
 
 ### 行为面与其他 (4)
 
@@ -160,7 +174,7 @@ python scripts/run_snippets.py --all                # 全部页面
 | ---: | --- | --- | --- | --- | --- |
 | 1 | [用人经理轮：Why OpenAI、安全、AGI](behavioral/hiring-manager-why-openai/README.zh.md) | ★★★★★ | — | 全部 | behavioral, why-company, ai-safety, cross-functional |
 | 2 | [技术深挖（带幻灯片）](behavioral/technical-deep-dive/README.zh.md) | ★★★★★ | — | SWE · MLE · RE · Infra Eng | presentation, project-deep-dive |
-| 3 | [Recruiter / HR 初筛](behavioral/recruiter-screen/README.zh.md) | ★★★★☆ | — | 全部 | behavioral, process, compensation |
+| 3 | [Recruiter / HR 初筛](behavioral/recruiter-screen/README.zh.md) | ★★★★☆ | — | 全部 | behavioral, process, compensation, ai-safety |
 | 4 | [工程管理轮](behavioral/engineering-management/README.zh.md) | ★☆☆☆☆ | — | EM | leadership, hiring, mentorship, performance-management, team-composition |
 <!-- index:end -->
 

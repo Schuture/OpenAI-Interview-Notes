@@ -144,8 +144,9 @@ still return every pair unchanged.
 
 `LogKVStore` has no `save()`: `put` and `delete` are durable as soon as they return. Neither may
 rewrite what is already stored — each persists itself with a single `fs.append` whose size depends
-only on its own key and value. A new instance recovers by calling `load()`. Here `fs` is a plain
-`FileSystem()`, with no size cap.
+only on its own key and value, so `put`, `delete`, and `get` must each take time independent of how
+many records the log already holds. A new instance recovers by calling `load()`, which must replay a
+log of $N$ records in $O(N)$ time, not $O(N^2)$. Here `fs` is a plain `FileSystem()`, with no size cap.
 
 `delete(key)` removes `key`: from then on `get(key)` returns `None`, also on a new instance after
 `load()`, until `key` is `put` again.

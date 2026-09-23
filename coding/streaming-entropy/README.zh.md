@@ -15,7 +15,7 @@ $p = \mathrm{softmax}(x)$，
 
 $$p_i = \frac{e^{x_i}}{\sum_{k=0}^{N-1} e^{x_k}}, \qquad i = 0, \dots, N-1,$$
 
-它的熵定义为 $H(p) = -\sum_i p_i \log p_i$，其中 $\log$ 全文都指自然对数。每个 $p_i \in (0, 1]$，
+它的*香农熵*（Shannon entropy）定义为 $H(p) = -\sum_i p_i \log p_i$，其中 $\log$ 全文都指自然对数。每个 $p_i \in (0, 1]$，
 所以 $H(p) \ge 0$；下面每一问都返回这个非负值，而不是原始的和 $\sum_i p_i \log p_i$（它是 $\le 0$ 的）。
 用 NumPy 完成下面四个部分。
 

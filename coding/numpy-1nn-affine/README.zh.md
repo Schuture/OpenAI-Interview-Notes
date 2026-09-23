@@ -23,7 +23,8 @@ $$\lVert q - x_i \rVert^2 = \sum_{k=0}^{d-1} (q_k - x_{ik})^2 ,$$
 
 $$\mathrm{nn}(q) = \text{满足 } \lVert q - x_i \rVert^2 = \min_k \lVert q - x_k \rVert^2 \text{ 的最小下标 } i .$$
 
-$q$ 的预测标签是 `y_train[nn(q)]`。用 NumPy 完成下面两个部分。
+$q$ 的预测标签是 `y_train[nn(q)]`。全程取 $1 \le n, m \le 2000$、$1 \le d \le 50$。
+只用 NumPy 完成下面两个部分，不得调用 `scipy.spatial`、`sklearn` 或其他外部的距离/机器学习库。
 
 ### Part 1 —— 不用 Python 循环的 1-NN
 

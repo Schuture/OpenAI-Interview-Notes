@@ -1,0 +1,14 @@
+title: 'Text Editor: Buffer, Undo, Autocomplete'
+title_zh: 文本编辑器：缓冲区、撤销、补全
+summary: 'A text buffer built up in four stages: character-offset insert/delete/read, an undo/redo history over individual API calls, trie-backed prefix autocomplete over the buffer''s own vocabulary, and a minimal CRDT that keeps replicas in agreement under out-of-order and repeated delivery.'
+summary_zh: 分四步搭建一个文本缓冲区：按字符偏移的插入/删除/读取，以单次调用为粒度的撤销/重做历史，基于缓冲区自身词表的前缀树自动补全，以及一个在乱序、重复投递下都能让各副本收敛的最小 CRDT。
+category: coding
+kind: Coding · object-oriented design
+kind_zh: 编程 · 面向对象设计
+roles: [SWE, RE]
+topics: [data-structure, stack, trie, collaboration]
+difficulty: medium
+frequency: medium
+stage: [phone-screen, onsite]
+format: 4 parts
+order: 37

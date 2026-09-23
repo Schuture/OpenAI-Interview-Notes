@@ -1,0 +1,14 @@
+title: Rate Limiter Bug Hunt
+title_zh: 限流器找 bug
+summary: A per-user rate limiter with three tiers (per minute, per hour, per day) that looks like it works and passes its one happy-path test, but has four real bugs; find each one, pin it down with a test, and fix it without rewriting the class.
+summary_zh: 一个按分钟/小时/天设了三档规则的限流器，看起来能跑、也过了唯一那个只测 happy path 的测试，但其实藏着四个真实的 bug；逐个定位、用测试钉住、修复，不重写这个类。
+category: coding
+kind: Debugging · Python
+kind_zh: 调试 · Python
+roles: [SWE, Infra Eng]
+topics: [debugging, concurrency, sliding-window, testing]
+difficulty: medium
+frequency: rare
+stage: [onsite]
+format: 4 bugs
+order: 34

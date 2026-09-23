@@ -23,8 +23,10 @@
 沿它的输出轴切分（`axis=1`，大小为 `d_out`）成 $W_0, \dots, W_{n-1}$，每个设备都持有 $X$ 的完整副本。
 *按行切*（row-parallel）是把 $W$ 沿它的输入轴切分（`axis=0`，大小为 `d_in`）成 $W_0, \dots, W_{n-1}$，$X$
 也沿它自己的特征轴（大小同样是 `d_in`）做相应切分，于是设备 $k$ 只持有 $X_k$，即与 $W_k$ 的行对应的那些列。
-例如 `d_out = 7`、$n = 3$ 个设备时，`np.array_split` 给出的列宽是 $3, 2, 2$：设备 0 持有的 $W$ 分片形状是
-`(d_in, 3)`，设备 1、2 的形状是 `(d_in, 2)`。
+被切的那个轴的长度不能整除 $n$ 时，余数按每片一个分给前面的分片：`d_out = 7`、$n = 3$ 个设备时列宽是
+$3, 2, 2$，设备 0 持有的 $W$ 分片形状是 `(d_in, 3)`，设备 1、2 的形状是 `(d_in, 2)`。这里的规模都很小——
+`B`、`d_in`、`d_out` 最大 50，元素的绝对值不超过 100——而且 $n$ 不超过被切的那个轴的长度，所以不会有设备
+拿到空的分片。
 
 ### Part 1 —— 手推前向和反向
 
@@ -106,8 +108,7 @@ def layer1_forward(X, W1_shards):
 def layer1_backward(X, W1_shards, Z1_shards, H_shards, dH_shards):
     dZ1_shards = [dHk * (1 - Z1k ** 2) for dHk, Z1k in zip(dH_shards, Z1_shards)]
     dW1_shards = [dZ1k.T @ X for dZ1k in dZ1_shards]
-    dX_partial = [dZ1k @ W1k.T for dZ1k, W1k in zip(dZ1_shards, W1_shards)]
-    dX_shards = all_reduce(dX_partial)
+    dX_shards = [dZ1k @ W1k.T for dZ1k, W1k in zip(dZ1_shards, W1_shards)]
     return dW1_shards, dX_shards
 
 
@@ -145,7 +146,7 @@ def check_gradients(seed=0):
     dW2_shards, dH_shards = layer2_backward(H_shards, W2_shards, dY)
     dW1_shards, dX_shards = layer1_backward(X, W1_shards, Z1_shards, H_shards, dH_shards)
 
-    W1_full = all_gather(W1_shards, axis=0)[0]
+    W1_full = all_gather(W1_shards, axis=1)[0]
     W2_full = all_gather(W2_shards, axis=0)[0]
     Z1 = X @ W1_full
     H = np.tanh(Z1)
@@ -221,7 +222,7 @@ def all_gather(shards, axis):
 def all_reduce(shards):
     """shards[k]: device k's partial sum, all the same shape. Returns, for every device, the same
     elementwise sum across all the shards."""
-    total = sum(shards)
+    total = sum(shards)        # NOTE: given only a gather, this is a gather on a fresh axis plus a local sum
     return [total for _ in shards]
 
 
@@ -257,10 +258,10 @@ $3, 2, 2$）；按行切时对 $X$ 的特征轴用同样的 $n$ 调用它，能�
 | 已修好 | `check_gradients()` 的输出 | 指向 |
 | --- | --- | --- |
 | 无 | `ValueError: matmul: ... (size 2 is different from 3)`，出自 `layer2_forward` | `shard_rows` 的切分边界与 `shard_columns` 不一致 |
-| 第 1 行 | `ValueError: ... along dimension 1, the array at index 0 has size 3 and the array at index 1 has size 2`，出自 `check_gradients` 里的 `all_gather` | 拼回 `W1` 时轴用错了 |
-| 第 1–2 行 | 同样的 `ValueError`，只是变成 `along dimension 0`，出自拼接 `dW1_shards` 的那一行 | `dW1` 的转置写反了 |
-| 第 1–3 行 | 误差：`Y` 1.01，`dW1` 0.50，`dW2` 0.20，`dX` 0.18 | 前向结果就是错的：`layer2_forward` 缺了 all-reduce |
-| 第 1–4 行 | `Y`、`dW2` 精确到 `1e-16`；`dW1` 0.77，`dX` 0.28 | 只有经过 `layer1_backward` 的量出错：激活函数的导数 |
+| 第 1 行 | `ValueError: ... along dimension 0, the array at index 0 has size 3 and the array at index 1 has size 2`，出自拼接 `dW1_shards` 的那一行 | `dW1` 的转置写反了 |
+| 第 1–2 行 | 误差：`Y` 1.01，`dW1` 0.50，`dW2` 0.20，`dX` 0.28 | 前向结果就是错的：`layer2_forward` 缺了 all-reduce |
+| 第 1–3 行 | `Y`、`dW2` 精确到 `1e-16`；`dW1` 0.77，`dX` 0.31 | 只有经过 `layer1_backward` 的量出错：激活函数的导数 |
+| 第 1–4 行 | `Y`、`dW1`、`dW2` 都精确；`dX` 0.29 | 只有 $\bar X$ 错了：没有谁把它跨设备加起来 |
 | 全部 5 个 | 四项误差都不超过 `1e-16` | — |
 
 **分片边界不一致。** `shard_columns` 用 `np.array_split`，对 `D_HIDDEN = 7`、$n = 3$ 给出的隐藏维宽度是
@@ -271,15 +272,6 @@ $3, 2, 2$。切 $W_2$ 用的 `shard_rows` 却做整除（$7 \mathbin{//} 3 = 2$�
 ```py
 def shard_rows(A, n):
     return np.array_split(A, n, axis=0)      # same split function as shard_columns, only the axis differs
-```
-
-**拼接轴用错了。** 为参考实现重新拼出完整的 $W_1$ 时调用了 `all_gather(W1_shards, axis=0)`；但 $W_1$ 是沿
-`axis=1` 切的（`shard_columns`），它的分片在 `axis=1` 上大小不同（3、2、2），`axis=0` 上才相同。沿错误的
-轴拼接要求*另一个*轴在各分片间一致，这里并不成立。如果各分片一样宽，这次调用不会报错，而是悄悄拼出一个
-`(3 * d_in, d_hidden / 3)` 的矩阵，所以不能整除的切分才是有用的测试情形。
-
-```py
-W1_full = all_gather(W1_shards, axis=1)[0]      # W1 was split by columns (shard_columns), axis=1
 ```
 
 **转置写反了。** 对 $Y = AB$ 有 $\bar B = A^\top \bar Y$；这里 $Y_k = X W_{1,k}$，所以
@@ -306,10 +298,22 @@ def layer2_forward(H_shards, W2_shards):
 导数 $\tanh'(z) = 1 - \tanh(z)^2 = 1 - h^2$ 是*输出* $h$ 的函数，而不是预激活值 $z$ 的函数；出 bug 的那一
 行却用 $z$ 代替了 $h$，在 $z \ne h$ 的地方（也就是 `tanh` 真正起作用、弯曲输入的地方）都算成了 $1 - z^2$。
 两个数组形状都是 `(B, hidden_k)`，所以不会报错：`dZ1` 悄悄地算错了，连累 `dW1` 和 `dX`，而 $Y$ 和 $\bar
-W_2$ 都不依赖这一行，仍然精确。
+W_2$ 都不依赖这一行，仍然精确。把 `tanh` 换成 `relu` 时，同样地写错反而看不出来——`z > 0` 和 `h > 0` 是同
+一个 mask——那里真正会出事的写法是把导数写成激活函数本身 `np.where(z > 0, z, 0)`，它是按 $z$ 缩放梯度，而
+不是做遮挡。
 
 ```py
 dZ1_shards = [dHk * (1 - Hk ** 2) for dHk, Hk in zip(dH_shards, H_shards)]   # tanh'(z) = 1 - h^2, h = tanh(z)
+```
+
+**输入的梯度没有跨设备求和。** 每个设备乘的都是同一个 $X$，所以 $X$ 经由全部 $n$ 个本地乘法影响损失，它的
+梯度是这些项之和 $\bar X = \sum_k \bar Z_{1,k} W_{1,k}^\top$：前向传播复制或拼接了什么，反向传播就要把
+什么加回来。直接返回这一串本地乘积，每个设备手里就只有 $n$ 项里的一项；所有数组的形状都还是 `(B, d_in)`，
+所以不会报错，而不读 $\bar X$ 的 $Y$、$\bar W_1$、$\bar W_2$ 仍然精确。
+
+```py
+dX_partial = [dZ1k @ W1k.T for dZ1k, W1k in zip(dZ1_shards, W1_shards)]
+dX_shards = all_reduce(dX_partial)      # X is replicated, so its gradient is summed across devices
 ```
 
 ### 追问
@@ -399,7 +403,7 @@ def layer1_backward(X, W1_shards, Z1_shards, H_shards, dH_shards):
     dZ1_shards = [dHk * (1 - Hk ** 2) for dHk, Hk in zip(dH_shards, H_shards)]   # bug 1 fix: use H, not Z1
     dW1_shards = [X.T @ dZ1k for dZ1k in dZ1_shards]                            # bug 2 fix: X.T @ dZ1k
     dX_partial = [dZ1k @ W1k.T for dZ1k, W1k in zip(dZ1_shards, W1_shards)]
-    dX_shards = all_reduce(dX_partial)
+    dX_shards = all_reduce(dX_partial)      # bug 5 fix: X is replicated, so its gradient is summed
     return dW1_shards, dX_shards
 
 
@@ -437,7 +441,7 @@ def check_gradients(seed=0):
     dW2_shards, dH_shards = layer2_backward(H_shards, W2_shards, dY)
     dW1_shards, dX_shards = layer1_backward(X, W1_shards, Z1_shards, H_shards, dH_shards)
 
-    W1_full = all_gather(W1_shards, axis=1)[0]   # bug 5 fix: W1 was split by columns, axis=1
+    W1_full = all_gather(W1_shards, axis=1)[0]   # W1 was split by columns, so it is gathered along axis=1
     W2_full = all_gather(W2_shards, axis=0)[0]
     Z1 = X @ W1_full
     H = np.tanh(Z1)
@@ -511,7 +515,8 @@ def run_with_one_bug(bug, seed=0):
         dW1_shards = [dZ1k.T @ X for dZ1k in dZ1_shards]
     else:
         dW1_shards = [X.T @ dZ1k for dZ1k in dZ1_shards]
-    dX_shards = all_reduce([dZ1k @ W1k.T for dZ1k, W1k in zip(dZ1_shards, W1_shards)])
+    dX_partial = [dZ1k @ W1k.T for dZ1k, W1k in zip(dZ1_shards, W1_shards)]
+    dX_shards = dX_partial if bug == "input-grad" else all_reduce(dX_partial)
 
     dW1 = np.concatenate(dW1_shards, axis=1)
     dW2 = np.concatenate(dW2_shards, axis=0)
@@ -531,6 +536,10 @@ e = run_with_one_bug("activation")                                # NOTE: Y and 
 assert e["Y"] < 1e-8 and e["dW2"] < 1e-8 and e["dW1"] > 0.5 and e["dX"] > 0.1, e
 print("activation bug alone:", e)
 
+e = run_with_one_bug("input-grad")                                # NOTE: only dX is wrong, and only by a sum
+assert e["Y"] < 1e-8 and e["dW1"] < 1e-8 and e["dW2"] < 1e-8 and e["dX"] > 0.1, e
+print("missing backward reduction alone:", e)
+
 try:
     run_with_one_bug("transpose")
     raise AssertionError("expected a ValueError")
@@ -545,13 +554,10 @@ except ValueError as err:
     print("boundary bug alone:", err)
     assert "matmul" in str(err) and "size 2 is different from 3" in str(err)
 
-zeros_shards = shard_columns(np.zeros((D_IN, D_HIDDEN)), N)
-try:
-    all_gather(zeros_shards, axis=0)                              # should be axis=1
-    raise AssertionError("expected a ValueError")
-except ValueError as err:
-    print("axis bug alone:", err)
-    assert "dimension 1" in str(err) and "size 3" in str(err) and "size 2" in str(err)
+z = np.linspace(-2.0, 2.0, 9)                                     # the relu remark of the activation bug
+assert np.array_equal(z > 0, np.maximum(z, 0) > 0)                # the mask is the same from z or from h
+assert not np.array_equal(np.where(z > 0, z, 0), (z > 0).astype(float))     # relu itself is not its derivative
+print("relu: mask(z) == mask(h), and relu(z) != relu'(z)")
 ```
 
 </details>

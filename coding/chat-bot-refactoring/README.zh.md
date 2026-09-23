@@ -249,7 +249,8 @@ class PollBot(ChatBot):
 ```
 
 实现这些类，使得对任意一串 `(sender, text, now)` 三元组，注册了这三个机器人的 `ChatRoom` 都能逐行
-复现 `handle_message` 的日志。
+复现 `handle_message` 的日志。这里没有测试套件能帮你发现不一致：自己动手核对——把 `SCRIPT` 分别喂给
+`handle_message` 和你的 `ChatRoom`，逐行比较两份日志，而不是把两条代码路径放在一起读、凭直觉相信它们一致。
 
 ### Part 3 —— 机器人之间的事件
 

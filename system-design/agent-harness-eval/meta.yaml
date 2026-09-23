@@ -1,0 +1,12 @@
+title: Agent Harness and Evaluation Framework
+title_zh: Agent 执行框架与评测体系
+summary: 'The execution harness for a multi-step, tool-calling agent plus the offline evaluation framework built on it: tool-call isolation, timeouts and retries; trajectory recording, replay and sampling; and preventing evaluation-set leakage and overfitting while wiring regression tests into CI.'
+summary_zh: 为多步、可调用工具的 agent 设计执行框架，以及构建在它之上的离线评测体系：工具调用的隔离、超时与重试；轨迹的记录、回放与采样；以及如何防止评测集泄漏与过拟合，并把回归测试接入 CI。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [RE, MLE, RS]
+topics: [agent, evaluation, tooling, observability]
+frequency: rare
+stage: [onsite]
+order: 19

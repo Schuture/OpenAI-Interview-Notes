@@ -12,7 +12,7 @@
 
 一个容量为 `capacity` 字节的地址空间，是整数区间 `[0, capacity)`；其中每个地址在任意时刻要么已分配，要么空闲。
 *块*（block）是一段极大的连续地址区间，整体已分配或整体空闲。由于 `free` 总会把新释放的块与相邻的空闲块合并，
-两个空闲块永远不会彼此相邻。用 Python 完成下面两个部分，只使用标准库。
+两个空闲块永远不会彼此相邻。用 Python 完成下面两个部分，只使用标准库。此外要为两个类自己编写测试，并说明设计思路。
 
 ### Part 1 —— 首次适配，线性扫描
 
@@ -51,6 +51,7 @@ free(0, 5)    # 右边与 [5, 25) 相邻                      -> 空闲：[0, 25
 
 实现 `MemoryAllocatorLog`，构造函数与另外两个方法都与上面的 `MemoryAllocator` 相同，对任意输入返回相同的值、
 抛出相同的错误——但 `allocate` 和 `free` 都要在 $O(\log n)$ 时间内完成，其中 $n$ 是当前跟踪的空闲块数量。
+整个调用序列里 `allocate`、`free` 合计最多 $2 \times 10^5$ 次，`capacity` 最大到 $10^9$。
 
 ```py
 class MemoryAllocatorLog:
@@ -248,8 +249,7 @@ class MemoryAllocatorLog:
         self._free = _insert(self._free, start, total)
 ```
 
-一个刻意构造的优先级序列可能让这棵树堆失衡——这是任何随机化平衡树都有的老问题——换成确定性的 AVL 树或红黑树
-可以消除这一点，代价是更多的簿记开销。
+刻意构造的优先级序列可能让这棵树堆失衡；换成确定性的 AVL 树或红黑树可以消除这一点，代价是更多的簿记开销。
 
 ### 追问
 
@@ -257,11 +257,13 @@ class MemoryAllocatorLog:
   对齐地址开始。
 - **Realloc。** 原地扩大只有在后面紧跟足够大的空闲块时才行得通；否则内容必须拷贝到 `allocate` 给出的新块，
   调用者看到的是一个新地址。
-- **线程安全。** 给整个分配器加一把锁最简单也最正确；按大小分类拆成多把锁则需要加锁顺序，因为一次 `free`
-  可能碰到另一个分类管理的邻居块。
-- **外部碎片。** 分级空闲链表把每个请求导向大小相近的一组块；*伙伴系统*（buddy system）让每个块的大小都是
-  2 的幂，释放的块的“伙伴”只需翻转地址的某一位就能找到，合并因此是 $O(1)$，代价是每个请求都要向上取整。
-- **不传 size 的 free。** 必须在分配时记下大小——本文里是 `allocated` 映射，真实分配器里通常是返回地址之前的
+- **线程安全。** 给整个分配器加一把锁最简单也最正确；按大小分类拆成多把锁则需要加锁顺序，因为 `free`
+  可能碰到别的分类管理的邻居块。
+- **外部碎片。** 用 `strategy` 参数在首次适配与最佳适配间切换时，最佳适配要另建一棵按 `(size, start)`
+  排序的索引（同样大小取地址更小者），`free` 每次合并都要同步更新它。分级空闲链表把每个请求导向大小相近的
+  一组块；*伙伴系统*（buddy system）让每个块的大小都是 2 的幂，释放的块的“伙伴”翻转地址的某一位就能找到，
+  合并因此是 $O(1)$，代价是每个请求都要向上取整。
+- **不传 size 的 free。** 必须在分配时记下大小——本文里是 `allocated` 映射，真实分配器通常放在返回地址前的
   一小段头部——否则没有东西能告诉 `free(address)` 该释放多少字节。
 
 <details>
@@ -425,6 +427,33 @@ for trial in range(400):
         assert all(g0[k][0] + g0[k][1] < g0[k + 1][0] for k in range(len(g0) - 1))    # no two touch
 
 print("random cross-check against the byte-array oracle: OK (400 trials x 60 ops)")
+
+
+import time
+
+# NOTE: capacity this large rules out the byte-array oracle above (it would need a ~1GB bytearray);
+# check conservation of space and elapsed time instead, since n (the free-block count) is what O(log n) is measured in
+capacity = 10 ** 9
+big = MemoryAllocatorLog(capacity)
+live = []
+rng = random.Random(3)
+start = time.perf_counter()
+for _ in range(6_000):
+    if live and rng.random() < 0.5:
+        addr, size = live.pop(rng.randrange(len(live)))
+        big.free(addr, size)
+    else:
+        size = rng.randint(1, 10 ** 6)
+        try:
+            live.append((big.allocate(size), size))
+        except MemoryError:
+            pass
+elapsed = time.perf_counter() - start
+assert elapsed < 3.0, elapsed          # a handful of hundred free blocks, not 10**9 addresses, drives the cost
+gaps = free_blocks(big)
+assert sum(g[1] for g in gaps) + sum(size for _, size in live) == capacity
+assert all(gaps[k][0] + gaps[k][1] < gaps[k + 1][0] for k in range(len(gaps) - 1))
+print(f"capacity=10**9, 6000 calls: {len(gaps)} free blocks left, {elapsed:.3f}s, space fully accounted for")
 ```
 
 </details>

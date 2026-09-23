@@ -29,6 +29,9 @@ ground under pressure, and work with a non-engineering partner. The questions fa
 - What is your own view on AGI — what would a system need to be able to do, and on what timeframe, for
   you to call it that?
 - What does AI safety concretely mean to you, in the context of your own work?
+- How do you think about AI democratization — making these systems more broadly available? What do you
+  see as the biggest risks in doing so (cost of access, bias in the training data, safety, privacy,
+  uneven availability across regions, potential for misuse)?
 - How do you balance shipping quickly against the time it takes to validate quality and safety?
 
 ### A hypothetical dilemma
@@ -43,6 +46,7 @@ ground under pressure, and work with a non-engineering partner. The questions fa
 ### Past experience
 
 - Tell me about a project you drove yourself, end to end, and shipped.
+- Tell me about a project you built all the way to completion but ultimately decided not to ship. Why?
 - Describe a technical disagreement you had with a colleague and how it was resolved.
 - What is the hardest technical or collaboration problem you've faced, and how did you work through it?
 - Tell me about a time you failed at something you cared about.
@@ -104,6 +108,14 @@ single year, name one or two specific risks you consider important — not an ab
 control" — connect them to your own line of work and what you'd do about them, and say plainly where
 you're still uncertain.
 
+For AI democratization, break "wider access" into the specific risk categories rather than giving one
+verdict on whether it's good: cost (who can actually afford to build on it), data bias (whose language
+and behavior the training data represents, and who ends up served worse), safety (a more capable system
+reaching more people also reaches more bad actors), privacy (more of people's own data flowing through
+the system as it's used more widely), regional variation (language coverage, regulation, which places
+get access at all), and misuse — one concrete sentence per category, ending on which one you'd prioritize
+mitigating first.
+
 For balancing iteration speed against quality and safety, name one concrete decision point from your own
 experience — a situation where you'd argue for slowing a release down, and a signal that would tell you
 it's fine to proceed on schedule — rather than saying both matter in the abstract.
@@ -153,7 +165,9 @@ anything afterward.
 Skeleton: standard STAR — situation, task, action (described with "I", naming your own part even when
 the project was a team effort), result (a number or an observable change you can point to). For the
 negative questions (failure, disagreement, pushback), add one sentence on what you changed about how you
-work because of it.
+work because of it. For the project you decided not to ship, add the bar you were judging against —
+missing data, a result short of a stated threshold, risk outweighing the benefit — and make it a bar you
+set yourself, not one someone else handed you after the fact.
 
 The common way to lose points on the negative questions is picking an example with no real stakes ("we
 disagreed about a variable name once") or attributing the failure to someone else's mistake instead of
@@ -163,6 +177,7 @@ owned — and be specific about your own role in the action step and the number 
 | Story | The failure mode specific to it |
 | --- | --- |
 | Drove and shipped | Can't separate "I" from "the team"; no number in the result |
+| Decided not to ship | Blames the non-release on an external cause (requirements changed, ran out of time) instead of naming the bar you judged it against |
 | Technical disagreement | Only states your own position, skips the other side's reasoning and how you converged |
 | Hardest problem | Equates "hard" with "took a long time"; can't name the specific step it got stuck on |
 | Failure | Picks a low-stakes example, or blames someone else |
@@ -213,14 +228,16 @@ Your view on AGI and safety:
   Risk 2:
   How this connects to your own work / what you'd do about it:
   Where you're still uncertain:
+  AI democratization: which risk category you'd prioritize mitigating first:
 
 The dilemma (the clarifying questions you'd ask first):
   1.
   2.
   3.
 
-Five STAR stories (title + one number each):
+Six STAR stories (title + one number each):
   Drove and shipped:
+  Decided not to ship:
   Technical disagreement:
   Hardest technical/collaboration problem:
   Failure:

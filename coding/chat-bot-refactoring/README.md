@@ -262,7 +262,10 @@ class PollBot(ChatBot):
 ```
 
 Implement these classes so that, for any sequence of `(sender, text, now)` triples, a `ChatRoom`
-with the three bots registered reproduces `handle_message`'s log line for line.
+with the three bots registered reproduces `handle_message`'s log line for line. There is no test
+suite to catch a mismatch: check this yourself by running `SCRIPT` through both `handle_message`
+and your `ChatRoom`, and diffing the two logs line by line, rather than reading the two code paths
+side by side and trusting they agree.
 
 ### Part 3 — Cross-bot events
 

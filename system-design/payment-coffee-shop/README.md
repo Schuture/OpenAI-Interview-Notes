@@ -20,7 +20,7 @@ accept a capture of up to 120% of the held amount. A hold that is never captured
 (cancelled, which releases the customer's funds): either the cashier cancels the order, or the payment
 system voids it on its own once it has waited too long. Every night, a batch job collects the day's
 captured transactions, groups them by PSP and merchant account, submits one settlement file per group,
-and reconciles the result against the PSP's own settlement report.
+and reconciles each group against the settlement report that comes back for it.
 
 Scale for this design:
 
@@ -34,18 +34,24 @@ Scale for this design:
   captured within 6 minutes of being placed must be voided by the payment system — the card's issuer
   would otherwise keep the funds on hold for days.
 - The nightly settlement batch starts once every store has closed for the day and must have every file
-  submitted within a 2-hour window; confirmation against the PSP's settlement report follows on the
-  next business day.
+  submitted within a 2-hour window; confirmation against the settlement reports follows on the next
+  business day.
 - The chain settles through two PSPs — a primary that carries normal traffic and a backup used only when
   the primary is degraded. Each store belongs to one of 5 merchant accounts, and each merchant account
   is set up at both PSPs.
+- Each PSP account — one PSP plus one merchant account — is held at a single acquiring bank, and that
+  bank is what pays the chain: per business day it makes one deposit and issues one settlement report
+  covering only that account's transactions. The card networks (Visa, Mastercard) send the chain
+  nothing and it never faces them directly, so a business day closes against one report and one deposit
+  per PSP account — five of them on a normal night — never against one consolidated report.
 - A single country, a single currency (US dollars, tracked in integer cents), one settlement calendar.
 
 In scope: the hold/capture/void/expire lifecycle of a single payment; idempotency on the hold call, the
 capture call, PSP callbacks, and the nightly batch; the ledger that records each capture; the nightly
-settlement batch and its reconciliation against the PSP's settlement report; behavior when a PSP is slow
-or unreachable. Out of scope: the PSP's own internals; the menu, inventory, and order-pricing logic
-(assume an order reaches the payment system as a computed total in minor currency units); loyalty and
+settlement batch and its reconciliation against the acquiring banks' settlement reports; behavior when
+a PSP is slow or unreachable. Out of scope: the PSP's own internals; the menu, inventory, and
+order-pricing logic (assume an order reaches the payment system as a computed total in minor currency
+units); loyalty and
 rewards points. The card number itself never reaches this system — the register's card reader and the
 PSP's SDK tokenize it before anything is sent here, so every request downstream of the register carries
 only a PSP-issued token, never a card number, which keeps raw card data, and most of the PCI DSS (the
@@ -60,8 +66,9 @@ Produce:
    settlement path, and a walk-through of one order along that path.
 4. Deep dives into: (a) what in this flow has to stay synchronous versus what can run later, and how a
    PSP timeout on the hold call is handled; (b) partial failure and rerun of the nightly settlement
-   batch, and how reconciliation against the PSP's settlement report catches missed or duplicated
-   entries; (c) consistency and sharding for the payment records, and behavior when a PSP degrades.
+   batch, and how reconciliation against each acquiring bank's settlement report catches missed or
+   duplicated entries; (c) consistency and sharding for the payment records, and behavior when a PSP
+   degrades.
 
 ## Reference solution
 
@@ -84,11 +91,10 @@ target of about 58 QPS for the online tier — round up to 60 for headroom.
 
 **Ledger, storage, and batch size.** 97% of the day's holds are captured, 2% voided, 1% expire, so
 $776{,}000$ payments/day reach `captured`; each posts two ledger rows, $1{,}552{,}000$ rows/day.
-At ~200 and ~120 bytes/row that is about 54 GiB/year of payment
-data and 63 GiB/year of ledger data, before indexes and replication. Split across 5 merchant accounts, a
+At ~200 and ~120 bytes/row that is about 54 GiB/year of payment data
+and 63 GiB/year of ledger data, before indexes and replication. Split across 5 merchant accounts, a
 normal night's captures average $155{,}200$ rows/account, about 14.8 MiB per settlement file at ~100
-bytes/row. None of this is large: the system is bound by correctness and latency, not data volume, and
-the 2-hour nightly window is for retries and validation, not raw throughput.
+bytes/row — none of it large: the system is bound by correctness and latency, not by data volume.
 
 ### Data model and API
 
@@ -110,8 +116,8 @@ correction is a new posting. `posting_key` names the event behind a posting (`ca
 every posting idempotent. A capture's pair is written in the same transaction as its `authorized →
 captured` update — ledger rows live on the payment's shard, so no distributed transaction is needed. A
 \$4.75 capture of a \$4.00 hold (a \$0.75 tip) debits `psp_receivable` 475, the asset "the PSP owes us",
-and credits `store_card_sales` 475, a per-store clearing account that the chain's accounting system
-(out of scope) splits into revenue, sales tax, and tips owed to staff.
+and credits `store_card_sales` 475, a per-store clearing account the chain's accounting system (out of
+scope) splits into revenue, sales tax, and tips.
 
 **Settlement batch** — `batch_id`, `business_date`, `psp_account_id`, `cutoff_at`,
 `state` (`building | submitted | reconciled | failed`), `file_reference` (derived from `batch_id`, so it
@@ -224,8 +230,8 @@ lookup itself times out, only the lookup is retried, with backoff, never the cre
 is still unknown after a few seconds, the register receives `pending` and the cashier can take another
 card under a fresh order; the expiry sweep keeps retrying the lookup, adopts a hold it finds (and voids
 it once the 6 minutes pass without a capture), and marks the payment `failed` only when the PSP confirms
-there is no hold. A request delayed in transit can still create the hold after that answer; its
-"authorized" webhook then meets a `failed` payment, and the handler voids the stray hold instead of
+there is no hold. A request delayed in transit can still create the hold after that answer: its
+"authorized" webhook then meets a `failed` payment, and the handler voids the stray hold rather than
 discarding the event.
 
 **Partial failure and rerun of the nightly batch.** One all-or-nothing transaction per file is simple
@@ -246,15 +252,17 @@ of blocking the file. Each step is safe to rerun after a crash:
    'building'`; after that no rerun claims or submits again. A file the PSP rejects outright marks the
    batch `failed` and returns its rows to `captured` for the next night.
 
-Reconciliation, the next business day, diffs the PSP's report against the claimed rows by
-`(psp_capture_id, amount)`. A matched row moves to `settled` through its own conditional update, so a
-rerun skips it. A claimed row missing from the report stays `settling` and is looked up at the PSP; it
-returns to `captured` only once the PSP confirms it was not settled — resubmitting it on a guess could
-settle it twice. A report row with no claim (a duplicate capture our checks should have stopped, or a
-manual PSP-side adjustment) is posted to a `suspense` account, keyed by the report row's id, and opens
-an investigation instead of being folded silently into the total. The payout is one posting per batch,
-keyed `payout:<batch_id>`: debit `bank_cash` (net) and `psp_fees` (the fee), credit `psp_receivable`
-(gross).
+Reconciliation, the next business day, runs per PSP account: it diffs that account's report against
+the rows that account's batch claimed, by `(psp_capture_id, amount)`, and the matched amounts less
+fees have to equal the single deposit that acquiring bank made for the day. Rolled into one
+chain-wide total, an account short by exactly what another is over would disappear. A matched row
+moves to `settled` through its own conditional update, so a rerun skips it. A claimed row missing
+from the report stays `settling` and is looked up at the PSP; it returns to `captured` only once the
+PSP confirms it was not settled — resubmitting it on a guess could settle it twice. A report row
+with no claim (a duplicate capture our checks should have stopped, or a manual PSP-side adjustment)
+is posted to a `suspense` account, keyed by the report row's id, and opens an investigation. The
+payout is one posting per batch, keyed `payout:<batch_id>`: debit `bank_cash` (net) and `psp_fees`
+(the fee), credit `psp_receivable` (gross).
 
 **Consistency, sharding, and PSP resilience.** Payment and ledger rows need strong consistency: every
 transition commits on its shard's primary with a synchronous replica, so a failover never loses a
@@ -262,11 +270,14 @@ committed capture, and every decision that depends on state (capture, void, batc
 primary, never an asynchronous replica that may lag.
 
 At ~60 QPS and ~120 GiB a year, one primary can carry the whole chain; the sharding key matters for
-growth, and is a real trade-off. `payment_id` spreads writes perfectly evenly but scatters one store's
-rows across every shard, turning a single-store statement or a store's clearing-account balance into a
-scatter-gather. `store_id` keeps them on one shard — a store with ten times the average traffic is still
-nowhere near a shard's ceiling — at the cost of uneven shard sizes, absorbed by hashing `store_id` into
-a fixed number of buckets, several stores per bucket. That favors `store_id`.
+growth, and is a real trade-off. Two dimensions that come up first are unavailable here: the card's
+issuing bank, which this system cannot name at all — only a PSP token reaches it, never a card
+number or a BIN — and the cardholder, who has no account in an in-store flow. That leaves
+`payment_id` and `store_id`. `payment_id` spreads writes perfectly evenly but scatters one store's
+rows across every shard, turning a single-store statement or a store's clearing-account balance into
+a scatter-gather. `store_id` keeps them on one shard — a store with ten times the average traffic is
+still nowhere near a shard's ceiling — at the cost of uneven shard sizes, absorbed by hashing
+`store_id` into a fixed number of buckets, several stores per bucket. That favors `store_id`.
 
 When a PSP is slow or unreachable, a circuit breaker trips on a rolling error rate (say, more than 20%
 failures over the last 50 calls), so holds fail fast instead of each waiting out a 1.3 s timeout; below
@@ -279,6 +290,10 @@ any payment whose capture is already requested.
 
 ### Follow-ups
 
+- Scaled up to 10,000 authorizations/s (864,000,000 a day), one account's nightly file would reach
+  15.6 GiB: cut it into parts of 100,000 rows, sorted by `payment_id`, about 1,700 of them, and record
+  each part's index on the batch row as the PSP accepts it, so a rerun resumes at the next part and
+  `submitted` is still set exactly once, at the end.
 - A refund, unlike a void, returns money that was already captured: it gets its own `refund:<refund_id>`
   posting (debit `store_card_sales`, credit `psp_receivable`) and settles as its own line in a later
   batch, never by mutating the original captured row, whose batch may already be reconciled.
@@ -287,6 +302,8 @@ any payment whose capture is already requested.
 <summary>Estimate check (runnable)</summary>
 
 ```python
+import math
+
 stores, avg_orders_per_store = 2_000, 400
 daily_orders = stores * avg_orders_per_store
 assert daily_orders == 800_000
@@ -330,6 +347,17 @@ rows_per_file = captured_per_day / merchant_accounts
 bytes_per_row = 100
 file_size_mib = rows_per_file * bytes_per_row / (1024 ** 2)
 assert round(file_size_mib, 1) == 14.8
+
+scaled_tps = 10_000                                 # the follow-up's larger chain
+scaled_daily_orders = scaled_tps * 86_400
+assert scaled_daily_orders == 864_000_000
+scaled_rows_per_file = scaled_daily_orders * capture_rate / merchant_accounts
+assert scaled_rows_per_file == 167_616_000
+scaled_file_gib = scaled_rows_per_file * bytes_per_row / GiB
+assert round(scaled_file_gib, 1) == 15.6
+rows_per_part = 100_000
+parts = math.ceil(scaled_rows_per_file / rows_per_part)
+assert parts == 1677                                # "about 1,700 parts"
 
 hold_p99_s, psp_p99_s, psp_timeout_s = 1.5, 1.2, 1.3
 assert round(hold_p99_s - psp_p99_s, 1) == 0.3     # our own share of the p99 budget

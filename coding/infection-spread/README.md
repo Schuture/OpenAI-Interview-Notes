@@ -105,8 +105,10 @@ day 0      day 1      day 2      day 3      day 4
 
 **Version B, deaths.** A new state `3` means *dead*. A dead cell never changes state and never infects
 others. A healthy cell becomes infected as in Part 3. If it has at least $K$ infected neighbours at the
-moment it becomes infected, then at the end of its $D$ days it dies instead of becoming immune. Return
-the day on which the outbreak ends and the number of dead cells.
+moment it becomes infected, then at the end of its $D$ days it dies instead of becoming immune. This
+$K$ is a threshold of its own and need not agree with the one of version A. The count is taken on that
+day only: an infected cell is never looked at again, so neighbours infected later neither doom it nor
+restart its $D$ days. Return the day on which the outbreak ends and the number of dead cells.
 
 **Version C.** Immune cells, recovery, a spread threshold and deaths combined in one simulation.
 
@@ -119,9 +121,28 @@ def simulate(grid: list[list[int]], recover_after: int, spread_threshold: int = 
 
 ### Part 5 — Intervention
 
-On each day you may choose one row or one column and clear every cell in it. Minimise the total number
-of deaths. This part is open-ended: fix the remaining rules yourself, for example whether cleared cells
-count as deaths and whether they block the spread afterwards, and state them.
+On day 0, before the first step, you may burn one whole row, one whole column, or nothing at all. Every
+cell of the burnt line becomes dead whatever its state was: it is never infected, it never infects, and
+it counts as a death. The rules of Part 4 version C then run to the end. Return the smallest total
+number of deaths that can be reached.
+
+```py
+def min_deaths(grid: list[list[int]], recover_after: int, death_threshold: int,
+               spread_threshold: int = 1) -> int:
+    """Returns the smallest number of dead cells over the R + C + 1 choices."""
+```
+
+Example with $D = 2$ and both thresholds 1, columns numbered 0 to 3 from the left: burning nothing
+costs 9 deaths, burning column 3 costs 11, burning column 2 costs 4, and the answer is `4`.
+
+```text
+0 0 0 1
+0 0 0 1
+0 0 1 0
+```
+
+Everything else is yours to fix and to state: whether the burn may be delayed to a later day, whether
+more than one line may be burnt, and whether a part of a line may be burnt.
 
 ## Reference solution
 
@@ -194,6 +215,7 @@ def simulate(grid, recover_after, spread_threshold=1, death_threshold=None):
         return 0, 0
     rows, cols = len(grid), len(grid[0])
     state = [row[:] for row in grid]
+    # NOTE: the cells infected in the input carry a timer too, with t0 = 0; they recover on day D
     infected_on = {(r, c): 0 for r in range(rows) for c in range(cols) if state[r][c] == INFECTED}
     doomed = set()
     day = deaths = 0
@@ -230,12 +252,39 @@ def days_until_outbreak_ends(grid, D):          # Part 3 is the engine with thre
 
 ### Part 5
 
-There is no established algorithm. A reasonable answer is exhaustive search over the $R + C$ choices
-per day on small grids, a greedy rule on large ones (clear the row or column that currently holds the
-most infected cells), and a clear statement that the greedy rule is not optimal.
+The intervention is chosen once, so the whole decision space is $R + C + 1$ options: burn nothing, or
+burn one of the $R$ rows or $C$ columns. Each option is one run of the Part 4 engine on a copy of the
+grid with that line set to `3`, and the engine needs no change, because a dead cell is neither healthy
+nor infected and so already plays no part. The minimum over the options is therefore exact, at
+$O((R + C) \cdot R \cdot C \cdot D)$. A line costs its whole length in deaths the moment it is burnt, so
+it pays only when it seals the infection into a small part of the grid. Burning the line that holds the
+most infected cells is the wrong rule: it spends that length where the infection already is instead of
+where it is going, and on the grid of the statement that line is column 3, which ends up worse than
+burning nothing. If the burn may also be delayed or repeated, the options multiply by $R + C + 1$ per
+day and the search has to be narrowed to a few candidate lines per day.
+
+```python
+def min_deaths(grid, recover_after, death_threshold, spread_threshold=1):
+    """Part 5: the best of burning nothing and burning one whole row or column on day 0."""
+    if not grid or not grid[0]:
+        return 0
+    rows, cols = len(grid), len(grid[0])
+    lines = [[(r, c) for c in range(cols)] for r in range(rows)]
+    lines += [[(r, c) for r in range(rows)] for c in range(cols)]
+    best = simulate(grid, recover_after, spread_threshold, death_threshold)[1]   # burning nothing
+    for line in lines:
+        burnt = [row[:] for row in grid]
+        for r, c in line:
+            burnt[r][c] = DEAD                  # NOTE: a burnt cell counts as a death whatever it was
+        rest = simulate(burnt, recover_after, spread_threshold, death_threshold)[1]
+        best = min(best, len(line) + rest)      # NOTE: the line itself already costs len(line) deaths
+    return best
+```
 
 ### Follow-ups
 
+- The two thresholds of version B are independent. A death threshold at or below the spread threshold
+  kills every cell infected after day 0; one above 4 kills nobody, since a cell has at most four neighbours.
 - Characters instead of integers (`.`, `X`, `I`): convert on input and keep the core numeric.
 - Very large or sparse grids: store only the set of infected cells and the frontier, or split the grid
   into tiles that exchange their borders after every day.
@@ -254,6 +303,9 @@ b = [[1, 2, 0],
 d = [[1, 0, 1],
      [0, 0, 0],
      [1, 0, 0]]
+e = [[0, 0, 0, 1],
+     [0, 0, 0, 1],
+     [0, 0, 1, 0]]
 
 # Parts 1-2: the examples of the statement and the edge cases
 assert days_until_all_infected(a) == 2
@@ -271,6 +323,69 @@ assert days_until_outbreak_ends(a, 3) == 2 + 3          # d_max + D
 # Part 4: variant A (the traced example) and variant B
 assert simulate(d, 2, spread_threshold=2) == (4, 0)
 assert simulate(d, 2, death_threshold=2) == (4, 4)
+# a death threshold at or below the spread threshold, then one that no cell can ever reach
+assert simulate(d, 2, spread_threshold=2, death_threshold=1)[1] == 3    # all three cells infected later die
+assert simulate(d, 2, death_threshold=5)[1] == 0                        # nobody has five neighbours
+
+
+def burn(grid, line, index):
+    return [[DEAD if (r if line == "row" else c) == index else v for c, v in enumerate(row)]
+            for r, row in enumerate(grid)]
+
+
+# Part 5: the example of the statement, and why "burn the most infected line" is the wrong rule
+assert simulate(e, 2, death_threshold=1)[1] == 9                        # burning nothing
+assert 3 + simulate(burn(e, "col", 3), 2, death_threshold=1)[1] == 11   # the column with two infected cells
+assert 3 + simulate(burn(e, "col", 2), 2, death_threshold=1)[1] == 4    # the column that seals the rest off
+assert min_deaths(e, 2, 1) == 4
+assert min_deaths([[0, 0], [0, 0]], 2, 1) == 0 and min_deaths([], 2, 1) == 0
+
+
+def naive_min_deaths(grid, D, k_death, k_spread=1):
+    """Straight from the statement: a whole-grid rewrite per day, sharing nothing with simulate()."""
+    rows, cols = len(grid), len(grid[0])
+    options = [[]] + [[(r, c) for c in range(cols)] for r in range(rows)] \
+                   + [[(r, c) for r in range(rows)] for c in range(cols)]
+    totals = []
+    for line in options:
+        state = [row[:] for row in grid]
+        for r, c in line:
+            state[r][c] = DEAD
+        age = {(r, c): 0 for r in range(rows) for c in range(cols) if state[r][c] == INFECTED}
+        fatal, deaths = set(), len(line)
+        while age:
+            for cell in list(age):
+                age[cell] += 1
+                if age[cell] >= D:
+                    del age[cell]
+                    state[cell[0]][cell[1]] = DEAD if cell in fatal else IMMUNE
+                    deaths += cell in fatal
+            before = [row[:] for row in state]
+            for r in range(rows):
+                for c in range(cols):
+                    if before[r][c] != HEALTHY:
+                        continue
+                    n = sum(before[r + dr][c + dc] == INFECTED for dr, dc in STEPS
+                            if 0 <= r + dr < rows and 0 <= c + dc < cols)
+                    if n >= k_spread:
+                        state[r][c], age[(r, c)] = INFECTED, 0
+                        if n >= k_death:
+                            fatal.add((r, c))
+        totals.append(deaths)
+    return min(totals)
+
+
+# every 3x4 grid with two infected cells, against the naive version
+cases = 0
+for i in range(12):
+    for j in range(i + 1, 12):
+        g = [[HEALTHY] * 4 for _ in range(3)]
+        g[i // 4][i % 4] = g[j // 4][j % 4] = INFECTED
+        for days in (1, 2, 3):
+            for threshold in (1, 2):
+                assert min_deaths(g, days, threshold) == naive_min_deaths(g, days, threshold)
+                cases += 1
+assert cases == 396
 ```
 
 </details>

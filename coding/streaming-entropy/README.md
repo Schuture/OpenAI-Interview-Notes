@@ -15,7 +15,8 @@ $x$ denote `logits` and $p = \mathrm{softmax}(x)$,
 
 $$p_i = \frac{e^{x_i}}{\sum_{k=0}^{N-1} e^{x_k}}, \qquad i = 0, \dots, N-1,$$
 
-and let $H(p) = -\sum_i p_i \log p_i$ be its entropy, with $\log$ the natural logarithm throughout.
+and let $H(p) = -\sum_i p_i \log p_i$ be the *Shannon entropy* of $p$, with $\log$ the natural
+logarithm throughout.
 Every $p_i \in (0, 1]$, so $H(p) \ge 0$, and every part below returns this non-negative value (not the
 raw sum $\sum_i p_i \log p_i$, which is $\le 0$). Implement the following four parts in NumPy.
 

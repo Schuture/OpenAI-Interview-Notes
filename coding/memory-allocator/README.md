@@ -14,7 +14,8 @@ An address space of `capacity` bytes is the integer range `[0, capacity)`; every
 any moment, either allocated or free. A *block* is a maximal contiguous range of addresses that is
 entirely allocated or entirely free. Because `free` always merges a newly released block with a
 touching free block, two free blocks are never adjacent to each other. Implement the following
-two parts in Python, using only the standard library.
+two parts in Python, using only the standard library. Also write your own tests for both classes,
+and be ready to explain how you would design them.
 
 ### Part 1 — First fit, linear scan
 
@@ -56,7 +57,9 @@ free(0, 5)    # touches [5, 25) on the right                         -> free: [0
 
 Implement `MemoryAllocatorLog`, with the same constructor and the same two methods as `MemoryAllocator`
 above, returning the same values and raising the same errors for every input — but with `allocate` and
-`free` both running in $O(\log n)$, where $n$ is the number of free blocks currently tracked.
+`free` both running in $O(\log n)$, where $n$ is the number of free blocks currently tracked. Across
+the whole call sequence there are at most $2 \times 10^5$ calls to `allocate` and `free` combined,
+and `capacity` can be as large as $10^9$.
 
 ```py
 class MemoryAllocatorLog:
@@ -272,9 +275,12 @@ balanced tree — which a deterministic AVL or red-black tree would remove at th
   contents must be copied into a fresh block from `allocate`, which the caller sees as a new address.
 - **Thread safety.** One lock around the whole allocator is the simplest correct option; splitting it by
   size class needs a lock order, since a `free` can touch a neighbour tracked under another class.
-- **External fragmentation.** Segregated free lists route each request to a list of same-size blocks;
-  the buddy system keeps every block a power of two, so a freed block's buddy is found by flipping one
-  address bit, making merging $O(1)$ at the cost of rounding every request up.
+- **External fragmentation.** Picking first fit or best fit per call, through an added `strategy`
+  argument, needs a second index for best fit ordered by `(size, start)` so ties go to the lower
+  address, kept in sync with every merge in `free`. Segregated free lists route each request to a list
+  of same-size blocks instead; the buddy system keeps every block a power of two, so a freed block's
+  buddy is found by flipping one address bit, making merging $O(1)$ at the cost of rounding every
+  request up.
 - **`free` without a size.** Recording the size at allocation time — the `allocated` map here, or a
   header just before the returned address in a real allocator — is required, or nothing tells
   `free(address)` how many bytes to release.
@@ -440,6 +446,33 @@ for trial in range(400):
         assert all(g0[k][0] + g0[k][1] < g0[k + 1][0] for k in range(len(g0) - 1))    # no two touch
 
 print("random cross-check against the byte-array oracle: OK (400 trials x 60 ops)")
+
+
+import time
+
+# NOTE: capacity this large rules out the byte-array oracle above (it would need a ~1GB bytearray);
+# check conservation of space and elapsed time instead, since n (the free-block count) is what O(log n) is measured in
+capacity = 10 ** 9
+big = MemoryAllocatorLog(capacity)
+live = []
+rng = random.Random(3)
+start = time.perf_counter()
+for _ in range(6_000):
+    if live and rng.random() < 0.5:
+        addr, size = live.pop(rng.randrange(len(live)))
+        big.free(addr, size)
+    else:
+        size = rng.randint(1, 10 ** 6)
+        try:
+            live.append((big.allocate(size), size))
+        except MemoryError:
+            pass
+elapsed = time.perf_counter() - start
+assert elapsed < 3.0, elapsed          # a handful of hundred free blocks, not 10**9 addresses, drives the cost
+gaps = free_blocks(big)
+assert sum(g[1] for g in gaps) + sum(size for _, size in live) == capacity
+assert all(gaps[k][0] + gaps[k][1] < gaps[k + 1][0] for k in range(len(gaps) - 1))
+print(f"capacity=10**9, 6000 calls: {len(gaps)} free blocks left, {elapsed:.3f}s, space fully accounted for")
 ```
 
 </details>

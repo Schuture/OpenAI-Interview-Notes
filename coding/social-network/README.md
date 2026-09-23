@@ -263,6 +263,9 @@ class FollowTimeline:
         events = self._events.get(key)
         if not events:
             return False
+        # NOTE: binary search over this one pair's own event list; the alternative -- keeping a
+        # full graph snapshot for every past instant and deep-copying one on each event -- would
+        # cost O(n + m) per event instead of the O(1) amortized appends follow()/unfollow() do
         i = bisect.bisect_right(events, t)   # NOTE: bisect_right, so a stop/start AT t is already in effect
         return i % 2 == 1                    # NOTE: relies on the log alternating start/stop, first event a start
 
@@ -308,6 +311,9 @@ O(total calls so far) per query instead.
 - `recommend` could weight each intermediary by how recently `user_id` interacted with them instead of
   counting every one equally, or repeat the same counting step one level further out for 3-hop
   suggestions.
+- The four parts can also be asked as two separate problems: one that stops at snapshots and history
+  queries (Parts 1, 2, and 4), and a second, differently-framed one that wraps the same snapshot API as
+  a versioned key-value store (`SET`/`GET` by version number instead of `follow`/`is_following`).
 
 <details>
 <summary>Checks (runnable)</summary>

@@ -1,0 +1,15 @@
+title: Device Fleet Monitoring and Command Dispatch
+title_zh: 大规模设备监控与指令下发
+summary: 'A demand-response platform pushes power-reduction commands to millions of grid-connected
+  devices over an unreliable public network and tracks each device''s delivery/accept/reject/execute
+  state, while owners can refuse or revoke and late telemetry must be able to correct reports already
+  published.'
+summary_zh: 需求响应平台通过不可靠的公网向百万级联网设备下发限电指令并跟踪每台设备的送达/接受/拒绝/执行状态，设备所有者可以拒绝或撤销指令，迟到的遥测还要能修正已经发布的报表。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE, Infra Eng]
+topics: [iot, messaging, idempotency, reconciliation, telemetry]
+frequency: medium
+stage: [phone-screen, onsite]
+order: 21

@@ -12,7 +12,7 @@
 
 一个*工作队列*（work queue）存放任务，供工人（worker）领取、处理并报告结果。每个任务在提交时带有一个调用方
 指定的 `task_id`（在所有提交过的任务里唯一）和一个不透明的 `payload`（队列不检查它的内容）。工人由字符串
-`worker_id` 标识。
+`worker_id` 标识。一次运行里，对下面这些方法的调用总数不超过 $2 \times 10^5$。
 
 每一次公开方法调用都是原子的：不会有两次调用相互交错执行。任务在一个小型状态机中流转，这一部分只需要其中
 三种状态：
@@ -102,6 +102,7 @@ class ManualClock:
 `WorkQueue` 的构造函数现在还接收 `clock`（一个 `ManualClock`）和一个正整数 `lease_duration`。当 `reserve`
 在时刻 `t = clock.now()` 签发一次预约时，它的*租约截止时刻*（lease deadline）是 `t + lease_duration`；这次
 预约在这一刻（含）之前始终有效，一旦 `clock.now()` 严格大于这个截止时刻，这次预约就*过期*了。
+`lease_duration` 和时钟返回的每个读数都不超过 $10^9$。
 
 没有后台线程扫描过期情况。取而代之的是：每次调用 `WorkQueue` 的任何一个方法（包括 `submit`），都先做一轮
 *回收*（reclaiming pass）：把此刻已经过期的每一次预约结束掉，效果和对应的工人在这一刻调用了一次 `fail`
@@ -286,8 +287,7 @@ except InvalidReservationError:
 从不直接删除（惰性删除）：`_reclaim_expired` 弹出一个条目时，如果它的 `token` 等于任务*当前*的 token，
 说明任务还停在这次预约上，确实过期了；否则任务在此之后已经被完成、失败或重新预约，作废的条目直接
 丢掉。设 $n$ 为迄今的方法调用次数，堆里的条目从不超过 $n$ 个。每次预约只 push 一次、最多 pop 一次，
-所以 $n$ 次调用在堆上的总开销是 $O(n \log n)$，均摊每次 $O(\log n)$；但一次调用碰上 $k$ 个过期租约时
-要付 $O(k \log n)$。
+所以 $n$ 次调用在堆上的总开销是 $O(n \log n)$，均摊每次 $O(\log n)$。
 
 ```python
 def __init__(self, clock, lease_duration):
@@ -405,8 +405,7 @@ WorkQueue.requeue_dead = requeue_dead
 ```
 
 `max_attempts = 1` 不需要任何特殊处理：第一次预约就把 `attempts` 记到 `1`，所以只要 `fail` 一次
-（或过期一次），任务就直接进入 `dead`。有 $d$ 个死信任务时，`dead_letters` 要把每个 id 拷贝出来，开销是
-$O(d)$；`requeue_dead` 里的 `list.remove` 也是 $O(d)$。
+（或过期一次），任务就直接进入 `dead`。
 
 ### 追问
 
@@ -416,6 +415,8 @@ $O(d)$；`requeue_dead` 里的 `list.remove` 也是 $O(d)$。
 - `lease_duration` 太短，会在只是处理得慢的任务上白白耗掉重试预算；太长，崩溃的工人手里的任务又要卡
   更久。加一个 `heartbeat(task_id, token)`，让还活着的工人把截止时刻往后推，租约就能设得短些。
 - 队列只在内存里，一次崩溃就丢失全部状态。要持久化，就在每次状态转移作用到内存之前先写日志，重启后重放。
+- 给任务加一组 `dependencies`：任务先停在第五个状态 `blocked`，等每个依赖都到达 `completed` 才进
+  `ready` 队尾；依赖可以指向还没提交的任务，`submit` 要沿依赖边走一遍，走回自己就拒绝。
 
 <details>
 <summary>验证代码（可运行）</summary>

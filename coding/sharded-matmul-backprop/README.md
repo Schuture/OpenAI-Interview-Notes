@@ -26,9 +26,12 @@ A *shard* of a matrix is a contiguous slice along one of its axes, assigned to o
 $W_0, \dots, W_{n-1}$, and every device holds a full copy of $X$. In *row-parallel* sharding, $W$ is
 split along its input axis (`axis=0`, size `d_in`) into shards $W_0, \dots, W_{n-1}$, and $X$ is split
 along its own feature axis (also size `d_in`) to match, so device $k$ holds only $X_k$, the columns of
-$X$ that line up with the rows of $W_k$. For example, with `d_out = 7` and $n = 3$ devices,
-`np.array_split` gives column widths $3, 2, 2$: device 0's shard of $W$ has shape `(d_in, 3)`, devices 1
-and 2 have shape `(d_in, 2)`.
+$X$ that line up with the rows of $W_k$. When the length of the axis being split is not divisible by
+$n$, the remainder is spread one entry at a time over the first shards: with `d_out = 7` and $n = 3$
+devices the column widths are $3, 2, 2$, so device 0's shard of $W$ has shape `(d_in, 3)` and devices 1
+and 2 have shape `(d_in, 2)`. The sizes here are small — `B`, `d_in` and `d_out` at most 50, entries
+within $\pm 100$ — and $n$ never exceeds the length of the axis being split, so no device ends up with
+an empty shard.
 
 ### Part 1 — Forward and backward by hand
 
@@ -114,8 +117,7 @@ def layer1_forward(X, W1_shards):
 def layer1_backward(X, W1_shards, Z1_shards, H_shards, dH_shards):
     dZ1_shards = [dHk * (1 - Z1k ** 2) for dHk, Z1k in zip(dH_shards, Z1_shards)]
     dW1_shards = [dZ1k.T @ X for dZ1k in dZ1_shards]
-    dX_partial = [dZ1k @ W1k.T for dZ1k, W1k in zip(dZ1_shards, W1_shards)]
-    dX_shards = all_reduce(dX_partial)
+    dX_shards = [dZ1k @ W1k.T for dZ1k, W1k in zip(dZ1_shards, W1_shards)]
     return dW1_shards, dX_shards
 
 
@@ -153,7 +155,7 @@ def check_gradients(seed=0):
     dW2_shards, dH_shards = layer2_backward(H_shards, W2_shards, dY)
     dW1_shards, dX_shards = layer1_backward(X, W1_shards, Z1_shards, H_shards, dH_shards)
 
-    W1_full = all_gather(W1_shards, axis=0)[0]
+    W1_full = all_gather(W1_shards, axis=1)[0]
     W2_full = all_gather(W2_shards, axis=0)[0]
     Z1 = X @ W1_full
     H = np.tanh(Z1)
@@ -234,7 +236,7 @@ def all_gather(shards, axis):
 def all_reduce(shards):
     """shards[k]: device k's partial sum, all the same shape. Returns, for every device, the same
     elementwise sum across all the shards."""
-    total = sum(shards)
+    total = sum(shards)        # NOTE: given only a gather, this is a gather on a fresh axis plus a local sum
     return [total for _ in shards]
 
 
@@ -273,10 +275,10 @@ bugs of the rows above it are fixed.
 | Already fixed | Output of `check_gradients()` | Points to |
 | --- | --- | --- |
 | nothing | `ValueError: matmul: ... (size 2 is different from 3)`, raised in `layer2_forward` | `shard_rows` cuts at other boundaries than `shard_columns` |
-| row 1 | `ValueError: ... along dimension 1, the array at index 0 has size 3 and the array at index 1 has size 2`, raised by the `all_gather` in `check_gradients` | `W1` is reassembled along the wrong axis |
-| rows 1–2 | the same `ValueError` with `along dimension 0`, raised where `dW1_shards` are concatenated | the transpose in `dW1` is swapped |
-| rows 1–3 | errors `Y` 1.01, `dW1` 0.50, `dW2` 0.20, `dX` 0.18 | the forward result is already wrong: `layer2_forward` lacks its all-reduce |
-| rows 1–4 | `Y` and `dW2` exact to `1e-16`; `dW1` 0.77, `dX` 0.28 | only what passes through `layer1_backward` is wrong: the activation derivative |
+| row 1 | `ValueError: ... along dimension 0, the array at index 0 has size 3 and the array at index 1 has size 2`, raised where `dW1_shards` are concatenated | the transpose in `dW1` is swapped |
+| rows 1–2 | errors `Y` 1.01, `dW1` 0.50, `dW2` 0.20, `dX` 0.28 | the forward result is already wrong: `layer2_forward` lacks its all-reduce |
+| rows 1–3 | `Y` and `dW2` exact to `1e-16`; `dW1` 0.77, `dX` 0.31 | only what passes through `layer1_backward` is wrong: the activation derivative |
+| rows 1–4 | `Y`, `dW1`, `dW2` exact; `dX` 0.29 | $\bar X$ alone is wrong: nothing sums it across devices |
 | all five | all four errors at most `1e-16` | — |
 
 **Shard boundaries disagree.** `shard_columns` uses `np.array_split`, giving hidden-dimension widths
@@ -289,16 +291,6 @@ forward pass.
 ```py
 def shard_rows(A, n):
     return np.array_split(A, n, axis=0)      # same split function as shard_columns, only the axis differs
-```
-
-**Wrong concatenation axis.** Reassembling the full $W_1$ for the reference calls
-`all_gather(W1_shards, axis=0)`; but $W_1$ was split along `axis=1` (`shard_columns`), so its shards
-differ in size along `axis=1` (3, 2, 2), not `axis=0`. Concatenating along the wrong axis requires the
-*other* axis to match across shards, which it does not. With equal shard widths the call would succeed and silently build a
-`(3 * d_in, d_hidden / 3)` matrix, which is why the uneven split is the useful test case.
-
-```py
-W1_full = all_gather(W1_shards, axis=1)[0]      # W1 was split by columns (shard_columns), axis=1
 ```
 
 **Transpose swapped.** For $Y = AB$, $\bar B = A^\top \bar Y$; here $Y_k = X W_{1,k}$, so
@@ -328,10 +320,25 @@ $\bar Z_1 = \bar H \odot \tanh'(Z_1)$. The correct derivative $\tanh'(z) = 1 - \
 function of the *output* $h$, not of the pre-activation $z$; the buggy line uses $z$ in place of $h$,
 giving $1 - z^2$ wherever $z \ne h$, i.e. everywhere `tanh` actually bends the input. Both arrays have
 shape `(B, hidden_k)`, so nothing raises: `dZ1` is silently wrong, corrupting `dW1` and `dX`, while $Y$
-and $\bar W_2$ stay exact since neither depends on this line.
+and $\bar W_2$ stay exact since neither depends on this line. With `relu` in place of `tanh` this
+particular slip would be invisible — `z > 0` and `h > 0` are the same mask — and the error that bites
+there instead is writing the derivative as the activation itself, `np.where(z > 0, z, 0)`, which scales
+the gradient by $z$ rather than masking it.
 
 ```py
 dZ1_shards = [dHk * (1 - Hk ** 2) for dHk, Hk in zip(dH_shards, H_shards)]   # tanh'(z) = 1 - h^2, h = tanh(z)
+```
+
+**The input gradient is never summed.** Every device multiplies the same $X$, so $X$ reaches the loss
+through all $n$ local products and its gradient is a sum over them,
+$\bar X = \sum_k \bar Z_{1,k} W_{1,k}^\top$: whatever the forward pass replicates or gathers, the
+backward pass has to sum back up. Returning the list of local products leaves device $k$ with a single
+one of those $n$ terms; every array keeps its shape `(B, d_in)`, so nothing raises, and $Y$, $\bar W_1$
+and $\bar W_2$, none of which read $\bar X$, stay exact.
+
+```py
+dX_partial = [dZ1k @ W1k.T for dZ1k, W1k in zip(dZ1_shards, W1_shards)]
+dX_shards = all_reduce(dX_partial)      # X is replicated, so its gradient is summed across devices
 ```
 
 ### Follow-ups
@@ -423,7 +430,7 @@ def layer1_backward(X, W1_shards, Z1_shards, H_shards, dH_shards):
     dZ1_shards = [dHk * (1 - Hk ** 2) for dHk, Hk in zip(dH_shards, H_shards)]   # bug 1 fix: use H, not Z1
     dW1_shards = [X.T @ dZ1k for dZ1k in dZ1_shards]                            # bug 2 fix: X.T @ dZ1k
     dX_partial = [dZ1k @ W1k.T for dZ1k, W1k in zip(dZ1_shards, W1_shards)]
-    dX_shards = all_reduce(dX_partial)
+    dX_shards = all_reduce(dX_partial)      # bug 5 fix: X is replicated, so its gradient is summed
     return dW1_shards, dX_shards
 
 
@@ -461,7 +468,7 @@ def check_gradients(seed=0):
     dW2_shards, dH_shards = layer2_backward(H_shards, W2_shards, dY)
     dW1_shards, dX_shards = layer1_backward(X, W1_shards, Z1_shards, H_shards, dH_shards)
 
-    W1_full = all_gather(W1_shards, axis=1)[0]   # bug 5 fix: W1 was split by columns, axis=1
+    W1_full = all_gather(W1_shards, axis=1)[0]   # W1 was split by columns, so it is gathered along axis=1
     W2_full = all_gather(W2_shards, axis=0)[0]
     Z1 = X @ W1_full
     H = np.tanh(Z1)
@@ -535,7 +542,8 @@ def run_with_one_bug(bug, seed=0):
         dW1_shards = [dZ1k.T @ X for dZ1k in dZ1_shards]
     else:
         dW1_shards = [X.T @ dZ1k for dZ1k in dZ1_shards]
-    dX_shards = all_reduce([dZ1k @ W1k.T for dZ1k, W1k in zip(dZ1_shards, W1_shards)])
+    dX_partial = [dZ1k @ W1k.T for dZ1k, W1k in zip(dZ1_shards, W1_shards)]
+    dX_shards = dX_partial if bug == "input-grad" else all_reduce(dX_partial)
 
     dW1 = np.concatenate(dW1_shards, axis=1)
     dW2 = np.concatenate(dW2_shards, axis=0)
@@ -555,6 +563,10 @@ e = run_with_one_bug("activation")                                # NOTE: Y and 
 assert e["Y"] < 1e-8 and e["dW2"] < 1e-8 and e["dW1"] > 0.5 and e["dX"] > 0.1, e
 print("activation bug alone:", e)
 
+e = run_with_one_bug("input-grad")                                # NOTE: only dX is wrong, and only by a sum
+assert e["Y"] < 1e-8 and e["dW1"] < 1e-8 and e["dW2"] < 1e-8 and e["dX"] > 0.1, e
+print("missing backward reduction alone:", e)
+
 try:
     run_with_one_bug("transpose")
     raise AssertionError("expected a ValueError")
@@ -569,13 +581,10 @@ except ValueError as err:
     print("boundary bug alone:", err)
     assert "matmul" in str(err) and "size 2 is different from 3" in str(err)
 
-zeros_shards = shard_columns(np.zeros((D_IN, D_HIDDEN)), N)
-try:
-    all_gather(zeros_shards, axis=0)                              # should be axis=1
-    raise AssertionError("expected a ValueError")
-except ValueError as err:
-    print("axis bug alone:", err)
-    assert "dimension 1" in str(err) and "size 3" in str(err) and "size 2" in str(err)
+z = np.linspace(-2.0, 2.0, 9)                                     # the relu remark of the activation bug
+assert np.array_equal(z > 0, np.maximum(z, 0) > 0)                # the mask is the same from z or from h
+assert not np.array_equal(np.where(z > 0, z, 0), (z > 0).astype(float))     # relu itself is not its derivative
+print("relu: mask(z) == mask(h), and relu(z) != relu'(z)")
 ```
 
 </details>

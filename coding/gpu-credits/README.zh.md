@@ -33,7 +33,9 @@
 也没有欠额时——第一笔授予生效之前，或者最后一笔授予过期之后——$v = 0$，返回值是整数 `0`，而不是 `None`。
 
 数量、时间戳和时长都是非负整数。`add_credit` 与 `subtract` 合在一起，任何两次调用的 `timestamp` 都不相同；
-不过两笔不同的授予可以在同一时刻过期。
+不过两笔不同的授予可以在同一时刻过期。整个调用序列中，$U$（`add_credit`/`subtract` 调用次数）和 $Q$
+（`get_balance` 调用次数）各自最多 $2 \times 10^4$；`timestamp`、`expiration` 都不超过 $10^9$，`amount`
+在 $1$ 到 $10^9$ 之间，累计总额可能超出 32 位整数的范围。
 
 ### Part 1 —— 按时间顺序到达
 
@@ -98,11 +100,10 @@ get_balance(70) -> 0            # s2 和 s3 都已过期；它们还掉的欠额
 ### Part 3 —— 快速回答大量查询
 
 实现 `GPUCreditLedgerFast`，行为与 `GPUCreditLedgerAnyOrder` 相同，但要让一段以 `get_balance` 为主的长
-调用序列跑得快。设共有 $U$ 次 `add_credit`/`subtract` 调用和 $Q$ 次 `get_balance` 调用，查询的时间戳非降序，
-且每次查询都发生在所有 `timestamp` 不超过它的 `add_credit`/`subtract` 之后；此时全部 $Q$ 次 `get_balance`
-调用合计耗时必须是 $O(U \log U + Q)$——而每次查询都从头重放全部调用要花 $O(Q \cdot U \log U)$。其他到达
-方式（查询不满足上述顺序，或者有 `add_credit`/`subtract` 落在某个已经查询过的时间戳上或它之前）可以退化到
-较慢的路径，但 `get_balance` 仍必须返回上面定义的那个值。
+调用序列跑得快。当 $Q$ 次 `get_balance` 调用的时间戳非降序，且每次查询都发生在所有 `timestamp` 不超过它的
+`add_credit`/`subtract` 之后时，全部 $Q$ 次调用合计耗时必须是 $O(U \log U + Q)$——而每次查询都从头重放
+全部调用要花 $O(Q \cdot U \log U)$。其他到达方式（查询不满足上述顺序，或者有 `add_credit`/`subtract`
+落在某个已经查询过的时间戳上或它之前）可以退化到较慢的路径，但 `get_balance` 仍必须返回上面定义的那个值。
 
 ```py
 class GPUCreditLedgerFast:
@@ -296,6 +297,8 @@ $O(U \log U + Q)$。`bisect.insort` 每次调用仍要花 $O(n)$ 移动列表；
   授予，额度的过期时间就变了。
 - 同一个 `timestamp` 上有多个事件：一旦允许，就要约定次序作为排序的第二关键字，例如先授予、后消耗，再按
   调用先后。
+- 拒绝迟到的 `add_credit`，而不是照单全收：记住 `get_balance` 已经回答过的最大时间戳，任何落在它之前或
+  之上的 `add_credit`/`subtract` 都直接报错。
 
 <details>
 <summary>验证代码（可运行）</summary>
@@ -363,6 +366,15 @@ ops = [('sub', 4, 15), ('add', 'c', 6, 20, 5)]          # spent before c activat
 assert [reference_balance(ops, t) for t in (14, 15, 19, 20, 25, 26)] == [0, None, None, 2, 2, 0]
 ops = [('add', 'z', 5, 7, 0)]                           # expiration 0: valid at exactly one instant
 assert [reference_balance(ops, t) for t in (6, 7, 8)] == [0, 5, 0]
+
+# amounts beyond a 32-bit range: five grants of 10**9 each, none expired by the time they are all queried
+big_ops = [('add', f'big{i}', 10 ** 9, i, 100) for i in range(5)]
+for cls in (GPUCreditLedger, GPUCreditLedgerAnyOrder, GPUCreditLedgerFast):
+    ledger = cls()
+    for op in big_ops:
+        feed(ledger, op)
+    got = ledger.get_balance(4)
+    assert got == 5 * 10 ** 9 == reference_balance(big_ops, 4) and got > 2 ** 32, (cls.__name__, got)
 
 
 def random_ops(rng, n, ts_max):

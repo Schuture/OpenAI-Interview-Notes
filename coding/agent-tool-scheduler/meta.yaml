@@ -1,0 +1,14 @@
+title: Scheduling Agent Tool Calls with Dependencies
+title_zh: 带依赖的工具调用调度
+summary: Schedule every agent's dependent tool calls under a concurrency cap, escalating from one agent's own cap, to independent per-agent caps, to one cap shared by all agents, with a deterministic tie-break and an event-driven simulator instead of a per-tick scan.
+summary_zh: 用离散事件模拟在并发上限下调度各个 agent 里有依赖关系的工具调用：由单个 agent 自己的并发上限，到多个 agent 各自独立的上限，再到所有 agent 共享同一个全局上限；确定性的字典序并列规则，用事件驱动模拟取代逐时间步扫描。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE, RE, Infra Eng]
+topics: [scheduling, dag, simulation, concurrency]
+difficulty: medium
+frequency: rare
+stage: [phone-screen]
+format: 3 parts
+order: 36

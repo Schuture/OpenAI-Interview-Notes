@@ -12,7 +12,8 @@ For every problem folder:
   * every ```python (runnable) and ```py (illustrative) block is byte-identical in the two languages
   * no template placeholder comments are left
   * warning (does not fail the check): sentences that talk about where the material comes from instead
-    of the problem, e.g. "reports say", "candidates", "面经", "候选人" (CONTRIBUTING, writing rules)
+    of the problem, e.g. "reports say", "candidates", "面经", "候选人" (CONTRIBUTING, writing rules), and
+    Chinese prose written with ASCII quotes or ASCII commas
 Across the repo:
   * every relative Markdown link points at something that exists, including the #heading anchor
 """
@@ -40,6 +41,9 @@ SOURCE_TALK = {
 }
 # Chinese prose should use full-width quotes “ ”; code spans and maths are masked first
 ASCII_QUOTE = re.compile(r'[\u4e00-\u9fff][^"\n]{0,30}"|"[^"\n]{0,30}[\u4e00-\u9fff]')
+# Chinese prose takes full-width punctuation; an ASCII comma or semicolon touching a Chinese character is a slip
+# ("Lock, RLock" between two ASCII words and "1,000" inside a number are fine)
+HALF_WIDTH = re.compile(r"[\u4e00-\u9fff][,;]|[,;][\u4e00-\u9fff]")
 # behavioral pages only: frequency claims about how interviewers or recruiters behave
 PROCESS_TALK = {
     "en": re.compile(r"\b(often|usually|typically|tend to)\b", re.I),
@@ -119,6 +123,9 @@ def main() -> int:
                     warnings.append(f"{where}/{name}: talks about the source? -> {line.strip()[:90]}")
                 elif lang == "zh" and ASCII_QUOTE.search(re.sub(r"`[^`\n]*`|\$[^$\n]*\$|<[^>]+>", "", line)):
                     warnings.append(f"{where}/{name}: ASCII quotes in Chinese prose, use “ ” -> {line.strip()[:90]}")
+                elif lang == "zh" and HALF_WIDTH.search(re.sub(r"`[^`\n]*`|\$[^$\n]*\$|<[^>]+>", "", line)):
+                    warnings.append(f"{where}/{name}: half-width punctuation in Chinese prose, use ，； -> "
+                                    f"{line.strip()[:90]}")
                 elif m.get("category") == "behavioral" and PROCESS_TALK[lang].search(line):
                     warnings.append(f"{where}/{name}: claim about how the process usually goes? -> "
                                     f"{line.strip()[:90]}")
