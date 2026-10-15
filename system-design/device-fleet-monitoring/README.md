@@ -278,11 +278,11 @@ over `CommandDelivery` grouped by `state`, tagged `is_final = now >= finalize_at
 stored snapshot, so there is exactly one place a number can be wrong, not two kept in sync.
 
 Continuing the 800,000-device batch from the requirements section: at the 5-minute-after-window check, the
-completion count stands at $520{,}000 / 800{,}000 = 65.0\%$, with 88,000 devices still `accepted` or
+completion count stands at $`520{,}000 / 800{,}000 = 65.0\%`$, with 88,000 devices still `accepted` or
 `executing` and no completion report yet, many of them among the 400,000 caught in the same outage and only
 just back online. Over the following 4 hours, 27,200 of those 88,000 send a completion report whose
 `event_time` still falls inside the 30-minute window — the *action* happened on time; only the *report* of it
-was late — correcting completion to $547{,}200/800{,}000 = 68.4\%$, up 3.4 points, while the rest never do and
+was late — correcting completion to $`547{,}200/800{,}000 = 68.4\%`$, up 3.4 points, while the rest never do and
 are swept to `expired` when `finalize_at` arrives. A completion report whose `event_time` falls after the
 window closed is not counted as `completed` however promptly it arrives — the device really did act too late
 to matter for this command.

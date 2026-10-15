@@ -228,11 +228,11 @@ noting which tensors the optimizer updates and which are constants, before answe
 2. `net(X)`: `(N, C) = (400, 4)`. `p`: the same shape, `(N, C) = (400, 4)`. `crowd()`:
    `(A, C, C) = (5, 4, 4)`.
 3. `p[i]` has shape `(C,)`, `M[a]` has shape `(C, C)`: a `(m,) @ (m, k)` vector-matrix product with
-   $m = k = C$, costing $O(C^2)$ time; the result `q` is a length-$C$ vector, $O(C)$ memory.
+   $m = k = C$, costing $O(C^2)$ time; the result `q` is a length-$`C`$ vector, $O(C)$ memory.
 4. `net.l1`: `(N, D) @ (D, H)`, time $O(NDH)$, forward output `(N, H)`, memory $O(NH)$. `net.l2`:
    `(N, H) @ (H, C)`, time $O(NHC)$, output `(N, C)`, memory $O(NC)$. Backward keeps `l1`'s input (`X`,
-   $O(ND)$), the `ReLU` output ($O(NH)$; it is `l2`'s input and also gates the `ReLU` gradient, so the
-   pre-activation itself is not kept) and the softmax output `p` ($O(NC)$): the same order as the forward
+   $`O(ND)`$), the `ReLU` output ($O(NH)$; it is `l2`'s input and also gates the `ReLU` gradient, so the
+   pre-activation itself is not kept) and the softmax output `p` ($`O(NC)`$): the same order as the forward
    activations.
 5. Loose bound $O(NAC^2)$: the double loop runs up to $N \cdot A$ times, and every iteration that does
    not `continue` does an $O(C^2)$ vector-matrix product. Since it `continue`s whenever `lab < 0`, the

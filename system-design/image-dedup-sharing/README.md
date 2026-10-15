@@ -69,7 +69,7 @@ ids are never reused, signed URLs are available, and anything over 100 MiB is re
 ### Requirements and scale
 
 **Storage.** $U = 400{,}000$ uploads/day at an average size $s = 3$ MiB give $U \cdot s = 1{,}200{,}000$
-MiB $\approx 1.14$ TiB/day arriving at the service, before dedup. At a $30\%$ duplicate rate,
+MiB $\approx 1.14$ TiB/day arriving at the service, before dedup. At a $`30\%`$ duplicate rate,
 $(1 - 0.30) \cdot 1{,}200{,}000 = 840{,}000$ MiB $\approx 820.3$ GiB/day is genuinely new content needing a
 new object — the store's daily growth, $840{,}000 \times 365 \approx 292.4$ TiB/year at a steady duplicate
 rate. Deletions claw some of this back over time, but sizing for a year of pure growth is the conservative
@@ -79,11 +79,11 @@ number to provision against.
 (uploads cluster in evenings and weekends, smoothed by 40 million users across time zones) gives about
 $23$ QPS at peak — provision for roughly $25$ QPS.
 
-**Download path and bandwidth.** $4{,}000{,}000$ downloads/day is a $10\!:\!1$ read-to-write ratio, about
+**Download path and bandwidth.** $4{,}000{,}000$ downloads/day is a $`10\!:\!1`$ read-to-write ratio, about
 $46.3$ QPS on average against the metadata layer, which every view and download has to reach regardless of
 whether the bytes come from cache (deep dive (c)). At the assumed 3 MiB average size that is
-$4{,}000{,}000 \times 3 \approx 11.44$ TiB/day of image bytes served; with a $92\%$ CDN hit rate only the
-remaining $8\%$ — about $0.92$ TiB/day, $\approx 93$ Mbps sustained and $\approx 373$ Mbps at a $4\times$
+$4{,}000{,}000 \times 3 \approx 11.44$ TiB/day of image bytes served; with a $`92\%`$ CDN hit rate only the
+remaining $`8\%`$ — about $0.92$ TiB/day, $\approx 93$ Mbps sustained and $\approx 373$ Mbps at a $4\times$
 read peak — has to come out of the object store.
 
 ### Data model and API

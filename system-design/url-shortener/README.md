@@ -68,20 +68,24 @@ assumes anonymous creation is allowed, just never deduplicated, and a single sha
 **Short-code length.** Planning for $Y=5$ years at $r = 1{,}200{,}000$ creates/day gives a total volume
 of
 
-$$n = r \cdot 365 \cdot Y = 2.19\times10^{9} \text{ codes.}$$
+```math
+n = r \cdot 365 \cdot Y = 2.19\times10^{9} \text{ codes.}
+```
 
 A base62 alphabet (62 symbols) of length $k$ names $N=62^k$ distinct codes. The scheme chosen in the
 short-code generation deep dive draws a code at random and retries on collision. When $i$ codes are
 already taken, a draw collides with probability $i/N$, so that insert needs $i/(N-i)$ retries on average,
 and filling the space to $n$ needs
 
-$$R = \sum_{i=0}^{n-1} \frac{i}{N-i} \approx \frac{n^2}{2N} \quad (n \ll N)$$
+```math
+R = \sum_{i=0}^{n-1} \frac{i}{N-i} \approx \frac{n^2}{2N} \quad (n \ll N)
+```
 
 retries in expectation. This is an expected count, not the birthday-paradox probability of at least one
 collision, which at these sizes is essentially 1. At $k=6$ ($N\approx5.68\times10^{10}$, 3.9% full after
 5 years) that is $R\approx43.3$ million, where the approximation alone gives 42.2 million; at $k=7$
 ($N\approx3.52\times10^{12}$) it is about 681,000. One more character cuts retries by more than 60x, so
-$k=7$ is what this design uses; after 5 years only $n/N\approx0.062\%$ of the space is taken.
+$k=7$ is what this design uses; after 5 years only $`n/N\approx0.062\%`$ of the space is taken.
 
 **Storage.** A link record is about 167 bytes: a 7-byte code, a 110-byte average long URL, an 8-byte
 owner id, three 8-byte timestamps/counters (`created_at`, `expires_at`, `click_count`), a 16-byte URL
@@ -97,7 +101,7 @@ $\approx6{,}944$ QPS. Creates stay under 70 QPS even at peak.
 
 **Cache.** Assume a day's redirects are spread over a pool of $M=5{,}000{,}000$ codes with Zipf
 popularity of exponent $s=1.1$ (the $j$-th most popular code draws a share proportional to $j^{-s}$). The
-hottest $C=10^6$ (20% of the pool) then draw $\sum_{j\le C} j^{-s} / \sum_{j\le M} j^{-s} \approx 95.6\%$
+hottest $C=10^6$ (20% of the pool) then draw $`\sum_{j\le C} j^{-s} / \sum_{j\le M} j^{-s} \approx 95.6\%`$
 of requests, so the cache needs to hold about a million entries. At about 126 bytes each (code, URL,
 `expires_at`, status) that is 126 MB, while an 8 GiB node holds $\approx68$ million: memory is not the
 binding constraint, the TTL is (read path). With the 24-hour TTL chosen there the regional hit rate is

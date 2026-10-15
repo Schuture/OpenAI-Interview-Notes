@@ -13,7 +13,9 @@
 `logits` is a one-dimensional float array of shape `(N,)`, and every entry is finite; $N \ge 1$. Let
 $x$ denote `logits` and $p = \mathrm{softmax}(x)$,
 
-$$p_i = \frac{e^{x_i}}{\sum_{k=0}^{N-1} e^{x_k}}, \qquad i = 0, \dots, N-1,$$
+```math
+p_i = \frac{e^{x_i}}{\sum_{k=0}^{N-1} e^{x_k}}, \qquad i = 0, \dots, N-1,
+```
 
 and let $H(p) = -\sum_i p_i \log p_i$ be the *Shannon entropy* of $p$, with $\log$ the natural
 logarithm throughout.
@@ -55,7 +57,7 @@ def softmax_entropy_stable(logits: np.ndarray) -> float:
 ### Part 3 — Entropy in fixed-size blocks, O(1) extra space
 
 *O(1) extra space* here means the code must not allocate any array whose size depends on $N$ — in
-particular, no length-$N$ vector of probabilities. Split `logits` into consecutive slices of a fixed
+particular, no length-$`N`$ vector of probabilities. Split `logits` into consecutive slices of a fixed
 `block_size` (e.g. `2`, which need not divide $N$, so the last slice may be shorter), and keep only a
 fixed number of running scalars between slices. The whole array is available and may be read more than
 once.
@@ -117,7 +119,9 @@ def softmax_entropy(logits):
 Write $Z = \sum_k e^{x_k}$, so $p_i = e^{x_i}/Z$ and $\log p_i = x_i - \log Z$. Factor out the largest
 exponent $m = \max_k x_k$: since $e^{x_i} = e^m e^{x_i - m}$,
 
-$$Z = e^m s, \qquad \log Z = m + \log s, \qquad s = \sum_k e^{x_k - m}.$$
+```math
+Z = e^m s, \qquad \log Z = m + \log s, \qquad s = \sum_k e^{x_k - m}.
+```
 
 Every exponent $x_k - m$ is $\le 0$, and the one at the maximizing $k$ is exactly $0$, so every term of
 $s$ lies in $(0, 1]$ and $s \ge 1$: the sum can never overflow and never vanish, no matter how large or
@@ -151,18 +155,24 @@ def softmax_entropy_stable(logits):
 The block-wise parts reuse one identity. Substituting $\log p_i = x_i - \log Z$ into the definition of
 $H$ and using $\sum_i p_i = 1$,
 
-$$H(p) = -\sum_i p_i(x_i - \log Z) = \log Z - \sum_i p_i x_i.$$
+```math
+H(p) = -\sum_i p_i(x_i - \log Z) = \log Z - \sum_i p_i x_i.
+```
 
 So $H$ only needs $\log Z$ and the probability-weighted sum of the logits, neither of which requires
 materializing $p$. With $m$ and $s$ as in Part 2, $\log Z = m + \log s$. For the second term substitute
 $x_i = m + (x_i - m)$ and divide by $Z = e^m s$:
 
-$$\sum_i p_i x_i = \frac{1}{Z}\sum_i e^{x_i} x_i = \frac{1}{s}\sum_i e^{x_i - m}\bigl(m + (x_i - m)\bigr)
-= m + \frac{u}{s}, \qquad u = \sum_i e^{x_i - m}(x_i - m).$$
+```math
+\sum_i p_i x_i = \frac{1}{Z}\sum_i e^{x_i} x_i = \frac{1}{s}\sum_i e^{x_i - m}\bigl(m + (x_i - m)\bigr)
+= m + \frac{u}{s}, \qquad u = \sum_i e^{x_i - m}(x_i - m).
+```
 
 Substituting both into $H$ cancels $m$:
 
-$$H(p) = \log s - \frac{u}{s}.$$
+```math
+H(p) = \log s - \frac{u}{s}.
+```
 
 $s$ and $u$ are both sums over $i$ and can be accumulated block by block once $m$ is known. A first pass
 over the blocks gets $m$; a second accumulates $s$ and $u$ together — no third pass is needed, since
@@ -203,8 +213,10 @@ centered on $m_0$, and likewise for the $m_1$-centered terms, so $s = s_0 e^{m_0
 
 For $u$, write $\delta = m_0 - m \le 0$ and substitute $x_k - m = (x_k - m_0) + \delta$:
 
-$$\sum_k e^{x_k - m}(x_k - m) = e^{\delta}\sum_k e^{x_k - m_0}\bigl((x_k - m_0) + \delta\bigr)
-= e^{\delta}\bigl(u_0 + \delta s_0\bigr),$$
+```math
+\sum_k e^{x_k - m}(x_k - m) = e^{\delta}\sum_k e^{x_k - m_0}\bigl((x_k - m_0) + \delta\bigr)
+= e^{\delta}\bigl(u_0 + \delta s_0\bigr),
+```
 
 and symmetrically for the $m_1$-centered terms. Folding a new chunk into the running triple is exactly
 this merge, and the final triple gives $H$ by the Part 3 formula.

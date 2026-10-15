@@ -218,8 +218,8 @@ def recommend(self, user_id, k):
 Snapshot.recommend = recommend              # attach to the Snapshot class of Part 1
 ```
 
-设 $n$ 为快照时刻的用户数，$m$ 为关注边数，$d(u)$ 为 $u$ 关注的人数，$d^-(u)$ 为关注 $u$ 的人数。
-对 `recommend`，记 $F = d(\text{user\_id})$，$C$ 为找到的候选人个数；内层双重循环一共要访问
+设 $n$ 为快照时刻的用户数，$`m`$ 为关注边数，$`d(u)`$ 为 $u$ 关注的人数，$`d^-(u)`$ 为关注 $u$ 的人数。
+对 `recommend`，记 $`F = d(\text{user\_id})`$，$`C`$ 为找到的候选人个数；内层双重循环一共要访问
 $\sum_{f} d(f) = O(F \cdot G)$ 对 $(f, c)$，其中 $G$ 是 `user_id` 各个关注对象出度的平均值。
 
 | 方法 | 时间 | 空间 |
@@ -280,7 +280,7 @@ class FollowTimeline:
 
 用 `bisect_right` 而不是 `bisect_left`，正是为了让恰好发生在 `t` 时刻的事件已经生效——这等价于把每一段
 关注关系存成一个 `[开始, 结束)` 区间，再判断 `t` 是否落在其中一段里。`follow`/`unfollow` 均摊 O(1)；
-`is_following` 是 $O(\log e)$，$e$ 为这一对用户目前记录下的翻转事件数。朴素做法——每次查询都从头
+`is_following` 是 $O(\log e)$，$`e`$ 为这一对用户目前记录下的翻转事件数。朴素做法——每次查询都从头
 重放整个调用日志——则要付出 O(目前为止全部调用次数) 的代价。
 
 ### 追问

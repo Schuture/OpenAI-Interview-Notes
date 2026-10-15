@@ -165,7 +165,7 @@ assert a.text() == b.text()           # 两边最后必须得到同一份文档
 ### Part 1
 
 缓冲区是一个 Python `list`（字符列表），不是 `str`；`insert` 和 `delete` 都靠切片赋值完成移动，
-各自是 $O(n)$（$n$ 是需要移动的字符数）。
+各自是 $O(n)$（$`n`$ 是需要移动的字符数）。
 
 ```python
 class TextBuffer:
@@ -265,7 +265,7 @@ TextBuffer.redo = redo
 ### Part 3
 
 `suggest` 每次调用都把 trie 完全重建：对当前文本分词，用 `Counter` 计数，再把每个词逐字母插入，在
-最后一个节点上记下频次。查询先走到 `prefix` 对应的节点（$O(\lvert \text{prefix} \rvert)$），对这棵
+最后一个节点上记下频次。查询先走到 `prefix` 对应的节点（$`O(\lvert \text{prefix} \rvert)`$），对这棵
 子树做深度优先收集，再把收集到的 $m$ 个词排序：缓冲区有 $n$ 个字符时一次查询是 $O(n + m \log m)$。
 查询频繁的话就把 trie 留下来，在 `insert`/`delete` 里增量更新。
 

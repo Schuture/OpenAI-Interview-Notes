@@ -13,10 +13,12 @@
 `logits` 是形状为 `(B, T, V)` 的浮点数组：对 `B` 个序列中的每一个、序列里 `T` 个位置中的每一个，
 它给出语言模型在 `V` 个词表类别上的未归一化得分。`targets` 是形状为 `(B, T)` 的整数数组，
 `targets[b, t]` 是该位置正确类别的下标，是 $[0, V)$ 内的整数。
-记 $z = \text{logits}[b, t] \in \mathbb{R}^V$，$\operatorname{softmax}(z)_i = e^{z_i} / \sum_k e^{z_k}$。
+记 $z = \text{logits}[b, t] \in \mathbb{R}^V$，$`\operatorname{softmax}(z)_i = e^{z_i} / \sum_k e^{z_k}`$。
 一个位置上的*交叉熵损失*（cross-entropy loss）是模型分配给正确类别的负对数概率：
 
-$$\ell(b, t) = -\log \operatorname{softmax}(z)_{y}, \qquad y = \text{targets}[b, t].$$
+```math
+\ell(b, t) = -\log \operatorname{softmax}(z)_{y}, \qquad y = \text{targets}[b, t].
+```
 
 用 NumPy 完成下面四个部分。
 
@@ -36,7 +38,7 @@ def cross_entropy(logits: np.ndarray, targets: np.ndarray) -> float:
     raise NotImplementedError
 ```
 
-例子，取 $B = 1$、$T = 2$、$V = 3$：
+例子，取 $B = 1$、$`T = 2`$、$`V = 3`$：
 
 ```text
 logits  = [[[2.0, 1.0, 0.1],
@@ -50,7 +52,7 @@ targets = [[0, 2]]
 
 `mask` 是形状为 `(B, T)` 的数组，元素是 `0`/`1` 整数或布尔值；`mask[b, t] == 0` 标记一个不参与损失计算的位置——
 例如批次里较短序列末尾的 padding。在这样的位置上，`targets[b, t]` 可以是任意整数，包括 $[0, V)$ 之外的值，
-且不能被读取。实现 `cross_entropy_masked(logits, targets, mask)`：$\ell(b, t)$ 的均值现在只除以 `mask == 1`
+且不能被读取。实现 `cross_entropy_masked(logits, targets, mask)`：$`\ell(b, t)`$ 的均值现在只除以 `mask == 1`
 的位置个数，而不是 $B \times T$。如果全部位置都被 mask，返回 `0.0`。
 
 ```py
@@ -77,10 +79,12 @@ mask    = [[1, 1, 0]]
 有了*标签平滑*（label smoothing）之后，未被 mask 的位置上使用的目标分布不再是集中在 `targets[b, t]` 上的
 one-hot 分布（把全部概率质量放在类别 $y$ 上的分布），而是
 
-$$p = (1 - \varepsilon) \cdot \text{one-hot}(y) + \frac{\varepsilon}{V} \mathbf{1}, \qquad y = \text{targets}[b, t],$$
+```math
+p = (1 - \varepsilon) \cdot \text{one-hot}(y) + \frac{\varepsilon}{V} \mathbf{1}, \qquad y = \text{targets}[b, t],
+```
 
-其中 $\varepsilon \in [0, 1)$ 就是 `label_smoothing`，$\mathbf{1} \in \mathbb{R}^V$ 是全 1 向量。
-该位置上的损失从 $-\log \operatorname{softmax}(z)_y$ 变为 $-\sum_v p_v \log \operatorname{softmax}(z)_v$。
+其中 $\varepsilon \in [0, 1)$ 就是 `label_smoothing`，$`\mathbf{1} \in \mathbb{R}^V`$ 是全 1 向量。
+该位置上的损失从 $`-\log \operatorname{softmax}(z)_y`$ 变为 $`-\sum_v p_v \log \operatorname{softmax}(z)_v`$。
 实现 `cross_entropy_smoothed(logits, targets, mask, label_smoothing)`，mask 的约定与 Part 2 相同；
 `label_smoothing = 0.0` 时必须与 `cross_entropy_masked` 的结果完全一致。
 
@@ -102,7 +106,7 @@ $q = \operatorname{softmax}(z)$ 为模型的预测分布，于是 $\ell(b, t) = 
 $\mathrm{KL}(p \Vert q) = \sum_v p_v \log(p_v / q_v)$ 是 KL 散度。用这个恒等式说明：当目标是 one-hot 时，
 对 `logits` 最小化损失，等价于恰好在最小化 $\mathrm{KL}(p \Vert q)$。
 
-**(b)** 加入标签平滑（$\varepsilon > 0$）之后，给出 $H(p)$ 的闭式表达式，并说明该位置上 Part 3 的
+**(b)** 加入标签平滑（$`\varepsilon > 0`$）之后，给出 $H(p)$ 的闭式表达式，并说明该位置上 Part 3 的
 损失无论 `logits` 怎么取都不可能低于哪个值。用数值核对这个下界。
 
 **(c)** 对 Part 3 的损失推导 $\partial \ell(b, t) / \partial z$（当 `label_smoothing = 0` 且没有位置被 mask 时，
@@ -130,12 +134,14 @@ def cross_entropy_grad(logits: np.ndarray, targets: np.ndarray, mask: np.ndarray
 
 ### Part 1
 
-记 $z = \text{logits}[b, t]$、$y = \text{targets}[b, t]$、$m = \max_v z_v$。由 $e^{z_v} = e^m e^{z_v - m}$，
+记 $z = \text{logits}[b, t]$、$`y = \text{targets}[b, t]`$、$`m = \max_v z_v`$。由 $e^{z_v} = e^m e^{z_v - m}$，
 
-$$\log \sum_v e^{z_v} = m + \log \sum_v e^{z_v - m}.$$
+```math
+\log \sum_v e^{z_v} = m + \log \sum_v e^{z_v - m}.
+```
 
 每个指数 $z_v - m$ 都 $\le 0$，取最大值的那一项恰好为 $0$，右边的和因此总落在 $[1, V]$ 内，
-不论 $z$ 的量级：既不会溢出，也不会下溢为零。$\ell = -(z_y - m) + \log \sum_v e^{z_v - m}$，
+不论 $z$ 的量级：既不会溢出，也不会下溢为零。$`\ell = -(z_y - m) + \log \sum_v e^{z_v - m}`$，
 从头到尾没有对一个概率调用 `log`，只对这个有界的和取了一次对数。
 
 ```python
@@ -180,14 +186,16 @@ def cross_entropy_masked(logits, targets, mask):
 
 ### Part 3
 
-记 $q_v = \operatorname{softmax}(z)_v$，把 $p = (1 - \varepsilon)\,\text{one-hot}(y) + (\varepsilon / V)\mathbf{1}$
+记 $`q_v = \operatorname{softmax}(z)_v`$，把 $`p = (1 - \varepsilon)\,\text{one-hot}(y) + (\varepsilon / V)\mathbf{1}`$
 代入 $-\sum_v p_v \log q_v$，得到
 
-$$-\sum_v p_v \log q_v = -(1 - \varepsilon) \log q_y - \frac{\varepsilon}{V} \sum_v \log q_v
-= -(1 - \varepsilon) \log q_y - \varepsilon \cdot \overline{\log q},$$
+```math
+-\sum_v p_v \log q_v = -(1 - \varepsilon) \log q_y - \frac{\varepsilon}{V} \sum_v \log q_v
+= -(1 - \varepsilon) \log q_y - \varepsilon \cdot \overline{\log q},
+```
 
 其中 $\overline{\log q} = \frac{1}{V}\sum_v \log q_v$ 是 $\log q_v$ 在整个词表上的均值。
-两项都能从 Part 1 已经算出的量得到（$\log q_y$ 就是 `nll` 取负），再加一次对
+两项都能从 Part 1 已经算出的量得到（$`\log q_y`$ 就是 `nll` 取负），再加一次对
 `shifted - log_sum_exp` 沿最后一个轴求均值；全程没有构造任何 $(B, T, V)$ 的目标张量。
 
 ```python
@@ -219,28 +227,34 @@ def cross_entropy_smoothed(logits, targets, mask, label_smoothing):
 
 **(a)** 由 $-\log q_v = -\log p_v + \log(p_v / q_v)$，两边乘以 $p_v$ 再对 $v$ 求和，得到
 
-$$H(p, q) = -\sum_v p_v \log q_v = -\sum_v p_v \log p_v + \sum_v p_v \log \frac{p_v}{q_v}
-= H(p) + \mathrm{KL}(p \Vert q).$$
+```math
+H(p, q) = -\sum_v p_v \log q_v = -\sum_v p_v \log p_v + \sum_v p_v \log \frac{p_v}{q_v}
+= H(p) + \mathrm{KL}(p \Vert q).
+```
 
-对 one-hot 的 $p$，$H(p)$ 恒为 $0$：$v = y$ 那一项是 $-1 \cdot \log 1 = 0$，其余每一项 $p_v = 0$。
+对 one-hot 的 $p$，$`H(p)`$ 恒为 $0$：$`v = y`$ 那一项是 $-1 \cdot \log 1 = 0$，其余每一项 $p_v = 0$。
 $H(p)$ 不依赖 `logits`——只有 $q$ 依赖——所以 $\ell(b, t)$ 与 $\mathrm{KL}(p \Vert q)$ 其实是 `logits`
 的同一个函数，只差常数 $0$。对 `logits` 最小化损失，就是在最小化 $\mathrm{KL}(p \Vert q)$。
 
 **(b)** 加入标签平滑后，Part 3 的目标分布 $p$ 同样不依赖 `logits`，所以 $H(p)$ 仍是一个
 不随 `logits` 变化的常数，只是这次是正的：
 
-$$H(p) = -\Bigl[(1 - \varepsilon) + \tfrac{\varepsilon}{V}\Bigr] \log\Bigl[(1 - \varepsilon) + \tfrac{\varepsilon}{V}\Bigr]
-- (V - 1) \cdot \frac{\varepsilon}{V} \log \frac{\varepsilon}{V}.$$
+```math
+H(p) = -\Bigl[(1 - \varepsilon) + \tfrac{\varepsilon}{V}\Bigr] \log\Bigl[(1 - \varepsilon) + \tfrac{\varepsilon}{V}\Bigr]
+- (V - 1) \cdot \frac{\varepsilon}{V} \log \frac{\varepsilon}{V}.
+```
 
 $\mathrm{KL}(p \Vert q) \ge 0$，等号当且仅当 $q = p$，而这是可以达到的：softmax 能取到任何全部为正的分布
 （取 `logits = log(p)`，加任意常数不影响 softmax）。所以 $H(p)$ 恰好是该位置损失的下确界：one-hot 目标下
-损失可以趋近但不会低于 `0`；加了平滑后不会低于 $H(p) > 0$。以 Part 3 的例子为例（$V = 3$、$\varepsilon = 0.2$、
-目标类别 $0$），$H(p) \approx 0.4851$，低于 Part 3 例子里那组 `logits` 算出的 `0.6452`。
+损失可以趋近但不会低于 `0`；加了平滑后不会低于 $H(p) > 0$。以 Part 3 的例子为例（$`V = 3`$、$`\varepsilon = 0.2`$、
+目标类别 $0$），$`H(p) \approx 0.4851`$，低于 Part 3 例子里那组 `logits` 算出的 `0.6452`。
 
 **(c)** 由 $\log q_j = z_j - \log \sum_k e^{z_k}$ 得 $\partial \log q_j / \partial z_i = \delta_{ij} - q_i$，于是
 
-$$\frac{\partial H(p, q)}{\partial z_i} = -\sum_j p_j \frac{\partial \log q_j}{\partial z_i}
-= -\sum_j p_j(\delta_{ij} - q_i) = -p_i + q_i \sum_j p_j = q_i - p_i,$$
+```math
+\frac{\partial H(p, q)}{\partial z_i} = -\sum_j p_j \frac{\partial \log q_j}{\partial z_i}
+= -\sum_j p_j(\delta_{ij} - q_i) = -p_i + q_i \sum_j p_j = q_i - p_i,
+```
 
 这里用到 $\sum_j p_j = 1$。对 $N$ 个未被 mask 的位置取平均，会把每个位置的梯度都缩放 $1/N$；
 被 mask 的位置贡献的是零向量。

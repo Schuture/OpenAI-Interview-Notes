@@ -14,15 +14,15 @@ There are $t$ tasks, indexed $0, 1, \dots, t-1$; $m$ models, indexed $0, \dots, 
 labelers, indexed $0, \dots, h-1$. Labeling a task means showing a human labeler one model's output on
 that task and asking for a rating. An *assignment* is a triple $(\mathrm{task}, \mathrm{model},
 \mathrm{human})$ recording one such review. A *schedule* is an ordered list $S = (a_0, a_1, \dots,
-a_{L-1})$ of assignments, $a_j = (\mathrm{task}_j, \mathrm{model}_j, \mathrm{human}_j)$, in the order the
+a_{L-1})$ of assignments, $`a_j = (\mathrm{task}_j, \mathrm{model}_j, \mathrm{human}_j)`$, in the order the
 platform hands them out. The order matters: every rule below is stated for each *prefix* of $S$ — for
 $0 \le p \le L$, the prefix of length $p$ is $S[:p] = (a_0, \dots, a_{p-1})$.
 
 An integer $k \ge 0$ is also given. Every part below shares two base rules:
 
-- **Coverage.** For every human $u$, at least $k$ assignments of $S$ have $\mathrm{human}_j = u$.
+- **Coverage.** For every human $u$, at least $k$ assignments of $S$ have $`\mathrm{human}_j = u`$.
 - **Uniqueness.** No two assignments share both the same task and the same human: for $i \ne j$,
-  $(\mathrm{task}_i, \mathrm{human}_i) \ne (\mathrm{task}_j, \mathrm{human}_j)$.
+  $`(\mathrm{task}_i, \mathrm{human}_i) \ne (\mathrm{task}_j, \mathrm{human}_j)`$.
 
 Every part also asks for a schedule with the fewest possible assignments.
 
@@ -52,12 +52,16 @@ Each human appears exactly twice, once on each task; the model is always 0, whic
 
 For a prefix $S[:p]$, a task $x$, and a model $i$, let
 
-$$c_p(x, i) = \sum_{j=0}^{p-1} [\mathrm{task}_j = x \text{ and } \mathrm{model}_j = i]$$
+```math
+c_p(x, i) = \sum_{j=0}^{p-1} [\mathrm{task}_j = x \text{ and } \mathrm{model}_j = i]
+```
 
 count how many times model $i$ has been used on task $x$ within that prefix. A schedule is *balanced by
 task* if for every prefix $p$ and every task $x$,
 
-$$\max_i c_p(x, i) - \min_i c_p(x, i) \le 1 ,$$
+```math
+\max_i c_p(x, i) - \min_i c_p(x, i) \le 1 ,
+```
 
 the maximum and minimum ranging over all $m$ models. Implement `build_balanced_schedule`, returning a
 schedule with coverage, uniqueness, and balance by task.
@@ -80,7 +84,7 @@ the difference never exceeds 1. Task 1 behaves identically.
 ### Part 3 — Also balanced by human
 
 Define $c_p(u, i)$ for a human $u$ the same way as $c_p(x, i)$ above, counting assignments with
-$\mathrm{human}_j = u$ and $\mathrm{model}_j = i$ instead. A schedule is *balanced by human* if
+$`\mathrm{human}_j = u`$ and $`\mathrm{model}_j = i`$ instead. A schedule is *balanced by human* if
 $\max_i c_p(u, i) - \min_i c_p(u, i) \le 1$ for every prefix $p$ and every human $u$.
 
 Implement `build_doubly_balanced_schedule`, which must keep coverage, uniqueness, and balance by task

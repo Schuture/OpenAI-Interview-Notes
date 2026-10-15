@@ -75,7 +75,9 @@ recorded or mocked tool responses.
 **Concurrency.** At $\lambda_{\text{avg}} = 20$ runs/sec and a step latency of 900 ms for the completion call
 plus tool time on the 70% of steps that call one, the blended tool latency is
 
-$$0.2 \times 1.9\text{s} + 0.8 \times 0.15\text{s} = 0.5\text{s},$$
+```math
+0.2 \times 1.9\text{s} + 0.8 \times 0.15\text{s} = 0.5\text{s},
+```
 
 so a step averages $0.9 + 0.7 \times 0.5 = 1.25$ s and a 12-step run averages $12 \times 1.25 = 15$ s
 wall-clock. By Little's law, $L = \lambda W$ gives $20 \times 15 = 300$ runs in flight on average and $60
@@ -230,7 +232,7 @@ keeps only a reference. Reconstructing the exact context sent to the model at an
 concatenating the stored turns with the versioned system prompt and tool definitions used at that time — not
 by re-storing the whole, ever-growing context at every step. That distinction matters: storing a full context
 snapshot at each of $k = 12$ steps would repeat every earlier turn each time, for $k(k+1)/2 = 78$
-turn-equivalents per run instead of 12 — a $6.5\times$ ($=(k+1)/2$) blow-up over the delta-based 36 KB/run
+turn-equivalents per run instead of 12 — a $6.5\times$ ($`=(k+1)/2`$) blow-up over the delta-based 36 KB/run
 computed above, from the storage choice alone.
 
 Replaying a historical run against a new model version re-feeds each recorded `tool_result` verbatim rather
@@ -242,7 +244,7 @@ Keeping every run at full fidelity forever is not worth its storage: at 62.2 GB/
 about 22.7 TB. Instead, the 14-day hot window (871 GB) covers live debugging, and long-term storage keeps only
 every failed run plus a 5% sample of successful ones, sampled by hashing `run_id` (not re-randomized daily, so
 the same cohort stays sampled over time for drift tracking). With an 8% production failure rate, that keeps
-$0.08 + 0.92 \times 0.05 = 12.6\%$ of runs, cutting annual long-term storage to about 2.86 TB, a $7.9\times$
+$`0.08 + 0.92 \times 0.05 = 12.6\%`$ of runs, cutting annual long-term storage to about 2.86 TB, a $7.9\times$
 reduction, without losing a single failure to debug. Sampling individual *steps* instead of whole runs was
 rejected: a trajectory with some steps kept and others dropped cannot be replayed end to end, so the unit of
 sampling has to be the run.

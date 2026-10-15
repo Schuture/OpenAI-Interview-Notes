@@ -99,7 +99,9 @@ classifier and only then comparing its embeddings.
 The loss is InfoNCE. For an anchor (here a query) $q$, its positive passage $p^+$, and $N$
 negative passages $\lbrace p_1^-, \dots, p_N^- \rbrace$:
 
-$$L_{\text{InfoNCE}} = -\log \frac{\exp(\mathrm{sim}(q, p^+) / \tau)}{\exp(\mathrm{sim}(q, p^+) / \tau) + \sum_{i=1}^{N} \exp(\mathrm{sim}(q, p_i^-) / \tau)}$$
+```math
+L_{\text{InfoNCE}} = -\log \frac{\exp(\mathrm{sim}(q, p^+) / \tau)}{\exp(\mathrm{sim}(q, p^+) / \tau) + \sum_{i=1}^{N} \exp(\mathrm{sim}(q, p_i^-) / \tau)}
+```
 
 `sim(·,·)` is cosine similarity between L2-normalized embeddings, bounded to $[-1, 1]$, so the
 temperature $\tau$ carries the softmax's entire scale. The denominator sums the positive *and*
@@ -184,7 +186,9 @@ enough: running both on every query and merging their lists covers both failure 
 The two scores live on different scales — cosine is bounded, BM25 is unbounded and
 length-dependent — so reciprocal rank fusion uses only rank, not score:
 
-$$\text{score}(x) = \sum_{r \in \lbrace \text{dense}, \text{sparse} \rbrace} \frac{1}{k_0 + \text{rank}_r(x)}$$
+```math
+\text{score}(x) = \sum_{r \in \lbrace \text{dense}, \text{sparse} \rbrace} \frac{1}{k_0 + \text{rank}_r(x)}
+```
 
 where rank 1 is the best and a passage missing from a list contributes nothing for it. The constant
 ($k_0 = 60$ in the original paper) flattens the top of each list so that agreement outweighs one
@@ -198,7 +202,9 @@ Late interaction, as in ColBERT, keeps one embedding per token (query and passag
 one pooled vector, and scores a pair by MaxSim — for every query token, its best match among the
 passage's tokens, summed:
 
-$$\text{score}(q, p) = \sum_{i} \max_{j} \; u_i \cdot v_j$$
+```math
+\text{score}(q, p) = \sum_{i} \max_{j} \; u_i \cdot v_j
+```
 
 where $u_i$ are the query's token embeddings and $v_j$ the passage's, normalized so each dot
 product is a cosine. Unlike the cross-encoder, passage-side token embeddings are still computed

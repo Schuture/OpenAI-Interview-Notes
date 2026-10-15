@@ -225,19 +225,25 @@ and each other class with probability $(1 - r_j) / (K - 1)$, where $K$ is `n_cla
 shared error rate for annotator $j$ that Part 1 estimates, standing in for a full confusion matrix. For
 a sample with voters $V_i$ and candidate true class $c$, the log-likelihood of the votes it received is
 
-$$L_i(c) = \sum_{j \in V_i} \Bigl( \mathbb{1}[\ell_{ij} = c] \log r_j
-         + \mathbb{1}[\ell_{ij} \ne c] \log \frac{1 - r_j}{K - 1} \Bigr) .$$
+```math
+L_i(c) = \sum_{j \in V_i} \Bigl( \mathbb{1}[\ell_{ij} = c] \log r_j
++ \mathbb{1}[\ell_{ij} \ne c] \log \frac{1 - r_j}{K - 1} \Bigr) .
+```
 
 Writing $\mathbb{1}[\ell_{ij} \ne c] = 1 - \mathbb{1}[\ell_{ij} = c]$ splits this into a term that does
 not depend on $c$ and one that does:
 
-$$L_i(c) = \sum_{j \in V_i} \log \frac{1 - r_j}{K - 1}
-         + \sum_{j \in V_i} \mathbb{1}[\ell_{ij} = c] \Bigl( \log r_j - \log \frac{1 - r_j}{K - 1} \Bigr) .$$
+```math
+L_i(c) = \sum_{j \in V_i} \log \frac{1 - r_j}{K - 1}
++ \sum_{j \in V_i} \mathbb{1}[\ell_{ij} = c] \Bigl( \log r_j - \log \frac{1 - r_j}{K - 1} \Bigr) .
+```
 
 The first sum is the same for every $c$, so it drops out of the arg max, leaving exactly the weighted
 vote of `aggregate_labels`, with
 
-$$w_j = \log \frac{r_j (K - 1)}{1 - r_j} .$$
+```math
+w_j = \log \frac{r_j (K - 1)}{1 - r_j} .
+```
 
 This is a single, non-iterative pass of the same idea behind the Dawid–Skene EM algorithm: it reuses the
 $r_j$ that Part 1 already estimated instead of alternating between confusion matrices and soft labels.

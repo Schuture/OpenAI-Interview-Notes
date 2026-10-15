@@ -227,7 +227,7 @@ move to the vnode now immediately after it, and nothing else changes. Since `add
 The vnodes are there for the third requirement. With one point per shard, arc lengths vary widely:
 among 20 shards, the largest share measured was 3.5 times the fair $1/N$. A shard's share is the
 sum of `num_vnodes` independent arcs, so its relative spread shrinks to about
-$1/\sqrt{\text{num\_vnodes}}$: 8% at 150, and 11% measured over the same 20 shards.
+$`1/\sqrt{\text{num\_vnodes}}`$: 8% at 150, and 11% measured over the same 20 shards.
 
 ```python
 import bisect
@@ -274,11 +274,11 @@ class ShardRouter:
 ```
 
 `locate` is $O(\log T)$ for a ring of $T$ vnodes total. `add_shard` does `num_vnodes` separate
-`list.insert` calls, each $O(T)$ to shift the tail of the list, so $O(\text{num\_vnodes} \cdot T)$
+`list.insert` calls, each $O(T)$ to shift the tail of the list, so $`O(\text{num\_vnodes} \cdot T)`$
 per call; `remove_shard` rebuilds both lists in one linear pass instead, so it costs $O(T)$
 regardless of `num_vnodes`. A balanced tree or skip list in place of the plain list would bring
-`add_shard` down to $O(\text{num\_vnodes} \log T)$ too. With 12 shards and 150 virtual nodes each,
-adding a 13th shard moved 8.1% of the keys `0..19_999`, close to the $1/13 \approx 7.7\%$ an evenly
+`add_shard` down to $`O(\text{num\_vnodes} \log T)`$ too. With 12 shards and 150 virtual nodes each,
+adding a 13th shard moved 8.1% of the keys `0..19_999`, close to the $`1/13 \approx 7.7\%`$ an evenly
 split ring would move; removing one of the 13 moved 8.4%. *Rendezvous hashing* (each key goes to
 the shard with the largest hash of the pair `(key, shard_id)`) meets the same three requirements
 without a ring, at $O(N)$ per `locate`.

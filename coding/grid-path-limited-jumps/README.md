@@ -140,7 +140,9 @@ Let $dp[i][j][k]$ be the largest base score of a path that starts at $(i, j)$ an
 using at most $k$ further special moves. At the last row there is nothing left to do:
 $dp[N-1][j][k] = board[N-1][j]$ for every $j, k$. Otherwise the path's first move fixes the rest:
 
-$$dp[i][j][k] = board[i][j] + \max\Bigl(\{\, dp[i{+}1][j{+}\delta][k] : \delta \in \{-1,0,1\},\ 0 \le j{+}\delta < M \,\} \ \cup\ \{\, dp[i{+}2][j][k{-}1] : k \ge 1,\ i{+}2 \le N{-}1 \,\}\Bigr).$$
+```math
+dp[i][j][k] = board[i][j] + \max\Bigl(\{\, dp[i{+}1][j{+}\delta][k] : \delta \in \{-1,0,1\},\ 0 \le j{+}\delta < M \,\} \ \cup\ \{\, dp[i{+}2][j][k{-}1] : k \ge 1,\ i{+}2 \le N{-}1 \,\}\Bigr).
+```
 
 The answer is $dp[0][p][K]$. There are $N \cdot M \cdot (K+1)$ states and each does $O(1)$ work, so this
 is $O(N M K)$ time and space.
@@ -256,7 +258,9 @@ $N - 1$ using at most $k$ more special moves, with $g[N-1][j][k][u] = board[N-1]
 candidate $(i', j', k')$ of Part 1, write $w = board[i'][j']$ and $u' = [board[i][j] < w]$, the bit that
 state starts with (a bracketed condition is 1 when it holds and 0 otherwise):
 
-$$g[i][j][k][u] = board[i][j] + \max_{(i',j',k')} \Bigl( X \cdot [board[i][j] = w] + Y \cdot u \cdot u' + g[i'][j'][k'][u'] \Bigr).$$
+```math
+g[i][j][k][u] = board[i][j] + \max_{(i',j',k')} \Bigl( X \cdot [board[i][j] = w] + Y \cdot u \cdot u' + g[i'][j'][k'][u'] \Bigr).
+```
 
 The answer is $g[0][p][K][0]$. The table is twice the size of Part 1's, so this is still $O(NMK)$ time and
 space. Keeping the previous value itself in the state instead of $u$ is also correct, since the value

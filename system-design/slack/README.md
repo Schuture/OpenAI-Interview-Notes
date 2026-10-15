@@ -69,7 +69,9 @@ pushed every post or only @-mentions. Below, the indicator and mentions only.
 
 **Message rate.** $210\times10^6$ messages/day average to
 
-$$\text{avg QPS} = \frac{210\times10^6}{86{,}400} \approx 2{,}431 \text{ messages/s.}$$
+```math
+\text{avg QPS} = \frac{210\times10^6}{86{,}400} \approx 2{,}431 \text{ messages/s.}
+```
 
 Usage concentrates in business hours, only partly spread out by time zones; a 5x peak-to-average ratio
 puts the peak write rate at about $12{,}153$ messages/s.
@@ -193,7 +195,7 @@ At or above it, nothing is routed per member. Each gateway subscribes to the top
 one of its connected users belongs to (from the user's channel list at connect, updated on join and
 leave), and a post is published once to that topic. Per-member routing would not narrow this anyway: with
 300 of 2,000 members online, a given gateway holds none of them with probability
-$(1-1/90)^{300}\approx3.5\%$. The gateway pushes the full message only to sockets that have the channel on
+$`(1-1/90)^{300}\approx3.5\%`$. The gateway pushes the full message only to sockets that have the channel on
 screen (from `channel.focus`); every other member socket gets a `channel.activity {channel_id,
 latest_seq}` pointer at most once per 2 s, since a newer pointer supersedes an older one — a message body
 cannot be merged that way. A client opening the channel pulls with `after_seq`. For the

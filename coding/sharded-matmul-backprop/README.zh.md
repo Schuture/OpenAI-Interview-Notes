@@ -10,7 +10,7 @@
 
 ## 题目
 
-设 $X$ 形状为 `(B, d_in)`，$W$ 形状为 `(d_in, d_out)`，$Y = XW$ 形状为 `(B, d_out)`。一个*设备*（device）
+设 $X$ 形状为 `(B, d_in)`，$`W`$ 形状为 `(d_in, d_out)`，$`Y = XW`$ 形状为 `(B, d_out)`。一个*设备*（device）
 就是 Python 列表里的一个条目，里面存一个 NumPy 数组；整个计算仍然运行在单机上，设备之间的每一次数据交换都要
 经过下面两个显式的函数之一：
 
@@ -21,9 +21,9 @@
 
 矩阵的一个*分片*（shard）是沿某个轴的一段连续切片，分配给一个设备。*按列切*（column-parallel）是把 $W$
 沿它的输出轴切分（`axis=1`，大小为 `d_out`）成 $W_0, \dots, W_{n-1}$，每个设备都持有 $X$ 的完整副本。
-*按行切*（row-parallel）是把 $W$ 沿它的输入轴切分（`axis=0`，大小为 `d_in`）成 $W_0, \dots, W_{n-1}$，$X$
+*按行切*（row-parallel）是把 $W$ 沿它的输入轴切分（`axis=0`，大小为 `d_in`）成 $W_0, \dots, W_{n-1}$，$`X`$
 也沿它自己的特征轴（大小同样是 `d_in`）做相应切分，于是设备 $k$ 只持有 $X_k$，即与 $W_k$ 的行对应的那些列。
-被切的那个轴的长度不能整除 $n$ 时，余数按每片一个分给前面的分片：`d_out = 7`、$n = 3$ 个设备时列宽是
+被切的那个轴的长度不能整除 $n$ 时，余数按每片一个分给前面的分片：`d_out = 7`、$`n = 3`$ 个设备时列宽是
 $3, 2, 2$，设备 0 持有的 $W$ 分片形状是 `(d_in, 3)`，设备 1、2 的形状是 `(d_in, 2)`。这里的规模都很小——
 `B`、`d_in`、`d_out` 最大 50，元素的绝对值不超过 100——而且 $n$ 不超过被切的那个轴的长度，所以不会有设备
 拿到空的分片。
@@ -31,7 +31,7 @@ $3, 2, 2$，设备 0 持有的 $W$ 分片形状是 `(d_in, 3)`，设备 1、2 �
 ### Part 1 —— 手推前向和反向
 
 对**按列切**的情形，写出设备 $k$ 在前向传播里算的是什么，以及如何拼出完整的 $Y$。然后，给定上游梯度
-（upstream gradient）$\bar Y = \partial L / \partial Y$（完整的数组，每个设备上都相同），为每个设备推导
+（upstream gradient）$`\bar Y = \partial L / \partial Y`$（完整的数组，每个设备上都相同），为每个设备推导
 $\bar W_k = \partial L / \partial W_k$ 和 $\bar X = \partial L / \partial X$，并指出哪一步（如果有的话）需要
 通信、是哪一种通信。对**按行切**的情形做同样的事。
 
@@ -185,26 +185,34 @@ if __name__ == "__main__":
 
 **按列切。** 设备 $k$ 持有 $W$ 的第 $k$ 块列 $W_k$，形状 `(d_in, d_out_k)`，以及 $X$ 的完整副本。
 
-$$Y_k = X W_k \quad (B \times d_{out,k}), \qquad Y = \operatorname{all\_gather}_{\mathrm{axis}=1}(Y_0, \dots, Y_{n-1}).$$
+```math
+Y_k = X W_k \quad (B \times d_{out,k}), \qquad Y = \operatorname{all\_gather}_{\mathrm{axis}=1}(Y_0, \dots, Y_{n-1}).
+```
 
 算出 $Y_k$ 本身不需要通信；只有当别处需要每个设备上都有完整的 $Y$ 时才用得到这次拼接。把给定的 $\bar Y$
 就地切成 $\bar Y_k$（设备 $k$ 的那些列），对 $Y_k = X W_k$ 应用乘法的链式法则：
 
-$$\bar W_k = X^\top \bar Y_k \quad \text{（本地）}, \qquad \bar X = \sum_k \bar Y_k W_k^\top = \operatorname{all\_reduce}\bigl(\bar Y_k W_k^\top\bigr).$$
+```math
+\bar W_k = X^\top \bar Y_k \quad \text{（本地）}, \qquad \bar X = \sum_k \bar Y_k W_k^\top = \operatorname{all\_reduce}\bigl(\bar Y_k W_k^\top\bigr).
+```
 
 $X$ 参与了每个设备的本地乘法，所以它的梯度是跨设备的求和——一次 all-reduce。
 
 **按行切。** 设备 $k$ 持有 $W$ 的第 $k$ 块行 $W_k$，形状 `(d_in_k, d_out)`，以及 $X$ 对应的那块列 $X_k$，
 形状 `(B, d_in_k)`。
 
-$$Y_k = X_k W_k \quad \text{（部分和，形状 } B \times d_{out}\text{）}, \qquad Y = \sum_k Y_k = \operatorname{all\_reduce}(Y_0, \dots, Y_{n-1}).$$
+```math
+Y_k = X_k W_k \quad \text{（部分和，形状 } B \times d_{out}\text{）}, \qquad Y = \sum_k Y_k = \operatorname{all\_reduce}(Y_0, \dots, Y_{n-1}).
+```
 
 这里 $Y_k$ 的形状已经对了，但只是答案的一部分，所以前向传播本身就需要一次 all-reduce。给定完整的 $\bar Y$
 （这次归约做完之后，每个设备上都相同）：
 
-$$\bar W_k = X_k^\top \bar Y \quad \text{（本地）}, \qquad \bar X_k = \bar Y W_k^\top \quad \text{（本地；设备 } k\text{ 自己那块 } \bar X\text{）}.$$
+```math
+\bar W_k = X_k^\top \bar Y \quad \text{（本地）}, \qquad \bar X_k = \bar Y W_k^\top \quad \text{（本地；设备 } k\text{ 自己那块 } \bar X\text{）}.
+```
 
-两个梯度都是本地的：$X_k$ 和 $W_k$ 各自只被一个设备用到，不需要合并。
+两个梯度都是本地的：$`X_k`$ 和 $W_k$ 各自只被一个设备用到，不需要合并。
 
 ### Part 2
 
@@ -247,7 +255,7 @@ def row_parallel_backward(X_shards, W_shards, dY):
     return dW_shards, dX_shards
 ```
 
-用 `np.array_split(A, n, axis=...)` 做切分，它会把不能整除的大小尽量分均匀（`d_out = 7`、$n = 3$ 时宽度是
+用 `np.array_split(A, n, axis=...)` 做切分，它会把不能整除的大小尽量分均匀（`d_out = 7`、$`n = 3`$ 时宽度是
 $3, 2, 2$）；按行切时对 $X$ 的特征轴用同样的 $n$ 调用它，能保证 $X_k$ 和 $W_k$ 在 `d_in_k` 上一致。末尾的
 验证代码在 `float64` 下，对整除和不整除两种情形，都对照不分片的参考实现和 `torch.autograd` 做了检查。
 
@@ -264,8 +272,8 @@ $3, 2, 2$）；按行切时对 $X$ 的特征轴用同样的 $n$ 调用它，能�
 | 第 1–4 行 | `Y`、`dW1`、`dW2` 都精确；`dX` 0.29 | 只有 $\bar X$ 错了：没有谁把它跨设备加起来 |
 | 全部 5 个 | 四项误差都不超过 `1e-16` | — |
 
-**分片边界不一致。** `shard_columns` 用 `np.array_split`，对 `D_HIDDEN = 7`、$n = 3$ 给出的隐藏维宽度是
-$3, 2, 2$。切 $W_2$ 用的 `shard_rows` 却做整除（$7 \mathbin{//} 3 = 2$），切成固定的 2 一块，只覆盖了 7
+**分片边界不一致。** `shard_columns` 用 `np.array_split`，对 `D_HIDDEN = 7`、$`n = 3`$ 给出的隐藏维宽度是
+$3, 2, 2$。切 $W_2$ 用的 `shard_rows` 却做整除（$`7 \mathbin{//} 3 = 2`$），切成固定的 2 一块，只覆盖了 7
 行里的 6 行，与 $W_1$ 的列边界对不上。设备 0 的 $H_0$（来自 $W_1$ 的切分）有 3 列，而 $W_{2,0}$（来自不
 一致的切分）只有 2 行，于是 $H_0 @ W_{2,0}$ 在按行切前向传播的第一次调用就失败了。
 
@@ -283,9 +291,9 @@ $\bar W_{1,k} = X^\top \bar Z_{1,k}$，形状 `(d_in, hidden_k)`。出 bug 的 $
 dW1_shards = [X.T @ dZ1k for dZ1k in dZ1_shards]     # (d_in, hidden_k), matches W1_shards[k]
 ```
 
-**缺了 all-reduce。** 按行切的前向传播在每个设备上只算出部分和 $Y_k = H_k W_{2,k}$；$Y = \sum_k Y_k$ 需要
+**缺了 all-reduce。** 按行切的前向传播在每个设备上只算出部分和 $Y_k = H_k W_{2,k}$；$`Y = \sum_k Y_k`$ 需要
 跨设备求和，这正是 `all_reduce` 做的事。漏掉它，每个设备手里就只剩自己那一项，量级大约是 $Y$ 的 $1/n$；
-下游的每个量——$\bar Y$、两个权重梯度、$\bar X$——都是从这个错误的 $Y$ 算出来的，所以都带着同样的误差。
+下游的每个量——$`\bar Y`$、两个权重梯度、$`\bar X`$——都是从这个错误的 $Y$ 算出来的，所以都带着同样的误差。
 形状是对的，所以不会报错。
 
 ```py
@@ -309,7 +317,7 @@ dZ1_shards = [dHk * (1 - Hk ** 2) for dHk, Hk in zip(dH_shards, H_shards)]   # t
 **输入的梯度没有跨设备求和。** 每个设备乘的都是同一个 $X$，所以 $X$ 经由全部 $n$ 个本地乘法影响损失，它的
 梯度是这些项之和 $\bar X = \sum_k \bar Z_{1,k} W_{1,k}^\top$：前向传播复制或拼接了什么，反向传播就要把
 什么加回来。直接返回这一串本地乘积，每个设备手里就只有 $n$ 项里的一项；所有数组的形状都还是 `(B, d_in)`，
-所以不会报错，而不读 $\bar X$ 的 $Y$、$\bar W_1$、$\bar W_2$ 仍然精确。
+所以不会报错，而不读 $\bar X$ 的 $Y$、$`\bar W_1`$、$`\bar W_2`$ 仍然精确。
 
 ```py
 dX_partial = [dZ1k @ W1k.T for dZ1k, W1k in zip(dZ1_shards, W1_shards)]

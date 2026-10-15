@@ -350,7 +350,7 @@ IPV4Iterator.next_batch = next_batch
 | --- | --- | --- |
 | `__init__` | $O(1)$ | $O(1)$ |
 | `__next__` | $O(1)$ | $O(1)$ |
-| `next_batch(size)` | $O(k)$，$k$ 为返回的地址数 | $O(k)$ |
+| `next_batch(size)` | $O(k)$，$`k`$ 为返回的地址数 | $O(k)$ |
 
 ### 追问
 

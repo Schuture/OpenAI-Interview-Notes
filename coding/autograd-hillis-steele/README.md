@@ -14,7 +14,9 @@
 $W_0, W_1, \dots, W_{N-1}$ of size $D \times D$, where `W[i]` is $W_i$. The $i$-th *prefix product* is
 the product of the first $i + 1$ matrices, taken from left to right:
 
-$$P_i = W_0 W_1 \cdots W_i, \qquad i = 0, 1, \dots, N-1,$$
+```math
+P_i = W_0 W_1 \cdots W_i, \qquad i = 0, 1, \dots, N-1,
+```
 
 so $P_0 = W_0$ and $P_i = P_{i-1} W_i$ for $i \ge 1$. The output is a tensor `P` of shape `(N, D, D)`
 with `P[i]` equal to $P_i$. All $N$ prefix products are returned. For example, with $N = 3$ and $D = 2$:
@@ -67,7 +69,7 @@ Part 1(b) runs and `W.grad` holds the correct gradient.
 ### Part 3 — Backward pass by hand
 
 Let $L$ be a scalar loss that depends on all the $P_i$. The *upstream gradient* $G_i = \partial L / \partial P_i$
-is given. It has the same shape as $P_i$, and its entry $(a, b)$ is $\partial L / \partial (P_i)_{ab}$.
+is given. It has the same shape as $P_i$, and its entry $(a, b)$ is $`\partial L / \partial (P_i)_{ab}`$.
 Without using autograd, derive a formula for $\partial L / \partial W_i$ and implement it:
 
 ```py
@@ -88,7 +90,9 @@ $\lceil \log_2 N \rceil$ rounds with the Hillis–Steele scan. Start from $x_i =
 $k = 0, 1, 2, \dots$ uses the stride $s = 2^k$ and is executed while $s < N$. In one round, simultaneously
 for every $i \ge s$,
 
-$$x_i \leftarrow x_{i-s}\, x_i ,$$
+```math
+x_i \leftarrow x_{i-s}\, x_i ,
+```
 
 where the right-hand side uses the values from before the round, and the entries with $i < s$ stay
 unchanged. After the last round $x_i = P_i$. The products inside one round do not depend on each other
@@ -156,18 +160,24 @@ def prefix_products(W):
 
 Write $\bar{X} = \partial L / \partial X$ for any matrix $X$. For a single product $Y = AB$ we have
 $Y_{ab} = \sum_c A_{ac} B_{cb}$, so the chain rule gives
-$\bar{A}_{ac} = \sum_b \bar{Y}_{ab} B_{cb}$ and $\bar{B}_{cb} = \sum_a A_{ac} \bar{Y}_{ab}$, that is
+$`\bar{A}_{ac} = \sum_b \bar{Y}_{ab} B_{cb}`$ and $`\bar{B}_{cb} = \sum_a A_{ac} \bar{Y}_{ab}`$, that is
 
-$$\bar{A} = \bar{Y} B^\top, \qquad \bar{B} = A^\top \bar{Y}.$$
+```math
+\bar{A} = \bar{Y} B^\top, \qquad \bar{B} = A^\top \bar{Y}.
+```
 
 In the forward pass $P_i$ is used twice: by the loss, which contributes $G_i$, and as the left factor of
 $P_{i+1} = P_i W_{i+1}$. The total gradient $A_i$ arriving at $P_i$ is the sum of both contributions:
 
-$$A_{N-1} = G_{N-1}, \qquad A_i = G_i + A_{i+1} W_{i+1}^\top .$$
+```math
+A_{N-1} = G_{N-1}, \qquad A_i = G_i + A_{i+1} W_{i+1}^\top .
+```
 
 $W_i$ is used once, as the right factor of $P_i = P_{i-1} W_i$, hence
 
-$$\frac{\partial L}{\partial W_i} = P_{i-1}^\top A_i \quad (i \ge 1), \qquad \frac{\partial L}{\partial W_0} = A_0 .$$
+```math
+\frac{\partial L}{\partial W_i} = P_{i-1}^\top A_i \quad (i \ge 1), \qquad \frac{\partial L}{\partial W_0} = A_0 .
+```
 
 One loop from $i = N - 1$ down to $0$ computes everything in $O(N D^3)$, the cost of the forward pass.
 
@@ -205,7 +215,9 @@ Backward. Undo the rounds from last to first. One round maps $X$ to $Y$ with $Y_
 $Y_j = X_{j-s} X_j$ for $j \ge s$. Given $H = \partial L / \partial Y$, entry $X_j$ receives one term for
 each place where it is used, by the rule for a single product:
 
-$$\bar{X}_j = \underbrace{H_j}_{j < s} + \underbrace{X_{j-s}^\top H_j}_{j \ge s} + \underbrace{H_{j+s} X_{j+s}^\top}_{j + s < N} .$$
+```math
+\bar{X}_j = \underbrace{H_j}_{j < s} + \underbrace{X_{j-s}^\top H_j}_{j \ge s} + \underbrace{H_{j+s} X_{j+s}^\top}_{j + s < N} .
+```
 
 ```python
 def scan_backward(tape, G):

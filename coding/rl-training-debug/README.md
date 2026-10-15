@@ -38,9 +38,9 @@ reaches the goal collects $20 \cdot (-0.02) = -0.400$.
 estimate of the return that square is worth. One training iteration draws a rollout and takes a single
 Adam step (learning rate 0.02) on
 
-$$
+```math
 \mathcal{L} = -\overline{\log \pi(a_t \mid s_t) \cdot A_t} \; + \; 0.5 \cdot \overline{(G_t - V(s_t))^2} \; - \; 0.02 \cdot \overline{H_t}
-$$
+```
 
 where the bar is the mean over the $20 \times 64$ steps of the rollout, $G_t$ is the discounted
 reward-to-go of step $t$ inside its own episode with $\gamma = 0.97$, the *advantage* $A_t$ is how much
@@ -219,7 +219,7 @@ paths that gradient takes back into the parameters (the `detach` in `surrogate`)
 checked on its own, without training anything.
 
 **Bug 1: `action = logits.argmax(dim=-1)` in `rollout`.** The policy gradient is
-$\nabla_\theta J = \mathbb{E}_{a \sim \pi}[\nabla_\theta \log \pi(a \mid s) \, A(s, a)]$, and the
+$`\nabla_\theta J = \mathbb{E}_{a \sim \pi}[\nabla_\theta \log \pi(a \mid s) \, A(s, a)]`$, and the
 one-sample form used here estimates it only when the action really was drawn from $\pi$. `argmax` makes
 the behaviour deterministic, so all 64 copies — same start square, same transition rule — run the very
 same trajectory, and the 1280 steps of a rollout carry one trajectory's worth of information. Over the
@@ -268,9 +268,9 @@ attached it opens a second path from `policy_loss` into `value`, and the two ter
 cancel. Per step, up to the $1/N$ that both means contribute, the derivative of the loss with respect to
 $V$ is $\log \pi(a \mid s) + 2 \cdot 0.5 \cdot (V - G)$, which vanishes at
 
-$$
+```math
 G - V = \log \pi(a \mid s),
-$$
+```
 
 so the baseline comes to rest one surprisal above the return it is meant to predict, and averaged over a
 rollout the advantage equals minus the entropy: -0.586 against an entropy of 0.612 at iteration 119, with
@@ -297,7 +297,7 @@ policy_loss = -(dist.log_prob(actions) * advantages.detach()).mean()    # was ad
   the policy before the RL stage, and the penalty is what keeps the model from collapsing onto whatever
   the reward model scores highest.
 - The advantage rather than the raw return, because
-  $\mathbb{E}_{a \sim \pi}[\nabla \log \pi(a \mid s) \, b(s)] = 0$ for any $b$ that does not depend on
+  $`\mathbb{E}_{a \sim \pi}[\nabla \log \pi(a \mid s) \, b(s)] = 0`$ for any $b$ that does not depend on
   the action: subtracting a baseline changes no expectation, only the variance. With returns alone every
   action taken in a good state is reinforced, the bad ones included.
 - GRPO removes the value network: it samples a group of $K$ answers to the same prompt and uses the

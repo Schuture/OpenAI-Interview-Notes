@@ -70,9 +70,9 @@ images from a separate image-text model run over a corpus sample.
 recompressions, resizes and slight crops (a 10% crop or a mirror flip already changes a third to a half
 of the hash's 64 bits, close to an unrelated image, so those are left to the embedding-based
 near-duplicate check); if that
-discards 15%, $S_1 = 0.85\, N_{\text{raw}} = 6.8\times10^9$ images remain. A cheap quality filter
+discards 15%, $`S_1 = 0.85\, N_{\text{raw}} = 6.8\times10^9`$ images remain. A cheap quality filter
 (corrupted files, near-blank images, extreme aspect ratios) removes a further 20%, leaving
-$S_2 = 0.80\, S_1 = 5.44\times10^9$ images to embed.
+$`S_2 = 0.80\, S_1 = 5.44\times10^9`$ images to embed.
 
 **GPU-time to embed the corpus once.** At $T_{\text{qual}} = 4{,}000$ images/sec/GPU for the quality
 filter and $T_{\text{embed}} = 800$ for the embedding model (roughly a ViT-L-sized encoder at 224px,
@@ -97,7 +97,7 @@ training-set index for distance to training) run on the index nodes' CPUs. Vecto
 shards at random, so every query visits every shard, and total query work grows with the shard count
 (a graph search grows only logarithmically with shard size), which is why the shards are few and
 large. At an assumed 1 ms of one core per visit, each of the 21 64-core nodes serves all $S_2$
-queries in $S_2 \times 1\,\text{ms} / 64 \approx 24$ hours, all in parallel: about $3.2\times10^4$
+queries in $`S_2 \times 1\,\text{ms} / 64 \approx 24`$ hours, all in parallel: about $3.2\times10^4$
 core-hours, off the GPUs.
 
 **Target-object scan.** The 200 targets bring at most 5 query vectors each; scoring all 1,000

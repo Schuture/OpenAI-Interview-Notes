@@ -80,7 +80,9 @@ known distribution.
 Since $T \ge 0$, the inequality $a \cdot \mathbf{1}[T \ge a] \le T$ holds for every $a > 0$. Taking
 expectations gives Markov's inequality $P(T \ge a) \le E[T] / a$, hence
 
-$$P(T > 5) \le P(T \ge 5) \le \frac{1}{5}.$$
+```math
+P(T > 5) \le P(T \ge 5) \le \frac{1}{5}.
+```
 
 For $P(T \ge 5)$ the bound is attained: $T = 5$ with probability $1/5$ and $T = 0$ otherwise has mean 1.
 For $P(T > 5)$ it is not, because $P(T > 5) = 1/5$ would force
@@ -104,7 +106,9 @@ which is the exact answer when $S$ is known. With only the mean known, Part 1 gi
 $S(t) \le 1/t = m/10$ for $m \le 10$, and the mass just above $t$ again brings all $m$ factors
 arbitrarily close to this bound at once:
 
-$$\text{guarantee} = 1 - \left(\frac{m}{10}\right)^{m} = 1 - \left(\frac{N+1}{10}\right)^{N+1}, \qquad N + 1 \le 10.$$
+```math
+\text{guarantee} = 1 - \left(\frac{m}{10}\right)^{m} = 1 - \left(\frac{N+1}{10}\right)^{N+1}, \qquad N + 1 \le 10.
+```
 
 For $N + 1 \ge 10$ the timeout is at most 1 and the guarantee is 0. A request that always takes
 $T = 1$ never finishes within a timeout below 1, and for the timeout 1 the distribution
@@ -116,7 +120,9 @@ $(1 + \varepsilon)^{-10} \to 1$.
 Minimise the failure probability $(m/10)^m$ through its logarithm $f(m) = m \ln(m/10)$, first over
 real $m$:
 
-$$f'(m) = \ln\frac{m}{10} + 1 = 0 \quad\Longrightarrow\quad m = \frac{10}{e} \approx 3.68 .$$
+```math
+f'(m) = \ln\frac{m}{10} + 1 = 0 \quad\Longrightarrow\quad m = \frac{10}{e} \approx 3.68 .
+```
 
 $f''(m) = 1/m > 0$, so $f$ is convex and the best integer is 3 or 4. Since $0.3^3 = 0.027$ and
 $0.4^4 = 0.0256$, four attempts of 2.5 minutes each are best, with the guarantee
@@ -131,7 +137,9 @@ about $e \approx 2.7$ times the mean.
 Yes: the exponential distribution with rate 1, $S(t) = e^{-t}$, which has mean 1. Every schedule fails
 with probability
 
-$$\prod_{i=1}^{m} S(t_i) = e^{-(t_1 + \dots + t_m)} = e^{-10} \approx 4.5 \times 10^{-5}.$$
+```math
+\prod_{i=1}^{m} S(t_i) = e^{-(t_1 + \dots + t_m)} = e^{-10} \approx 4.5 \times 10^{-5}.
+```
 
 This is the *memoryless property* $P(T > s + t \mid T > s) = P(T > t)$: an attempt that has already run
 for $s$ minutes is exactly as good as a fresh one. Conversely, if all schedules fail with the same
@@ -154,22 +162,28 @@ whole mean. All attempts draw from the same distribution, and one distribution c
 different timeouts. Think of the distribution as chosen by an *adversary* who knows the schedule.
 
 *Two attempts.* Let the timeouts be $a \le b$ with $a + b = 10$, and write $s_1 = S(a)$, $s_2 = S(b)$,
-so $s_1 \ge s_2$. Since $E[T] = \int_0^\infty S(t)\;dt$ and $S$ is non-increasing,
+so $s_1 \ge s_2$. Since $`E[T] = \int_0^\infty S(t)\;dt`$ and $S$ is non-increasing,
 
-$$1 = E[T] \ge \int_0^a S(t)\;dt + \int_a^b S(t)\;dt \ge a s_1 + (b - a) s_2 .$$
+```math
+1 = E[T] \ge \int_0^a S(t)\;dt + \int_a^b S(t)\;dt \ge a s_1 + (b - a) s_2 .
+```
 
 Conversely, every pair $1 \ge s_1 \ge s_2 \ge 0$ that satisfies this inequality is approached by a
 distribution with mean 1: mass $s_2$ just above $b$, mass $s_1 - s_2$ just above $a$, the rest at 0
 (a mean below 1 is made up by an arbitrarily small mass moved far out). The adversary therefore
 maximises $s_1 s_2$ under these constraints. By AM–GM,
 
-$$a s_1 \cdot (b - a) s_2 \le \left(\frac{a s_1 + (b - a) s_2}{2}\right)^{2} \le \frac{1}{4}, \qquad\text{so}\qquad s_1 s_2 \le \frac{1}{4a(b - a)} = \frac{1}{4a(10 - 2a)},$$
+```math
+a s_1 \cdot (b - a) s_2 \le \left(\frac{a s_1 + (b - a) s_2}{2}\right)^{2} \le \frac{1}{4}, \qquad\text{so}\qquad s_1 s_2 \le \frac{1}{4a(b - a)} = \frac{1}{4a(10 - 2a)},
+```
 
 with equality for $s_1 = 1/(2a)$ and $s_2 = 1/(2(10 - 2a))$. This pair satisfies $s_2 \le s_1 \le 1$
 exactly when $1/2 \le a \le 10/3$, and the worst-case failure probability is then $1/(4a(10 - 2a))$.
 It is smallest where $a(10 - 2a)$ is largest, at $a = 2.5$:
 
-$$\text{schedule } (2.5,\; 7.5), \qquad \text{worst-case failure probability } \frac{1}{4 \cdot 2.5 \cdot 5} = \frac{1}{50}, \qquad \text{guarantee } 0.98 .$$
+```math
+\text{schedule } (2.5,\; 7.5), \qquad \text{worst-case failure probability } \frac{1}{4 \cdot 2.5 \cdot 5} = \frac{1}{50}, \qquad \text{guarantee } 0.98 .
+```
 
 Outside that range a constraint is active: for $a > 10/3$ the maximum is at $s_1 = s_2 = 1/b$, with
 failure probability $1/(10 - a)^2 > 9/400$, and for $a < 1/2$ it is at $s_1 = 1$, with failure
@@ -178,7 +192,7 @@ two attempts. Its guarantee $0.98$ beats the $0.96$ of $(5, 5)$ and the $0.9744$
 The adversary's distribution against it has mass $0.1$ just above $2.5$, mass $0.1$ just above $7.5$ and
 mass $0.8$ at 0.
 
-*With $m$ attempts.* Sort the timeouts, $t_1 \le \dots \le t_m$, and let $d_i = t_i - t_{i-1}$ with
+*With $`m`$ attempts.* Sort the timeouts, $t_1 \le \dots \le t_m$, and let $d_i = t_i - t_{i-1}$ with
 $t_0 = 0$, and $s_i = S(t_i)$. The integral argument gives $\sum_i d_i s_i \le 1$ for every distribution,
 and the budget reads $\sum_i (m - i + 1) d_i = \sum_i t_i = 10$. Two observations settle $m \le 10$:
 
@@ -189,14 +203,14 @@ and the budget reads $\sum_i (m - i + 1) d_i = \sum_i t_i = 10$. Two observation
   arbitrarily close to a value of at least $m!/10^m$.
 
 The best guarantee with $m \le 10$ attempts is therefore exactly $1 - m!/10^m$: $0.98$ for $m = 2$,
-$0.994$ for $m = 3$ with the timeouts $(10/9,\; 25/9,\; 55/9) \approx (1.11,\; 2.78,\; 6.11)$, and $0.9976$
+$0.994$ for $m = 3$ with the timeouts $`(10/9,\; 25/9,\; 55/9) \approx (1.11,\; 2.78,\; 6.11)`$, and $0.9976$
 for $m = 4$. One more attempt multiplies the failure probability by $(m + 1)/10$, so it falls until
 $m = 9$, where $9!/10^9 = 10!/10^{10} \approx 3.6 \times 10^{-4}$. With more than 10 attempts the
 adversary treats the 10 largest timeouts in the same way, so no schedule of any length has a guarantee
 above $1 - 9!/10^9 \approx 0.9996$.
 
 *Known distribution.* The failure probability $\prod_i S(t_i)$ is then exact, and the *hazard rate*
-$h(t) = f(t)/S(t)$, with $f$ the density of $T$, decides. From $\ln S(t) = -\int_0^t h(u)\;du$, a
+$h(t) = f(t)/S(t)$, with $f$ the density of $T$, decides. From $`\ln S(t) = -\int_0^t h(u)\;du`$, a
 decreasing $h$ gives $S(s + t) \ge S(s) S(t)$, so splitting an attempt lowers the failure probability.
 An increasing $h$ reverses the inequality and the single attempt $(10)$ is best, and a constant $h$ is
 the exponential distribution of Part 5.

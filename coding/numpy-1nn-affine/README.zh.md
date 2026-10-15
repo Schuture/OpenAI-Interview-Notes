@@ -10,20 +10,24 @@
 
 ## 题目
 
-`X_train` 是形状为 `(n, d)` 的浮点数组，$n \ge 1$，它的各行 $x_0, \dots, x_{n-1} \in \mathbb{R}^d$ 是训练点。
+`X_train` 是形状为 `(n, d)` 的浮点数组，$`n \ge 1`$，它的各行 $x_0, \dots, x_{n-1} \in \mathbb{R}^d$ 是训练点。
 `y_train` 是形状为 `(n,)` 的整数数组，`y_train[i]` 是 $x_i$ 的类别标签，取值为整数 $0, 1, \dots, c - 1$ 之一。
 `X_query` 是形状为 `(m, d)` 的浮点数组，它的各行 $q_0, \dots, q_{m-1}$ 是待分类的查询点。
 
 *1-最近邻（1-nearest-neighbour，1-NN）分类*把离查询点 $q$ 最近的那个训练点的标签作为 $q$ 的预测标签。
 远近用*平方欧氏距离*（squared Euclidean distance）衡量：
 
-$$\lVert q - x_i \rVert^2 = \sum_{k=0}^{d-1} (q_k - x_{ik})^2 ,$$
+```math
+\lVert q - x_i \rVert^2 = \sum_{k=0}^{d-1} (q_k - x_{ik})^2 ,
+```
 
 有多个训练点同样近时，取下标最小的那个：
 
-$$\mathrm{nn}(q) = \text{满足 } \lVert q - x_i \rVert^2 = \min_k \lVert q - x_k \rVert^2 \text{ 的最小下标 } i .$$
+```math
+\mathrm{nn}(q) = \text{满足 } \lVert q - x_i \rVert^2 = \min_k \lVert q - x_k \rVert^2 \text{ 的最小下标 } i .
+```
 
-$q$ 的预测标签是 `y_train[nn(q)]`。全程取 $1 \le n, m \le 2000$、$1 \le d \le 50$。
+$q$ 的预测标签是 `y_train[nn(q)]`。全程取 $1 \le n, m \le 2000$、$`1 \le d \le 50`$。
 只用 NumPy 完成下面两个部分，不得调用 `scipy.spatial`、`sklearn` 或其他外部的距离/机器学习库。
 
 ### Part 1 —— 不用 Python 循环的 1-NN
@@ -37,7 +41,7 @@ def predict_1nn(X_train: np.ndarray, y_train: np.ndarray, X_query: np.ndarray) -
     Returns the predicted labels, shape (m,)."""
 ```
 
-例子，$n = 4$、$d = 2$、$m = 3$：
+例子，$`n = 4`$、$`d = 2`$、$`m = 3`$：
 
 ```text
 X_train = [[0, 0],        y_train = [2, 0, 0, 1]        X_query = [[1, 0],
@@ -60,7 +64,9 @@ X_train = [[0, 0],        y_train = [2, 0, 0, 1]        X_query = [[1, 0],
 其中*权重矩阵*（weight matrix） $W$ 和*偏置向量*（bias vector） $b$ 与 $x$ 无关。*激活函数*（activation function）是作用在一层输出上的
 一个固定的非线性函数。这里用的是 *softmax*，它把 $z \in \mathbb{R}^n$ 映射为一个含 $n$ 个概率的向量：
 
-$$\mathrm{softmax}(z)_i = \frac{e^{z_i}}{\sum_{k} e^{z_k}} .$$
+```math
+\mathrm{softmax}(z)_i = \frac{e^{z_i}}{\sum_{k} e^{z_k}} .
+```
 
 这一问的网络让查询点先经过一个有 $n$ 个输出的仿射层，再经过 softmax，然后取概率最大的下标
 （最大值不止一个时取其中最小的下标，`np.argmax` 正是这样做的），最后用这个下标到 `y_train` 里取标签。
@@ -68,12 +74,14 @@ $$\mathrm{softmax}(z)_i = \frac{e^{z_i}}{\sum_{k} e^{z_k}} .$$
 **(a)** 把单个查询点 $q \in \mathbb{R}^d$ 写成列向量。找出只由训练集算出的 $W_1 \in \mathbb{R}^{n \times d}$ 和
 $b_1 \in \mathbb{R}^n$，使得对任意 $q$ 都有
 
-$$\arg\max_i \mathrm{softmax}(W_1 q + b_1)_i = \mathrm{nn}(q) ,$$
+```math
+\arg\max_i \mathrm{softmax}(W_1 q + b_1)_i = \mathrm{nn}(q) ,
+```
 
 并列时的取法也要一致。证明这个等式。
 
 **(b)** 对整批查询点 `X_query`（每行一个查询点）实现前向传播：`logits = X_query @ W + b`，其中 `W` 的形状是 `(d, n)`，
-`b` 的形状是 `(n,)`，然后对每一行做 softmax。`X_query` 只允许出现在这一个表达式里。说明 `W`、`b` 与 $W_1$、$b_1$ 的关系。
+`b` 的形状是 `(n,)`，然后对每一行做 softmax。`X_query` 只允许出现在这一个表达式里。说明 `W`、`b` 与 $W_1$、$`b_1`$ 的关系。
 
 ```py
 def affine_layer(X_train: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -101,11 +109,15 @@ def predict_1nn_affine(X_train: np.ndarray, y_train: np.ndarray,
 最直接的无循环写法是用广播（broadcasting）相减：`X_query[:, None, :] - X_train[None, :, :]`，再平方、沿最后一个轴求和。
 结果正确，但要分配一个 `(m, n, d)` 的数组。把平方展开，就可以去掉第三个轴：
 
-$$\lVert q - x \rVert^2 = (q - x)^\top (q - x) = \lVert q \rVert^2 - 2 q^\top x + \lVert x \rVert^2 .$$
+```math
+\lVert q - x \rVert^2 = (q - x)^\top (q - x) = \lVert q \rVert^2 - 2 q^\top x + \lVert x \rVert^2 .
+```
 
-记 $Q$ = `X_query`、$X$ = `X_train`，$m \times n$ 的平方距离矩阵在 $(j, i)$ 处的元素是
+记 $Q$ = `X_query`、$`X`$ = `X_train`，$`m \times n`$ 的平方距离矩阵在 $(j, i)$ 处的元素是
 
-$$D_{ji} = \lVert q_j \rVert^2 + \lVert x_i \rVert^2 - 2 (Q X^\top)_{ji} .$$
+```math
+D_{ji} = \lVert q_j \rVert^2 + \lVert x_i \rVert^2 - 2 (Q X^\top)_{ji} .
+```
 
 三项的形状分别是 `(m, 1)`、`(n,)`、`(m, n)`，经广播相加得到 `(m, n)`。开销主要在矩阵乘法上：时间 $O(mnd)$，额外空间 $O(mn)$。
 平方根是增函数，所以欧氏距离本身的 argmin 与平方距离的相同，不需要开方。
@@ -132,21 +144,25 @@ def predict_1nn(X_train, y_train, X_query):
 
 ### Part 2
 
-**(a)** 固定一个查询点 $q$，看 $D$ 中它对应的那一行。$\lVert q \rVert^2$ 这一项对所有 $i$ 都相同，只是把整行平移了一个常数，
+**(a)** 固定一个查询点 $q$，看 $D$ 中它对应的那一行。$`\lVert q \rVert^2`$ 这一项对所有 $i$ 都相同，只是把整行平移了一个常数，
 既不改变最小值的位置，也不改变哪些元素并列。去掉它，再取相反数：
 
-$$z_i = 2 x_i^\top q - \lVert x_i \rVert^2 = \lVert q \rVert^2 - \lVert q - x_i \rVert^2 .$$
+```math
+z_i = 2 x_i^\top q - \lVert x_i \rVert^2 = \lVert q \rVert^2 - \lVert q - x_i \rVert^2 .
+```
 
 它是 $q$ 的仿射函数，即 $z = W_1 q + b_1$，其中
 
-$$W_1 = 2X \in \mathbb{R}^{n \times d} \quad (\text{第 } i \text{ 行是 } 2 x_i^\top), \qquad (b_1)_i = -\lVert x_i \rVert^2 ,$$
+```math
+W_1 = 2X \in \mathbb{R}^{n \times d} \quad (\text{第 } i \text{ 行是 } 2 x_i^\top), \qquad (b_1)_i = -\lVert x_i \rVert^2 ,
+```
 
-两者都只依赖训练集。$z_i$ 等于一个常数减去平方距离，所以距离最小的位置恰好就是 $z$ 最大的位置，
+两者都只依赖训练集。$`z_i`$ 等于一个常数减去平方距离，所以距离最小的位置恰好就是 $z$ 最大的位置，
 即 $\arg\max_i z_i = \mathrm{nn}(q)$，并列的情况也完全相同。被去掉的那一项是 $q$ 的二次函数，任何仿射层都算不出它；
 之所以用不着它，只是因为 argmax 不受平移的影响。
 
-softmax 不改变 argmax。所有的 $p_i = \mathrm{softmax}(z)_i$ 共用同一个正的分母，而 $t \mapsto e^t$ 严格递增，
-所以 $p_i > p_k$ 当且仅当 $z_i > z_k$，$p_i = p_k$ 当且仅当 $z_i = z_k$：大小顺序和并列关系都保持不变。
+softmax 不改变 argmax。所有的 $`p_i = \mathrm{softmax}(z)_i`$ 共用同一个正的分母，而 $t \mapsto e^t$ 严格递增，
+所以 $p_i > p_k$ 当且仅当 $z_i > z_k$，$`p_i = p_k`$ 当且仅当 $z_i = z_k$：大小顺序和并列关系都保持不变。
 
 对 Part 1 的数据和查询点 $q_1 = (2, 1)$，有 $\lVert q_1 \rVert^2 = 5$，并且
 
@@ -157,11 +173,11 @@ z = W_1 q_1 + b_1 = \begin{pmatrix} 0 \\ 4 \\ 0 \\ 0 \end{pmatrix},\quad
 5 - z = \begin{pmatrix} 5 \\ 1 \\ 5 \\ 5 \end{pmatrix}
 ```
 
-最后一个向量就是 Part 1 的表格里 $q_1$ 的那一行。$(W_1, b_1)$ 并不唯一：对任意 $c > 0$ 和任意 $t$，
-$(cW_1, cb_1 + t\mathbf{1})$ 的 argmax 都相同，$c$ 的作用相当于温度的倒数。取 $c = 1$ 时，softmax 同样会消去 $\lVert q \rVert^2$ 这个平移量，
-所以这些概率就是高斯核权重：$p_i = e^{-\lVert q - x_i \rVert^2} / \sum_k e^{-\lVert q - x_k \rVert^2}$。
+最后一个向量就是 Part 1 的表格里 $q_1$ 的那一行。$`(W_1, b_1)`$ 并不唯一：对任意 $c > 0$ 和任意 $t$，
+$(cW_1, cb_1 + t\mathbf{1})$ 的 argmax 都相同，$`c`$ 的作用相当于温度的倒数。取 $c = 1$ 时，softmax 同样会消去 $\lVert q \rVert^2$ 这个平移量，
+所以这些概率就是高斯核权重：$`p_i = e^{-\lVert q - x_i \rVert^2} / \sum_k e^{-\lVert q - x_k \rVert^2}`$。
 
-**(b)** `logits` 的第 $j$ 行是单个查询点公式的转置：$(W_1 q_j + b_1)^\top = q_j^\top W_1^\top + b_1^\top$。
+**(b)** `logits` 的第 $j$ 行是单个查询点公式的转置：$`(W_1 q_j + b_1)^\top = q_j^\top W_1^\top + b_1^\top`$。
 把 $m$ 行叠起来得到 $Z = Q W_1^\top + \mathbf{1} b_1^\top$，因此 `W = W_1.T = 2 * X_train.T`，形状为 `(d, n)`；`b = b_1`，由广播加到每一行上。
 `torch.nn.Linear(d, n)` 同时用到了这两种约定：它保存的权重形状是 `(n, d)`，也就是 $W_1$；计算时用的是 `x @ weight.T + bias`。
 
@@ -200,9 +216,9 @@ def predict_1nn_affine(X_train, y_train, X_query):
   它是全体训练点按上面的核权重做的加权投票，结果可能与 1-NN 不同（例子见验证代码）；要得到 1-NN 的标签，
   必须先对训练点取 argmax，再到 `y_train` 里取标签。
 - **L1 距离。** 一层仿射加 argmax 无法表示它：使单元 $i$ 取胜的 $q$ 的集合是若干半空间的交集，必为凸集，而 L1 距离下的最近邻区域可以不是凸的。
-  两层就够了：$nd$ 个隐藏单元计算 $q_k - x_{ik}$，激活函数取 $\lvert t \rvert$，第二层把每组 $d$ 个单元求和并取负（反例和实现都在验证代码里）。
-- **余弦相似度。** 把每个训练点除以它自己的范数，取 $W = \hat{X}^\top$、$b = 0$。查询点的范数是它那一行 logits 共有的正因子，不影响 argmax。
-- **$m \times n$ 放不进内存。** `W` 和 `b` 只算一次，把 `X_query` 按每块 $B$ 行分块送入。各行互不相关，所以结果完全相同，额外空间是 $O(Bn)$。
+  两层就够了：$`nd`$ 个隐藏单元计算 $q_k - x_{ik}$，激活函数取 $\lvert t \rvert$，第二层把每组 $d$ 个单元求和并取负（反例和实现都在验证代码里）。
+- **余弦相似度。** 把每个训练点除以它自己的范数，取 $W = \hat{X}^\top$、$`b = 0`$。查询点的范数是它那一行 logits 共有的正因子，不影响 argmax。
+- **$`m \times n`$ 放不进内存。** `W` 和 `b` 只算一次，把 `X_query` 按每块 $B$ 行分块送入。各行互不相关，所以结果完全相同，额外空间是 $O(Bn)$。
 - **复杂度。** 时间 $O(mnd)$，主要花在矩阵乘法上；额外空间 $O(mn)$，而广播相减的写法需要 $O(mnd)$ 的空间。
   $n$ 非常大时不再做精确搜索，改用近似最近邻索引，例如 HNSW 或 IVF。
 
