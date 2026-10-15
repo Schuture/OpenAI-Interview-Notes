@@ -208,7 +208,9 @@ Y_k = X_k W_k \quad \text{（部分和，形状 } B \times d_{out}\text{）}, \q
 这里 $Y_k$ 的形状已经对了，但只是答案的一部分，所以前向传播本身就需要一次 all-reduce。给定完整的 $\bar Y$
 （这次归约做完之后，每个设备上都相同）：
 
-$$\bar W_k = X_k^\top \bar Y \quad \text{（本地）}, \qquad \bar X_k = \bar Y W_k^\top \quad \text{（本地；设备 } k\text{ 自己那块 } \bar X\text{）}.$$
+```math
+\bar W_k = X_k^\top \bar Y \quad \text{（本地）}, \qquad \bar X_k = \bar Y W_k^\top \quad \text{（本地；设备 } k\text{ 自己那块 } \bar X\text{）}.
+```
 
 两个梯度都是本地的：$`X_k`$ 和 $W_k$ 各自只被一个设备用到，不需要合并。
 

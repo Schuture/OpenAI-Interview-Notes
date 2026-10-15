@@ -88,9 +88,9 @@ another worker. This design assumes it can, at about 3 seconds per snapshot.
 
 **Average GPU-seconds per job.** Weighting the per-second GPU cost by the resolution mix,
 
-$$
+```math
 10 \times 0.50 + 30 \times 0.35 + 80 \times 0.15 = 27.5 \text{ GPU-sec per output-second,}
-$$
+```
 
 and at the average requested duration of 6 seconds, a job costs
 $6 \times 27.5 = 165$ GPU-seconds (about 2.75 minutes) — the $W$ used below.

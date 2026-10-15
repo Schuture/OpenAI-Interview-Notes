@@ -241,7 +241,9 @@ $k$ 次特殊移动的路径的最大总分（基础分数加奖励），边界�
 $(i', j', k')$，记 $w = board[i'][j']$、$`u' = [board[i][j] < w]`$，它就是那个状态的 $u$（方括号里的条件成立时取 1，
 否则取 0）：
 
-$$g[i][j][k][u] = board[i][j] + \max_{(i',j',k')} \Bigl( X \cdot [board[i][j] = w] + Y \cdot u \cdot u' + g[i'][j'][k'][u'] \Bigr).$$
+```math
+g[i][j][k][u] = board[i][j] + \max_{(i',j',k')} \Bigl( X \cdot [board[i][j] = w] + Y \cdot u \cdot u' + g[i'][j'][k'][u'] \Bigr).
+```
 
 答案是 $g[0][p][K][0]$。这张表是 Part 1 的两倍大，所以时间和空间仍然是 $O(NMK)$。把上一个格子的值本身
 而不是 $u$ 放进状态也是正确的，因为值决定了 $u$；只是把行为完全相同的状态拆成了几份。

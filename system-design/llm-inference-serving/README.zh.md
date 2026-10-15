@@ -45,9 +45,9 @@
 
 **每个 token 的 KV cache。** 32 层、8 个 KV 头、头维度 128、fp16（2 字节），一个 token 的 key 和 value 合计
 
-$$
+```math
 2 \times 32 \times 8 \times 128 \times 2 = 131{,}072 \text{ 字节} = 128 \text{ KiB。}
-$$
+```
 
 每块 GPU 的 80 GiB 里，40 GiB 装权重、4 GiB 是激活值预留，剩 **36 GiB 的 KV cache 池**。
 

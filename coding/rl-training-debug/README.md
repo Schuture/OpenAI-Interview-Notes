@@ -268,9 +268,9 @@ attached it opens a second path from `policy_loss` into `value`, and the two ter
 cancel. Per step, up to the $1/N$ that both means contribute, the derivative of the loss with respect to
 $V$ is $\log \pi(a \mid s) + 2 \cdot 0.5 \cdot (V - G)$, which vanishes at
 
-$$
+```math
 G - V = \log \pi(a \mid s),
-$$
+```
 
 so the baseline comes to rest one surprisal above the return it is meant to predict, and averaged over a
 rollout the advantage equals minus the entropy: -0.586 against an entropy of 0.612 at iteration 119, with

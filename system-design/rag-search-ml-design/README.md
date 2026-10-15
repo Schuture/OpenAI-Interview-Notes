@@ -99,7 +99,9 @@ classifier and only then comparing its embeddings.
 The loss is InfoNCE. For an anchor (here a query) $q$, its positive passage $p^+$, and $N$
 negative passages $\lbrace p_1^-, \dots, p_N^- \rbrace$:
 
-$$L_{\text{InfoNCE}} = -\log \frac{\exp(\mathrm{sim}(q, p^+) / \tau)}{\exp(\mathrm{sim}(q, p^+) / \tau) + \sum_{i=1}^{N} \exp(\mathrm{sim}(q, p_i^-) / \tau)}$$
+```math
+L_{\text{InfoNCE}} = -\log \frac{\exp(\mathrm{sim}(q, p^+) / \tau)}{\exp(\mathrm{sim}(q, p^+) / \tau) + \sum_{i=1}^{N} \exp(\mathrm{sim}(q, p_i^-) / \tau)}
+```
 
 `sim(·,·)` is cosine similarity between L2-normalized embeddings, bounded to $[-1, 1]$, so the
 temperature $\tau$ carries the softmax's entire scale. The denominator sums the positive *and*

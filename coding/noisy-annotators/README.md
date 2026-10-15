@@ -241,7 +241,9 @@ L_i(c) = \sum_{j \in V_i} \log \frac{1 - r_j}{K - 1}
 The first sum is the same for every $c$, so it drops out of the arg max, leaving exactly the weighted
 vote of `aggregate_labels`, with
 
-$$w_j = \log \frac{r_j (K - 1)}{1 - r_j} .$$
+```math
+w_j = \log \frac{r_j (K - 1)}{1 - r_j} .
+```
 
 This is a single, non-iterative pass of the same idea behind the Dawid–Skene EM algorithm: it reuses the
 $r_j$ that Part 1 already estimated instead of alternating between confusion matrices and soft labels.

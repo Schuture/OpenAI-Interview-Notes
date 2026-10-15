@@ -66,7 +66,9 @@ $\frac1R \sum_{r=1}^{R} (T^{(r)} - x_0)^{2}$ 在这里是个糟糕的工具，�
 后落到岸上，所以 $X = x_0 + d \tan\Theta$。正切函数在 $`(-\pi/2,\; \pi/2)`$ 上是到整条实轴的严格增双射，
 而均匀分布的 $\Theta$ 满足 $P(\Theta \le a) = (a + \pi/2)/\pi$，于是
 
-$$F(x) = P\left(\Theta \le \arctan\frac{x - x_0}{d}\right) = \frac{1}{2} + \frac{1}{\pi}\arctan\frac{x - x_0}{d}, \qquad f(x) = F'(x) = \frac{d}{\pi\left(d^{2} + (x - x_0)^{2}\right)} .$$
+```math
+F(x) = P\left(\Theta \le \arctan\frac{x - x_0}{d}\right) = \frac{1}{2} + \frac{1}{\pi}\arctan\frac{x - x_0}{d}, \qquad f(x) = F'(x) = \frac{d}{\pi\left(d^{2} + (x - x_0)^{2}\right)} .
+```
 
 记 $Z = \tan\Theta$，上式就是 $X = x_0 + dZ$，而 $Z$ 的密度为 $1/(\pi(1 + z^{2}))$，即*标准柯西分布*（standard Cauchy
 distribution），于是 $`X \sim \mathrm{Cauchy}(x_0,\; d)`$。$`F`$ 关于 $x_0$ 对称且
@@ -129,14 +131,18 @@ $`P(\hat m_n \ge x_0 + \varepsilon) \le P\bigl(\mathrm{Bin}(n,\; p) \ge n/2\bigr
 $q_n = F(x_0 + u/\sqrt n) = \frac12 + \frac{f(x_0) u}{\sqrt n} + o(n^{-1/2})$。此时 $\sqrt n (\hat m_n - x_0) > u$
 当且仅当 $B_n < \lceil n/2 \rceil$，而 $q_n(1 - q_n) \to \frac14$，由二项分布的中心极限定理，
 
-$$P\bigl(\sqrt n (\hat m_n - x_0) > u\bigr) = P\left(\frac{B_n - n q_n}{\sqrt{n q_n (1 - q_n)}} < -2 f(x_0) u + o(1)\right) \longrightarrow \Phi\bigl(-2 f(x_0) u\bigr),$$
+```math
+P\bigl(\sqrt n (\hat m_n - x_0) > u\bigr) = P\left(\frac{B_n - n q_n}{\sqrt{n q_n (1 - q_n)}} < -2 f(x_0) u + o(1)\right) \longrightarrow \Phi\bigl(-2 f(x_0) u\bigr),
+```
 
 即 $`\sqrt n (\hat m_n - x_0) \Rightarrow N\bigl(0,\; 1/(4 f(x_0)^{2})\bigr)`$。代入 $f(x_0) = 1/(\pi d)$ 得
 $v_{\mathrm{med}} = \pi^{2} d^{2}/4$，$`\sqrt{v_{\mathrm{med}}/n} = \pi d/(2\sqrt n) \approx 1.57\;d/\sqrt n`$。
 
 **最大似然估计** $\hat\theta_n$ 使下式取最大：
 
-$$\ell(\theta) = -\sum_{i=1}^{n} \ln\left(d^{2} + (X_i - \theta)^{2}\right) + \text{常数}, \qquad \ell'(\theta) = \frac{1}{d}\sum_{i=1}^{n} \psi\left(\frac{X_i - \theta}{d}\right), \quad \psi(r) = \frac{2r}{1 + r^{2}} .$$
+```math
+\ell(\theta) = -\sum_{i=1}^{n} \ln\left(d^{2} + (X_i - \theta)^{2}\right) + \text{常数}, \qquad \ell'(\theta) = \frac{1}{d}\sum_{i=1}^{n} \psi\left(\frac{X_i - \theta}{d}\right), \quad \psi(r) = \frac{2r}{1 + r^{2}} .
+```
 
 这里的 $\psi$ 不只是有界，还是*重下降*（redescending）的：$`\lvert r \rvert \to \infty`$ 时 $\psi(r) \to 0$，
 所以 100 公里外的闪光，拉力比 2 公里外的还小。这不是临时加的稳健化手段，而是柯西尾部决定的最优做法。
@@ -144,7 +150,9 @@ $$\ell(\theta) = -\sum_{i=1}^{n} \ln\left(d^{2} + (X_i - \theta)^{2}\right) + \t
 *相合性。* 对数似然比 $\ln\frac{d^{2} + (X - \theta)^{2}}{d^{2} + (X - x_0)^{2}}$ 对固定的 $\theta$ 是 $X$ 的有界函数，
 作为 $\theta$ 的函数又对任何样本都是 $1/d$-Lipschitz 的，所以大数定律不需要任何矩，且在紧集上一致收敛：
 
-$$\frac{1}{n}\bigl[\ell(\theta) - \ell(x_0)\bigr] \longrightarrow -K(\theta) = -\ln\left(1 + \frac{(\theta - x_0)^{2}}{4 d^{2}}\right) \quad \text{几乎必然},$$
+```math
+\frac{1}{n}\bigl[\ell(\theta) - \ell(x_0)\bigr] \longrightarrow -K(\theta) = -\ln\left(1 + \frac{(\theta - x_0)^{2}}{4 d^{2}}\right) \quad \text{几乎必然},
+```
 
 其中 $K$ 是两个分布之间的 Kullback–Leibler 散度，除 $\theta = x_0$ 外恒正。远处不需要一致性：若 $\theta > \hat m_n$，
 则至少一半的闪光离 $\theta$ 有 $\theta - \hat m_n$ 那么远，于是

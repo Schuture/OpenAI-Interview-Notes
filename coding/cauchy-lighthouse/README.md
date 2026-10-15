@@ -78,7 +78,9 @@ angle $\Theta$ covers $d$ vertically and $d \tan\Theta$ horizontally before it l
 $X = x_0 + d \tan\Theta$. On $`(-\pi/2,\; \pi/2)`$ the tangent is a strictly increasing bijection onto the
 whole line, and $P(\Theta \le a) = (a + \pi/2)/\pi$, so
 
-$$F(x) = P\left(\Theta \le \arctan\frac{x - x_0}{d}\right) = \frac{1}{2} + \frac{1}{\pi}\arctan\frac{x - x_0}{d}, \qquad f(x) = F'(x) = \frac{d}{\pi\left(d^{2} + (x - x_0)^{2}\right)} .$$
+```math
+F(x) = P\left(\Theta \le \arctan\frac{x - x_0}{d}\right) = \frac{1}{2} + \frac{1}{\pi}\arctan\frac{x - x_0}{d}, \qquad f(x) = F'(x) = \frac{d}{\pi\left(d^{2} + (x - x_0)^{2}\right)} .
+```
 
 With $Z = \tan\Theta$ this reads $X = x_0 + dZ$, where $Z$ has density $1/(\pi(1 + z^{2}))$: the
 *standard Cauchy* distribution, so $`X \sim \mathrm{Cauchy}(x_0,\; d)`$. As $F$ is symmetric about $x_0$ with
@@ -151,14 +153,18 @@ $q_n = F(x_0 + u/\sqrt n) = \frac12 + \frac{f(x_0) u}{\sqrt n} + o(n^{-1/2})$. N
 $\sqrt n (\hat m_n - x_0) > u$ holds exactly when $B_n < \lceil n/2 \rceil$, and $q_n(1 - q_n) \to \frac14$,
 so the central limit theorem for the binomial gives
 
-$$P\bigl(\sqrt n (\hat m_n - x_0) > u\bigr) = P\left(\frac{B_n - n q_n}{\sqrt{n q_n (1 - q_n)}} < -2 f(x_0) u + o(1)\right) \longrightarrow \Phi\bigl(-2 f(x_0) u\bigr),$$
+```math
+P\bigl(\sqrt n (\hat m_n - x_0) > u\bigr) = P\left(\frac{B_n - n q_n}{\sqrt{n q_n (1 - q_n)}} < -2 f(x_0) u + o(1)\right) \longrightarrow \Phi\bigl(-2 f(x_0) u\bigr),
+```
 
 that is $`\sqrt n (\hat m_n - x_0) \Rightarrow N\bigl(0,\; 1/(4 f(x_0)^{2})\bigr)`$. With $f(x_0) = 1/(\pi d)$,
 $v_{\mathrm{med}} = \pi^{2} d^{2}/4$ and $`\sqrt{v_{\mathrm{med}}/n} = \pi d/(2\sqrt n) \approx 1.57\;d/\sqrt n`$.
 
 **The maximum likelihood estimator** $\hat\theta_n$ maximises
 
-$$\ell(\theta) = -\sum_{i=1}^{n} \ln\left(d^{2} + (X_i - \theta)^{2}\right) + \text{const}, \qquad \ell'(\theta) = \frac{1}{d}\sum_{i=1}^{n} \psi\left(\frac{X_i - \theta}{d}\right), \quad \psi(r) = \frac{2r}{1 + r^{2}} .$$
+```math
+\ell(\theta) = -\sum_{i=1}^{n} \ln\left(d^{2} + (X_i - \theta)^{2}\right) + \text{const}, \qquad \ell'(\theta) = \frac{1}{d}\sum_{i=1}^{n} \psi\left(\frac{X_i - \theta}{d}\right), \quad \psi(r) = \frac{2r}{1 + r^{2}} .
+```
 
 This $\psi$ is not merely bounded but *redescending*: $\psi(r) \to 0$ as $\lvert r \rvert \to \infty$, so a
 flash 100 km out pulls less than one 2 km out — not an ad-hoc robustification, but what the Cauchy tail
@@ -168,7 +174,9 @@ makes optimal.
 bounded function of $X$ for fixed $\theta$, and $1/d$-Lipschitz in $\theta$ for any sample, so the law of
 large numbers needs no moment and its convergence is uniform on compact sets:
 
-$$\frac{1}{n}\bigl[\ell(\theta) - \ell(x_0)\bigr] \longrightarrow -K(\theta) = -\ln\left(1 + \frac{(\theta - x_0)^{2}}{4 d^{2}}\right) \quad \text{almost surely},$$
+```math
+\frac{1}{n}\bigl[\ell(\theta) - \ell(x_0)\bigr] \longrightarrow -K(\theta) = -\ln\left(1 + \frac{(\theta - x_0)^{2}}{4 d^{2}}\right) \quad \text{almost surely},
+```
 
 where $K$ is the Kullback–Leibler divergence between the two laws, positive except at $\theta = x_0$. Far
 out no uniformity is needed: if $\theta > \hat m_n$ then half the flashes are at distance

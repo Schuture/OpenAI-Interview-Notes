@@ -57,7 +57,9 @@ c_p(x, i) = \sum_{j=0}^{p-1} [\mathrm{task}_j = x \text{ 且 } \mathrm{model}_j 
 
 为这个前缀里模型 $i$ 在任务 $x$ 上被使用过的次数。如果对每个前缀 $p$ 和每个任务 $x$ 都有
 
-$$\max_i c_p(x, i) - \min_i c_p(x, i) \le 1 ,$$
+```math
+\max_i c_p(x, i) - \min_i c_p(x, i) \le 1 ,
+```
 
 （最大值和最小值取遍全部 $m$ 个模型），就称这个调度*按任务均衡*。实现 `build_balanced_schedule`，
 返回一个同时满足覆盖、唯一、按任务均衡的调度。

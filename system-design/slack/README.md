@@ -69,7 +69,9 @@ pushed every post or only @-mentions. Below, the indicator and mentions only.
 
 **Message rate.** $210\times10^6$ messages/day average to
 
-$$\text{avg QPS} = \frac{210\times10^6}{86{,}400} \approx 2{,}431 \text{ messages/s.}$$
+```math
+\text{avg QPS} = \frac{210\times10^6}{86{,}400} \approx 2{,}431 \text{ messages/s.}
+```
 
 Usage concentrates in business hours, only partly spread out by time zones; a 5x peak-to-average ratio
 puts the peak write rate at about $12{,}153$ messages/s.

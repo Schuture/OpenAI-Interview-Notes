@@ -18,11 +18,15 @@ whose rows $q_0, \dots, q_{m-1}$ are the points to classify.
 *1-nearest-neighbour (1-NN) classification* gives a query $q$ the label of the training point closest
 to it. Closeness is measured by the *squared Euclidean distance*
 
-$$\lVert q - x_i \rVert^2 = \sum_{k=0}^{d-1} (q_k - x_{ik})^2 ,$$
+```math
+\lVert q - x_i \rVert^2 = \sum_{k=0}^{d-1} (q_k - x_{ik})^2 ,
+```
 
 and when several training points are equally close, the one with the smallest index wins:
 
-$$\mathrm{nn}(q) = \text{the smallest } i \text{ such that } \lVert q - x_i \rVert^2 = \min_k \lVert q - x_k \rVert^2 .$$
+```math
+\mathrm{nn}(q) = \text{the smallest } i \text{ such that } \lVert q - x_i \rVert^2 = \min_k \lVert q - x_k \rVert^2 .
+```
 
 The predicted label of $q$ is `y_train[nn(q)]`. Take $1 \le n, m \le 2000$ and $1 \le d \le 50$
 throughout. Implement the following two parts using NumPy only, without calling `scipy.spatial`,
@@ -116,7 +120,9 @@ The direct loop-free version subtracts with broadcasting, `X_query[:, None, :] -
 then squares and sums over the last axis. It is correct but allocates an `(m, n, d)` array. Expanding
 the square removes the third axis:
 
-$$\lVert q - x \rVert^2 = (q - x)^\top (q - x) = \lVert q \rVert^2 - 2 q^\top x + \lVert x \rVert^2 .$$
+```math
+\lVert q - x \rVert^2 = (q - x)^\top (q - x) = \lVert q \rVert^2 - 2 q^\top x + \lVert x \rVert^2 .
+```
 
 With $Q$ = `X_query` and $X$ = `X_train`, entry $(j, i)$ of the $m \times n$ matrix of squared distances is
 
@@ -154,7 +160,9 @@ def predict_1nn(X_train, y_train, X_query):
 $i$. It shifts the whole row by a constant, so it changes neither the index of the minimum nor which
 entries tie. Drop it and flip the sign:
 
-$$z_i = 2 x_i^\top q - \lVert x_i \rVert^2 = \lVert q \rVert^2 - \lVert q - x_i \rVert^2 .$$
+```math
+z_i = 2 x_i^\top q - \lVert x_i \rVert^2 = \lVert q \rVert^2 - \lVert q - x_i \rVert^2 .
+```
 
 This is affine in $q$, namely $z = W_1 q + b_1$ with
 

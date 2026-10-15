@@ -220,7 +220,9 @@ L_i(c) = \sum_{j \in V_i} \log \frac{1 - r_j}{K - 1}
 
 第一项对每个 $c$ 都相同，求 arg max 时可以去掉，剩下的正好是 `aggregate_labels` 的加权投票，权重为
 
-$$w_j = \log \frac{r_j (K - 1)}{1 - r_j} .$$
+```math
+w_j = \log \frac{r_j (K - 1)}{1 - r_j} .
+```
 
 这正是 Dawid–Skene EM 算法背后同一个思路的一次、不迭代的版本：它直接复用 Part 1 已经估计出的 $r_j$，
 而不是在混淆矩阵和软标签之间来回迭代。

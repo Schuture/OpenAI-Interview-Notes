@@ -13,7 +13,9 @@
 `W` 是一个形状为 `(N, D, D)` 的浮点张量，$`N \ge 1`$。它存放 $N$ 个 $D \times D$ 的方阵 $W_0, W_1, \dots, W_{N-1}$，
 其中 `W[i]` 就是 $W_i$。第 $i$ 个*前缀积*（prefix product）是前 $i + 1$ 个矩阵按从左到右的顺序相乘的结果：
 
-$$P_i = W_0 W_1 \cdots W_i, \qquad i = 0, 1, \dots, N-1,$$
+```math
+P_i = W_0 W_1 \cdots W_i, \qquad i = 0, 1, \dots, N-1,
+```
 
 因此 $P_0 = W_0$，且当 $i \ge 1$ 时 $P_i = P_{i-1} W_i$。输出是形状为 `(N, D, D)` 的张量 `P`，其中 `P[i]` 等于 $P_i$，
 即要返回全部 $N$ 个前缀积。例如取 $N = 3$、$`D = 2`$：
@@ -144,16 +146,22 @@ def prefix_products(W):
 对任意矩阵 $X$，记 $\bar{X} = \partial L / \partial X$。对单次乘法 $Y = AB$，有 $Y_{ab} = \sum_c A_{ac} B_{cb}$，由链式法则得
 $`\bar{A}_{ac} = \sum_b \bar{Y}_{ab} B_{cb}`$，$`\bar{B}_{cb} = \sum_a A_{ac} \bar{Y}_{ab}`$，即
 
-$$\bar{A} = \bar{Y} B^\top, \qquad \bar{B} = A^\top \bar{Y}.$$
+```math
+\bar{A} = \bar{Y} B^\top, \qquad \bar{B} = A^\top \bar{Y}.
+```
 
 在前向传播中 $P_i$ 被用了两次：被损失直接使用，贡献 $G_i$；以及作为 $P_{i+1} = P_i W_{i+1}$ 的左因子。
 到达 $P_i$ 的总梯度 $A_i$ 是这两项贡献之和：
 
-$$A_{N-1} = G_{N-1}, \qquad A_i = G_i + A_{i+1} W_{i+1}^\top .$$
+```math
+A_{N-1} = G_{N-1}, \qquad A_i = G_i + A_{i+1} W_{i+1}^\top .
+```
 
 $W_i$ 只被用了一次，作为 $P_i = P_{i-1} W_i$ 的右因子，因此
 
-$$\frac{\partial L}{\partial W_i} = P_{i-1}^\top A_i \quad (i \ge 1), \qquad \frac{\partial L}{\partial W_0} = A_0 .$$
+```math
+\frac{\partial L}{\partial W_i} = P_{i-1}^\top A_i \quad (i \ge 1), \qquad \frac{\partial L}{\partial W_0} = A_0 .
+```
 
 一个从 $i = N - 1$ 到 $0$ 的循环就能算出全部结果，代价是 $O(N D^3)$，与前向传播相同。
 

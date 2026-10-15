@@ -65,7 +65,9 @@ three bookkeeping fields — `created_at`, `updated_at` (8 bytes each), `version
 of core data. With the 30% row/index overhead typical of a relational store, that is $\approx 252$
 bytes/record, or
 
-$$N \cdot 252\text{ B} \approx 47\text{ GiB across all } N = 2\times10^8 \text{ POIs.}$$
+```math
+N \cdot 252\text{ B} \approx 47\text{ GiB across all } N = 2\times10^8 \text{ POIs.}
+```
 
 Small enough that data volume is never the bottleneck here — QPS and index memory are.
 
@@ -75,7 +77,9 @@ and render a result: an 8-byte geohash key (Deep dive (a)), an 8-byte `poi_id`, 
 coordinates, a 2-byte `category_id`, and a 1-byte rating — $27$ bytes of core data. Packed into a flat,
 sorted array (not a pointer-heavy tree — Deep dive (a) explains why) with 20% overhead for alignment,
 
-$$N \cdot 27\text{ B} \times 1.2 \approx 6.0\text{ GiB per copy of the index.}$$
+```math
+N \cdot 27\text{ B} \times 1.2 \approx 6.0\text{ GiB per copy of the index.}
+```
 
 Six gibibytes fits comfortably in a single server's memory with room to spare — the decision this unlocks
 is in Deep dive (c).

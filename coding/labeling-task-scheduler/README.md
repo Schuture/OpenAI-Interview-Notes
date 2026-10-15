@@ -59,7 +59,9 @@ c_p(x, i) = \sum_{j=0}^{p-1} [\mathrm{task}_j = x \text{ and } \mathrm{model}_j 
 count how many times model $i$ has been used on task $x$ within that prefix. A schedule is *balanced by
 task* if for every prefix $p$ and every task $x$,
 
-$$\max_i c_p(x, i) - \min_i c_p(x, i) \le 1 ,$$
+```math
+\max_i c_p(x, i) - \min_i c_p(x, i) \le 1 ,
+```
 
 the maximum and minimum ranging over all $m$ models. Implement `build_balanced_schedule`, returning a
 schedule with coverage, uniqueness, and balance by task.

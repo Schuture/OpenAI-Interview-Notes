@@ -258,7 +258,9 @@ $N - 1$ using at most $k$ more special moves, with $g[N-1][j][k][u] = board[N-1]
 candidate $(i', j', k')$ of Part 1, write $w = board[i'][j']$ and $u' = [board[i][j] < w]$, the bit that
 state starts with (a bracketed condition is 1 when it holds and 0 otherwise):
 
-$$g[i][j][k][u] = board[i][j] + \max_{(i',j',k')} \Bigl( X \cdot [board[i][j] = w] + Y \cdot u \cdot u' + g[i'][j'][k'][u'] \Bigr).$$
+```math
+g[i][j][k][u] = board[i][j] + \max_{(i',j',k')} \Bigl( X \cdot [board[i][j] = w] + Y \cdot u \cdot u' + g[i'][j'][k'][u'] \Bigr).
+```
 
 The answer is $g[0][p][K][0]$. The table is twice the size of Part 1's, so this is still $O(NMK)$ time and
 space. Keeping the previous value itself in the state instead of $u$ is also correct, since the value

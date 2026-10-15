@@ -198,7 +198,9 @@ the design below is event-based.
 On a move stamped $t_{\text{recv}}$, with $r$ the mover's remaining time and $t_{\text{turn}}$
 (`turn_started_at_ms`) the start of the turn, the mover's new remaining time is
 
-$$r' = r - (t_{\text{recv}} - t_{\text{turn}}) + \text{inc}, \quad \text{only if } r - (t_{\text{recv}} - t_{\text{turn}}) > 0$$
+```math
+r' = r - (t_{\text{recv}} - t_{\text{turn}}) + \text{inc}, \quad \text{only if } r - (t_{\text{recv}} - t_{\text{turn}}) > 0
+```
 
 so the increment is added after a completed move (a Fischer increment). If the difference is not
 positive, the move is rejected and the mover loses on time — a move that arrives after the flag fell

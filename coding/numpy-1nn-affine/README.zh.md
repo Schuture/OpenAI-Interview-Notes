@@ -17,11 +17,15 @@
 *1-最近邻（1-nearest-neighbour，1-NN）分类*把离查询点 $q$ 最近的那个训练点的标签作为 $q$ 的预测标签。
 远近用*平方欧氏距离*（squared Euclidean distance）衡量：
 
-$$\lVert q - x_i \rVert^2 = \sum_{k=0}^{d-1} (q_k - x_{ik})^2 ,$$
+```math
+\lVert q - x_i \rVert^2 = \sum_{k=0}^{d-1} (q_k - x_{ik})^2 ,
+```
 
 有多个训练点同样近时，取下标最小的那个：
 
-$$\mathrm{nn}(q) = \text{满足 } \lVert q - x_i \rVert^2 = \min_k \lVert q - x_k \rVert^2 \text{ 的最小下标 } i .$$
+```math
+\mathrm{nn}(q) = \text{满足 } \lVert q - x_i \rVert^2 = \min_k \lVert q - x_k \rVert^2 \text{ 的最小下标 } i .
+```
 
 $q$ 的预测标签是 `y_train[nn(q)]`。全程取 $1 \le n, m \le 2000$、$`1 \le d \le 50`$。
 只用 NumPy 完成下面两个部分，不得调用 `scipy.spatial`、`sklearn` 或其他外部的距离/机器学习库。
@@ -105,7 +109,9 @@ def predict_1nn_affine(X_train: np.ndarray, y_train: np.ndarray,
 最直接的无循环写法是用广播（broadcasting）相减：`X_query[:, None, :] - X_train[None, :, :]`，再平方、沿最后一个轴求和。
 结果正确，但要分配一个 `(m, n, d)` 的数组。把平方展开，就可以去掉第三个轴：
 
-$$\lVert q - x \rVert^2 = (q - x)^\top (q - x) = \lVert q \rVert^2 - 2 q^\top x + \lVert x \rVert^2 .$$
+```math
+\lVert q - x \rVert^2 = (q - x)^\top (q - x) = \lVert q \rVert^2 - 2 q^\top x + \lVert x \rVert^2 .
+```
 
 记 $Q$ = `X_query`、$`X`$ = `X_train`，$`m \times n`$ 的平方距离矩阵在 $(j, i)$ 处的元素是
 
@@ -141,7 +147,9 @@ def predict_1nn(X_train, y_train, X_query):
 **(a)** 固定一个查询点 $q$，看 $D$ 中它对应的那一行。$`\lVert q \rVert^2`$ 这一项对所有 $i$ 都相同，只是把整行平移了一个常数，
 既不改变最小值的位置，也不改变哪些元素并列。去掉它，再取相反数：
 
-$$z_i = 2 x_i^\top q - \lVert x_i \rVert^2 = \lVert q \rVert^2 - \lVert q - x_i \rVert^2 .$$
+```math
+z_i = 2 x_i^\top q - \lVert x_i \rVert^2 = \lVert q \rVert^2 - \lVert q - x_i \rVert^2 .
+```
 
 它是 $q$ 的仿射函数，即 $z = W_1 q + b_1$，其中
 

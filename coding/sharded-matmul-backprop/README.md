@@ -221,7 +221,9 @@ Y_k = X_k W_k \quad \text{(a partial sum, shape } B \times d_{out}\text{)}, \qqu
 Here $Y_k$ already has the right shape but is only part of the answer, so the forward pass itself needs
 an all-reduce. Given the full $\bar Y$, identical on every device once that reduction has run:
 
-$$\bar W_k = X_k^\top \bar Y \quad \text{(local)}, \qquad \bar X_k = \bar Y W_k^\top \quad \text{(local; device } k\text{'s own shard of } \bar X\text{)}.$$
+```math
+\bar W_k = X_k^\top \bar Y \quad \text{(local)}, \qquad \bar X_k = \bar Y W_k^\top \quad \text{(local; device } k\text{'s own shard of } \bar X\text{)}.
+```
 
 Both gradients are local: $X_k$ and $W_k$ are each used by exactly one device, so nothing needs
 combining.

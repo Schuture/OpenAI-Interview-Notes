@@ -75,7 +75,9 @@ recorded or mocked tool responses.
 **Concurrency.** At $\lambda_{\text{avg}} = 20$ runs/sec and a step latency of 900 ms for the completion call
 plus tool time on the 70% of steps that call one, the blended tool latency is
 
-$$0.2 \times 1.9\text{s} + 0.8 \times 0.15\text{s} = 0.5\text{s},$$
+```math
+0.2 \times 1.9\text{s} + 0.8 \times 0.15\text{s} = 0.5\text{s},
+```
 
 so a step averages $0.9 + 0.7 \times 0.5 = 1.25$ s and a 12-step run averages $12 \times 1.25 = 15$ s
 wall-clock. By Little's law, $L = \lambda W$ gives $20 \times 15 = 300$ runs in flight on average and $60

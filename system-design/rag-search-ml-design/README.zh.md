@@ -61,7 +61,9 @@
 
 损失函数用 InfoNCE。对一个锚点（这里是查询）$`q`$、它的正样本段落 $p^+$，以及 $N$ 个负样本段落 $\lbrace p_1^-, \dots, p_N^- \rbrace$：
 
-$$L_{\text{InfoNCE}} = -\log \frac{\exp(\mathrm{sim}(q, p^+) / \tau)}{\exp(\mathrm{sim}(q, p^+) / \tau) + \sum_{i=1}^{N} \exp(\mathrm{sim}(q, p_i^-) / \tau)}$$
+```math
+L_{\text{InfoNCE}} = -\log \frac{\exp(\mathrm{sim}(q, p^+) / \tau)}{\exp(\mathrm{sim}(q, p^+) / \tau) + \sum_{i=1}^{N} \exp(\mathrm{sim}(q, p_i^-) / \tau)}
+```
 
 `sim(·,·)` 是 L2 归一化向量之间的余弦相似度，取值在 $[-1, 1]$ 之内，所以 softmax 的尺度完全由温度 $\tau$ 决定。分母把正样本和每一个负样本都加了进去，因此这个损失恰好是在 `sim / τ` 上做的 $(N+1)$ 类交叉熵，正确类别就是正样本。
 

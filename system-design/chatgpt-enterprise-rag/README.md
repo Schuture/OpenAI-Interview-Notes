@@ -67,7 +67,9 @@ record type only changes the parser stage.
 **Chunk count.** $D = 3\times10^7$ documents averaging 1,200 tokens, chunked at 300 tokens with 15%
 overlap (a 255-token step), give $k = \lceil 1200 / 255 \rceil = 5$ chunks per document, so
 
-$$C = D \cdot k = 1.5\times10^8 \text{ chunks.}$$
+```math
+C = D \cdot k = 1.5\times10^8 \text{ chunks.}
+```
 
 **Vector index memory.** At embedding dimension $d = 1024$ and float16 storage ($b = 2$ bytes), the raw
 vectors cost $C \cdot d \cdot b \approx 286$ GiB. An HNSW graph with $M_0 = 32$ neighbours at the base
