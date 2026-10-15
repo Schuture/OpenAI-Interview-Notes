@@ -186,14 +186,14 @@ if __name__ == "__main__":
 **按列切。** 设备 $k$ 持有 $W$ 的第 $k$ 块列 $W_k$，形状 `(d_in, d_out_k)`，以及 $X$ 的完整副本。
 
 ```math
-Y_k = X W_k \quad (B \times d_{out,k}), \qquad Y = \operatorname{all\_gather}_{\mathrm{axis}=1}(Y_0, \dots, Y_{n-1}).
+Y_k = X W_k \quad (B \times d_{out,k}), \qquad Y = \mathrm{all\_gather}_{\mathrm{axis}=1}(Y_0, \dots, Y_{n-1}).
 ```
 
 算出 $Y_k$ 本身不需要通信；只有当别处需要每个设备上都有完整的 $Y$ 时才用得到这次拼接。把给定的 $\bar Y$
 就地切成 $\bar Y_k$（设备 $k$ 的那些列），对 $Y_k = X W_k$ 应用乘法的链式法则：
 
 ```math
-\bar W_k = X^\top \bar Y_k \quad \text{（本地）}, \qquad \bar X = \sum_k \bar Y_k W_k^\top = \operatorname{all\_reduce}\bigl(\bar Y_k W_k^\top\bigr).
+\bar W_k = X^\top \bar Y_k \quad \text{（本地）}, \qquad \bar X = \sum_k \bar Y_k W_k^\top = \mathrm{all\_reduce}\bigl(\bar Y_k W_k^\top\bigr).
 ```
 
 $X$ 参与了每个设备的本地乘法，所以它的梯度是跨设备的求和——一次 all-reduce。
@@ -202,7 +202,7 @@ $X$ 参与了每个设备的本地乘法，所以它的梯度是跨设备的求�
 形状 `(B, d_in_k)`。
 
 ```math
-Y_k = X_k W_k \quad \text{（部分和，形状 } B \times d_{out}\text{）}, \qquad Y = \sum_k Y_k = \operatorname{all\_reduce}(Y_0, \dots, Y_{n-1}).
+Y_k = X_k W_k \quad \text{（部分和，形状 } B \times d_{out}\text{）}, \qquad Y = \sum_k Y_k = \mathrm{all\_reduce}(Y_0, \dots, Y_{n-1}).
 ```
 
 这里 $Y_k$ 的形状已经对了，但只是答案的一部分，所以前向传播本身就需要一次 all-reduce。给定完整的 $\bar Y$

@@ -13,11 +13,11 @@
 `logits` 是形状为 `(B, T, V)` 的浮点数组：对 `B` 个序列中的每一个、序列里 `T` 个位置中的每一个，
 它给出语言模型在 `V` 个词表类别上的未归一化得分。`targets` 是形状为 `(B, T)` 的整数数组，
 `targets[b, t]` 是该位置正确类别的下标，是 $[0, V)$ 内的整数。
-记 $z = \text{logits}[b, t] \in \mathbb{R}^V$，$`\operatorname{softmax}(z)_i = e^{z_i} / \sum_k e^{z_k}`$。
+记 $z = \text{logits}[b, t] \in \mathbb{R}^V$，$`\mathrm{softmax}(z)_i = e^{z_i} / \sum_k e^{z_k}`$。
 一个位置上的*交叉熵损失*（cross-entropy loss）是模型分配给正确类别的负对数概率：
 
 ```math
-\ell(b, t) = -\log \operatorname{softmax}(z)_{y}, \qquad y = \text{targets}[b, t].
+\ell(b, t) = -\log \mathrm{softmax}(z)_{y}, \qquad y = \text{targets}[b, t].
 ```
 
 用 NumPy 完成下面四个部分。
@@ -84,7 +84,7 @@ p = (1 - \varepsilon) \cdot \text{one-hot}(y) + \frac{\varepsilon}{V} \mathbf{1}
 ```
 
 其中 $\varepsilon \in [0, 1)$ 就是 `label_smoothing`，$`\mathbf{1} \in \mathbb{R}^V`$ 是全 1 向量。
-该位置上的损失从 $`-\log \operatorname{softmax}(z)_y`$ 变为 $`-\sum_v p_v \log \operatorname{softmax}(z)_v`$。
+该位置上的损失从 $`-\log \mathrm{softmax}(z)_y`$ 变为 $`-\sum_v p_v \log \mathrm{softmax}(z)_v`$。
 实现 `cross_entropy_smoothed(logits, targets, mask, label_smoothing)`，mask 的约定与 Part 2 相同；
 `label_smoothing = 0.0` 时必须与 `cross_entropy_masked` 的结果完全一致。
 
@@ -100,7 +100,7 @@ def cross_entropy_smoothed(logits: np.ndarray, targets: np.ndarray, mask: np.nda
 ### Part 4 —— 交叉熵、KL 散度与梯度
 
 固定一个位置 $(b, t)$，记 $p$ 为该处使用的目标分布（Part 1–2 里是 one-hot，Part 3 里是平滑后的分布），
-$q = \operatorname{softmax}(z)$ 为模型的预测分布，于是 $\ell(b, t) = H(p, q) = -\sum_v p_v \log q_v$。
+$q = \mathrm{softmax}(z)$ 为模型的预测分布，于是 $\ell(b, t) = H(p, q) = -\sum_v p_v \log q_v$。
 
 **(a)** 推导 $H(p, q) = H(p) + \mathrm{KL}(p \Vert q)$，其中 $H(p) = -\sum_v p_v \log p_v$ 是 $p$ 的熵，
 $\mathrm{KL}(p \Vert q) = \sum_v p_v \log(p_v / q_v)$ 是 KL 散度。用这个恒等式说明：当目标是 one-hot 时，
@@ -186,7 +186,7 @@ def cross_entropy_masked(logits, targets, mask):
 
 ### Part 3
 
-记 $`q_v = \operatorname{softmax}(z)_v`$，把 $`p = (1 - \varepsilon)\,\text{one-hot}(y) + (\varepsilon / V)\mathbf{1}`$
+记 $`q_v = \mathrm{softmax}(z)_v`$，把 $`p = (1 - \varepsilon)\,\text{one-hot}(y) + (\varepsilon / V)\mathbf{1}`$
 代入 $-\sum_v p_v \log q_v$，得到
 
 ```math
