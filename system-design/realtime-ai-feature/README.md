@@ -92,12 +92,12 @@ line, about 55 bytes) plus HTTP/2 and TLS framing, about 100 bytes on the wire. 
 $385 \times 35 \times 100 \approx 1.35$ MB/s, about 11 Mbps — negligible.
 
 **Daily token cost.** $1{,}200{,}000$ requests/day at 220 input and 180 output tokens average to
-$264{,}000{,}000$ input and $216{,}000{,}000$ output tokens/day; at the given \$0.05 and \$0.15 per 1,000
+$`264{,}000{,}000`$ input and $`216{,}000{,}000`$ output tokens/day; at the given \$0.05 and \$0.15 per 1,000
 tokens, that is \$13,200 + \$32,400 = **\$45,600/day**, about \$0.038/request.
 
 **At 10x.** $12{,}000{,}000$ requests/day put peak submissions at $\approx 694$/sec, concurrent streams
 at $\approx 3{,}849$, and the replica count at $\approx 231$, at $\approx$
-\$456,000/day ($\approx$ \$166M/year). The GPU pool is the first bottleneck: it grows linearly, costs the
+\$456,000/day ($`\approx`$ \$166M/year). The GPU pool is the first bottleneck: it grows linearly, costs the
 most, and has a procurement lead time. Next is whatever grows with tokens rather than requests: the event
 buffer takes one append per token, $3{,}849 \times 35 \approx 135{,}000$/sec at 10x peak, so it is
 sharded by `request_id`, and the request store is written only at state transitions, never per token. The

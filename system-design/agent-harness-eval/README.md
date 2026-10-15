@@ -232,7 +232,7 @@ keeps only a reference. Reconstructing the exact context sent to the model at an
 concatenating the stored turns with the versioned system prompt and tool definitions used at that time — not
 by re-storing the whole, ever-growing context at every step. That distinction matters: storing a full context
 snapshot at each of $k = 12$ steps would repeat every earlier turn each time, for $k(k+1)/2 = 78$
-turn-equivalents per run instead of 12 — a $6.5\times$ ($=(k+1)/2$) blow-up over the delta-based 36 KB/run
+turn-equivalents per run instead of 12 — a $6.5\times$ ($`=(k+1)/2`$) blow-up over the delta-based 36 KB/run
 computed above, from the storage choice alone.
 
 Replaying a historical run against a new model version re-feeds each recorded `tool_result` verbatim rather

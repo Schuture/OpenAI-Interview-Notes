@@ -151,7 +151,7 @@ more than one line may be burnt, and whether a part of a line may be burnt.
 
 Confirm with the interviewer before coding: four neighbours or eight; how cells are encoded (integers
 or characters, immune as `2` or `-1`); in Part 3, whether recovery comes before the spread of the same
-day and whether the test is $\ge$ or $>$; in Part 4, whether $K$ is a threshold for infection, for death,
+day and whether the test is $\ge$ or $`>`$; in Part 4, whether $K$ is a threshold for infection, for death,
 or for both. With five parts in 60 minutes, Parts 1 and 2 should be written quickly and kept simple.
 
 ### Parts 1–2: multi-source BFS

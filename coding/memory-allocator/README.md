@@ -153,7 +153,7 @@ shifts every later element, $O(n)$ regardless of how the position was found. *Fi
 something a size-ordered tree cannot answer: the block with the **lowest address** whose size is
 `>= size` — two orderings at once, and the size tree has already discarded the address one.
 
-One tree can serve both roles: order it by start address (so merge stays $O(\log n)$), and additionally
+One tree can serve both roles: order it by start address (so merge stays $`O(\log n)`$), and additionally
 store, at every node, the *maximum block size in its own subtree*. The first-fit query walks down from
 the root: if the left subtree's maximum is `>= size`, the answer is there, since every address in it is
 smaller than the current node's; else the current node is the answer if it is big enough, being the

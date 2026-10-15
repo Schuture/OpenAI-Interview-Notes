@@ -276,7 +276,7 @@ TextBuffer.redo = redo
 
 `suggest` rebuilds the trie from scratch each call: tokenize the current text, count with `Counter`,
 insert each word letter by letter, storing its count at the last node. A query walks to the prefix's
-node ($O(\lvert \text{prefix} \rvert)$), depth-first-collects that subtree, and sorts the $m$ words it
+node ($`O(\lvert \text{prefix} \rvert)`$), depth-first-collects that subtree, and sorts the $m$ words it
 found: $O(n + m \log m)$ for a buffer of $n$ characters. Frequent queries would keep the trie between
 calls and update it inside `insert`/`delete` instead.
 

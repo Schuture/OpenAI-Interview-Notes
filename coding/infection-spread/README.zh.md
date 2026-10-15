@@ -134,7 +134,7 @@ def min_deaths(grid: list[list[int]], recover_after: int, death_threshold: int,
 <summary>展开参考解答</summary>
 
 动手之前先向面试官确认：四邻域还是八邻域；格子如何编码（整数还是字符，免疫是 `2` 还是 `-1`）；Part 3 里同一天内康复是否先于传播，
-比较用 $\ge$ 还是 $>$；Part 4 里的 $K$ 是感染的阈值、死亡的阈值，还是两者都是。
+比较用 $\ge$ 还是 $`>`$；Part 4 里的 $K$ 是感染的阈值、死亡的阈值，还是两者都是。
 五个 Part 共 60 分钟，Part 1 和 Part 2 要写得快、写得简单。
 
 ### Part 1–2：多源 BFS

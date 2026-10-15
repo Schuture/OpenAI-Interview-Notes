@@ -125,7 +125,7 @@ full batch of 128 uses $\approx 21.1$ GiB of the 36 GiB pool, leaving $\approx 1
 long-context tail.
 
 **Daily cost.** $43{,}200{,}000$ requests/day at 1,200 input and 300 output tokens each is
-$51.84 \times 10^9$ input and $12.96 \times 10^9$ output tokens/day. At \$0.03/\$0.10 per 1,000
+$`51.84 \times 10^9`$ input and $`12.96 \times 10^9`$ output tokens/day. At \$0.03/\$0.10 per 1,000
 tokens, that's $`\$1{,}555{,}200 + \$1{,}296{,}000 = \$2{,}851{,}200`$/day, or $`\$0.066`$/request.
 
 ### Data model and API
