@@ -242,7 +242,7 @@ Database._filtered_rows = _filtered_rows
 Database.select = select
 ```
 
-不用索引时，过滤是 $O(n \cdot w)$（$w$ 是条件数），每次排序是 $O(m \log m)$（$m$ 是剩下的行数），共 $o$
+不用索引时，过滤是 $O(n \cdot w)$（$`w`$ 是条件数），每次排序是 $O(m \log m)$（$`m`$ 是剩下的行数），共 $o$
 次：合起来 $O(n \cdot w + m \log m \cdot o)$。
 
 ### Part 4

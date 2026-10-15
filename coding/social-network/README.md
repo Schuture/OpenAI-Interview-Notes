@@ -228,7 +228,7 @@ Snapshot.recommend = recommend              # attach to the Snapshot class of Pa
 ```
 
 Let $n$ be the number of users and $m$ the number of follow edges at snapshot time, $d(u)$ the number
-of accounts $u$ follows and $d^-(u)$ the number that follow $u$. For `recommend`, let $F = d(\text{user\_id})$
+of accounts $u$ follows and $d^-(u)$ the number that follow $u$. For `recommend`, let $`F = d(\text{user\_id})`$
 and $C$ be the number of distinct candidates found; the inner double loop visits $\sum_{f} d(f) = O(F \cdot G)$
 pairs, where $G$ is the average out-degree among `user_id`'s own followees.
 

@@ -14,10 +14,12 @@
 `V` vocabulary classes, for each of `T` positions in each of `B` sequences. `targets` is an integer
 array of shape `(B, T)`; `targets[b, t]` is the id of the correct class at that position, an integer in
 `[0, V)`. Write $z = \text{logits}[b, t] \in \mathbb{R}^V$
-and $\operatorname{softmax}(z)_i = e^{z_i} / \sum_k e^{z_k}$. The *cross-entropy loss* at one position
+and $`\operatorname{softmax}(z)_i = e^{z_i} / \sum_k e^{z_k}`$. The *cross-entropy loss* at one position
 is the negative log-probability the model assigns to the correct class:
 
-$$\ell(b, t) = -\log \operatorname{softmax}(z)_{y}, \qquad y = \text{targets}[b, t].$$
+```math
+\ell(b, t) = -\log \operatorname{softmax}(z)_{y}, \qquad y = \text{targets}[b, t].
+```
 
 Complete the following four parts in NumPy.
 
@@ -86,8 +88,8 @@ distribution on `targets[b, t]` (the distribution with all its mass on class $y$
 $$p = (1 - \varepsilon) \cdot \text{one-hot}(y) + \frac{\varepsilon}{V} \mathbf{1}, \qquad y = \text{targets}[b, t],$$
 
 where $\varepsilon \in [0, 1)$ is `label_smoothing` and $\mathbf{1} \in \mathbb{R}^V$ is the all-ones
-vector. The loss at that position becomes $-\sum_v p_v \log \operatorname{softmax}(z)_v$ instead of
-$-\log \operatorname{softmax}(z)_y$. Implement `cross_entropy_smoothed(logits, targets, mask,
+vector. The loss at that position becomes $`-\sum_v p_v \log \operatorname{softmax}(z)_v`$ instead of
+$`-\log \operatorname{softmax}(z)_y`$. Implement `cross_entropy_smoothed(logits, targets, mask,
 label_smoothing)` with the same masking contract as Part 2; `label_smoothing = 0.0` must reproduce
 `cross_entropy_masked` exactly.
 
@@ -197,8 +199,8 @@ def cross_entropy_masked(logits, targets, mask):
 
 ### Part 3
 
-Write $q_v = \operatorname{softmax}(z)_v$ and substitute
-$p = (1 - \varepsilon)\,\text{one-hot}(y) + (\varepsilon / V)\mathbf{1}$ into $-\sum_v p_v \log q_v$:
+Write $`q_v = \operatorname{softmax}(z)_v`$ and substitute
+$`p = (1 - \varepsilon)\,\text{one-hot}(y) + (\varepsilon / V)\mathbf{1}`$ into $-\sum_v p_v \log q_v$:
 
 $$-\sum_v p_v \log q_v = -(1 - \varepsilon) \log q_y - \frac{\varepsilon}{V} \sum_v \log q_v
 = -(1 - \varepsilon) \log q_y - \varepsilon \cdot \overline{\log q},$$
@@ -248,8 +250,10 @@ Minimizing the loss over `logits` is minimizing $\mathrm{KL}(p \Vert q)$.
 **(b)** With label smoothing, the target $p$ of Part 3 still does not depend on `logits`, so
 $H(p)$ is again a `logits`-independent constant, but now a positive one:
 
-$$H(p) = -\Bigl[(1 - \varepsilon) + \tfrac{\varepsilon}{V}\Bigr] \log\Bigl[(1 - \varepsilon) + \tfrac{\varepsilon}{V}\Bigr]
-- (V - 1) \cdot \frac{\varepsilon}{V} \log \frac{\varepsilon}{V}.$$
+```math
+H(p) = -\Bigl[(1 - \varepsilon) + \tfrac{\varepsilon}{V}\Bigr] \log\Bigl[(1 - \varepsilon) + \tfrac{\varepsilon}{V}\Bigr]
+- (V - 1) \cdot \frac{\varepsilon}{V} \log \frac{\varepsilon}{V}.
+```
 
 $\mathrm{KL}(p \Vert q) \ge 0$, with equality iff $q = p$, which is reachable because softmax can equal
 any distribution with strictly positive entries (take `logits = log(p)`, up to an additive constant that

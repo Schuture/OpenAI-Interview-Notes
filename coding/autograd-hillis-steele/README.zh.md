@@ -10,13 +10,13 @@
 
 ## 题目
 
-`W` 是一个形状为 `(N, D, D)` 的浮点张量，$N \ge 1$。它存放 $N$ 个 $D \times D$ 的方阵 $W_0, W_1, \dots, W_{N-1}$，
+`W` 是一个形状为 `(N, D, D)` 的浮点张量，$`N \ge 1`$。它存放 $N$ 个 $D \times D$ 的方阵 $W_0, W_1, \dots, W_{N-1}$，
 其中 `W[i]` 就是 $W_i$。第 $i$ 个*前缀积*（prefix product）是前 $i + 1$ 个矩阵按从左到右的顺序相乘的结果：
 
 $$P_i = W_0 W_1 \cdots W_i, \qquad i = 0, 1, \dots, N-1,$$
 
 因此 $P_0 = W_0$，且当 $i \ge 1$ 时 $P_i = P_{i-1} W_i$。输出是形状为 `(N, D, D)` 的张量 `P`，其中 `P[i]` 等于 $P_i$，
-即要返回全部 $N$ 个前缀积。例如取 $N = 3$、$D = 2$：
+即要返回全部 $N$ 个前缀积。例如取 $N = 3$、$`D = 2`$：
 
 ```math
 W_0 = \begin{pmatrix} 1 & 1 \\ 0 & 1 \end{pmatrix},\qquad
@@ -63,7 +63,7 @@ loss.backward()
 ### Part 3 —— 手写反向传播
 
 设 $L$ 是一个依赖于所有 $P_i$ 的标量损失，已知*上游梯度*（upstream gradient） $G_i = \partial L / \partial P_i$。
-它与 $P_i$ 形状相同，位置 $(a, b)$ 上的元素是 $\partial L / \partial (P_i)_{ab}$。
+它与 $P_i$ 形状相同，位置 $(a, b)$ 上的元素是 $`\partial L / \partial (P_i)_{ab}`$。
 不使用 autograd，推导 $\partial L / \partial W_i$ 的公式并实现：
 
 ```py
@@ -81,9 +81,11 @@ Part 1–3 的循环要依次做 $N - 1$ 次乘法，因为第 $i$ 步需要第 
 所以同样的前缀积可以用 Hillis–Steele 扫描在 $\lceil \log_2 N \rceil$ 轮内算出。初始时 $x_i = W_i$。
 第 $k = 0, 1, 2, \dots$ 轮使用步长 $s = 2^k$，只要 $s < N$ 就执行。在一轮之内，对所有 $i \ge s$ 同时执行
 
-$$x_i \leftarrow x_{i-s}\, x_i ,$$
+```math
+x_i \leftarrow x_{i-s}\, x_i ,
+```
 
-其中右边使用的是这一轮开始之前的值，$i < s$ 的元素保持不变。最后一轮结束后 $x_i = P_i$。
+其中右边使用的是这一轮开始之前的值，$`i < s`$ 的元素保持不变。最后一轮结束后 $x_i = P_i$。
 同一轮内的各次乘法互不依赖，可以并行执行。以 $N = 4$ 为例：
 
 | | $x_0$ | $x_1$ | $x_2$ | $x_3$ |
@@ -140,7 +142,7 @@ def prefix_products(W):
 ### Part 3
 
 对任意矩阵 $X$，记 $\bar{X} = \partial L / \partial X$。对单次乘法 $Y = AB$，有 $Y_{ab} = \sum_c A_{ac} B_{cb}$，由链式法则得
-$\bar{A}_{ac} = \sum_b \bar{Y}_{ab} B_{cb}$，$\bar{B}_{cb} = \sum_a A_{ac} \bar{Y}_{ab}$，即
+$`\bar{A}_{ac} = \sum_b \bar{Y}_{ab} B_{cb}`$，$`\bar{B}_{cb} = \sum_a A_{ac} \bar{Y}_{ab}`$，即
 
 $$\bar{A} = \bar{Y} B^\top, \qquad \bar{B} = A^\top \bar{Y}.$$
 
@@ -169,7 +171,7 @@ def prefix_products_backward(W, P, G):
 ### Part 4
 
 前向。用归纳法：步长为 $s$ 的那一轮结束后，第 $i$ 个元素保存的是以下标 $i$ 结尾的最后 $\min(i + 1, 2s)$ 个矩阵的乘积。
-这是因为 $x_{i-s}$ 保存的是以 $i - s$ 结尾的那一段，$x_i$ 保存的是紧接其后、以 $i$ 结尾的 $s$ 个矩阵，两者相乘正好把两段接起来。
+这是因为 $x_{i-s}$ 保存的是以 $i - s$ 结尾的那一段，$`x_i`$ 保存的是紧接其后、以 $i$ 结尾的 $s$ 个矩阵，两者相乘正好把两段接起来。
 最后一轮之后 $2s \ge N$，所以第 $i$ 个元素就是 $P_i$。
 
 ```python
@@ -184,10 +186,12 @@ def scan_forward(W):
     return X, tape
 ```
 
-反向。从最后一轮到第一轮逐轮回退。一轮运算把 $X$ 映射为 $Y$：$j < s$ 时 $Y_j = X_j$，$j \ge s$ 时 $Y_j = X_{j-s} X_j$。
+反向。从最后一轮到第一轮逐轮回退。一轮运算把 $X$ 映射为 $Y$：$`j < s`$ 时 $Y_j = X_j$，$`j \ge s`$ 时 $Y_j = X_{j-s} X_j$。
 已知 $H = \partial L / \partial Y$，则 $X_j$ 每被使用一次，就按单次乘法的梯度公式得到一项：
 
-$$\bar{X}_j = \underbrace{H_j}_{j < s} + \underbrace{X_{j-s}^\top H_j}_{j \ge s} + \underbrace{H_{j+s} X_{j+s}^\top}_{j + s < N} .$$
+```math
+\bar{X}_j = \underbrace{H_j}_{j < s} + \underbrace{X_{j-s}^\top H_j}_{j \ge s} + \underbrace{H_{j+s} X_{j+s}^\top}_{j + s < N} .
+```
 
 ```python
 def scan_backward(tape, G):
@@ -211,9 +215,9 @@ def scan_backward(tape, G):
 - 降低 tape 的内存：在反向传播时重新计算各轮，或者改用 Blelloch 的 work-efficient 扫描，它的计算量是 $O(N)$，轮数约为 $2 \log_2 N$。
 - 实际用途：线性递推 $h_t = A_t h_{t-1} + b_t$ 是在二元组 $(A_t, b_t)$ 上对一个满足结合律的运算做前缀扫描，
   线性循环网络和状态空间模型就是靠它在序列维度上并行训练的。
-- 取 $D = 1$，Part 3–4 就变成一个一维版本——对标量 $x_1, \dots, x_n$（$n \le 2 \times 10^5$）求前缀积，
+- 取 $D = 1$，Part 3–4 就变成一个一维版本——对标量 $x_1, \dots, x_n$（$`n \le 2 \times 10^5`$）求前缀积，
   并由上游梯度 $g$ 算出 $dx$——Part 3 的同一个 carry 递推本身就只用乘法完成这件事，不需要除法，
-  即便某个 $x_i = 0$，$dx$ 依然正确。
+  即便某个 $x_i = 0$，$`dx`$ 依然正确。
 
 <details>
 <summary>验证代码与 torch.autograd.Function 封装（可运行）</summary>

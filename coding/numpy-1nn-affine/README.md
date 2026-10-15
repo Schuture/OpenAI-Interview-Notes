@@ -64,7 +64,9 @@ input vector $x \in \mathbb{R}^d$ to $Wx + b$. The *weight matrix* $W$ and the *
 depend on $x$. An *activation function* is a fixed non-linear function applied to the output of a
 layer. Here it is the *softmax*, which maps $z \in \mathbb{R}^n$ to a vector of $n$ probabilities:
 
-$$\mathrm{softmax}(z)_i = \frac{e^{z_i}}{\sum_{k} e^{z_k}} .$$
+```math
+\mathrm{softmax}(z)_i = \frac{e^{z_i}}{\sum_{k} e^{z_k}} .
+```
 
 The network of this part sends a query through one affine layer with $n$ outputs, applies the softmax,
 takes the index of the largest probability (the smallest such index if there are several, which is
@@ -74,7 +76,9 @@ what `np.argmax` returns) and looks this index up in `y_train`.
 $W_1 \in \mathbb{R}^{n \times d}$ and $b_1 \in \mathbb{R}^n$, computed from the training set alone, such
 that for every $q$
 
-$$\arg\max_i \mathrm{softmax}(W_1 q + b_1)_i = \mathrm{nn}(q) ,$$
+```math
+\arg\max_i \mathrm{softmax}(W_1 q + b_1)_i = \mathrm{nn}(q) ,
+```
 
 including the rule for ties. Prove the equality.
 
@@ -116,7 +120,9 @@ $$\lVert q - x \rVert^2 = (q - x)^\top (q - x) = \lVert q \rVert^2 - 2 q^\top x 
 
 With $Q$ = `X_query` and $X$ = `X_train`, entry $(j, i)$ of the $m \times n$ matrix of squared distances is
 
-$$D_{ji} = \lVert q_j \rVert^2 + \lVert x_i \rVert^2 - 2 (Q X^\top)_{ji} .$$
+```math
+D_{ji} = \lVert q_j \rVert^2 + \lVert x_i \rVert^2 - 2 (Q X^\top)_{ji} .
+```
 
 The three terms have shapes `(m, 1)`, `(n,)` and `(m, n)`, and broadcasting adds them to `(m, n)`. The
 matrix product dominates: $O(mnd)$ time and $O(mn)$ extra memory. The square root is increasing, so the
@@ -152,14 +158,16 @@ $$z_i = 2 x_i^\top q - \lVert x_i \rVert^2 = \lVert q \rVert^2 - \lVert q - x_i 
 
 This is affine in $q$, namely $z = W_1 q + b_1$ with
 
-$$W_1 = 2X \in \mathbb{R}^{n \times d} \quad (\text{row } i \text{ is } 2 x_i^\top), \qquad (b_1)_i = -\lVert x_i \rVert^2 ,$$
+```math
+W_1 = 2X \in \mathbb{R}^{n \times d} \quad (\text{row } i \text{ is } 2 x_i^\top), \qquad (b_1)_i = -\lVert x_i \rVert^2 ,
+```
 
 and both depend on the training set only. Because $z_i$ is a constant minus the squared distance, $z$
 is largest exactly where the distance is smallest, so $\arg\max_i z_i = \mathrm{nn}(q)$ with the same
 ties. The dropped term is quadratic in $q$, so no affine layer could have produced it. It is not needed
 only because the argmax ignores a shift.
 
-The softmax does not change the argmax. All $p_i = \mathrm{softmax}(z)_i$ share one positive
+The softmax does not change the argmax. All $`p_i = \mathrm{softmax}(z)_i`$ share one positive
 denominator and $t \mapsto e^t$ is strictly increasing, so $p_i > p_k$ if and only if $z_i > z_k$, and
 $p_i = p_k$ if and only if $z_i = z_k$. Order and ties are preserved.
 
@@ -225,7 +233,7 @@ network stores the training set in its weights.
   sum of each group of $d$ units (both in the checks).
 - **Cosine similarity.** Divide every training row by its norm and use $W = \hat{X}^\top$, $b = 0$. The
   norm of the query is a positive factor common to its whole row of logits and does not move the argmax.
-- **$m \times n$ does not fit in memory.** Build `W` and `b` once and send `X_query` through in blocks of
+- **$`m \times n`$ does not fit in memory.** Build `W` and `b` once and send `X_query` through in blocks of
   $B$ rows. The rows are independent, so the result is identical and the extra memory is $O(Bn)$.
 - **Complexity.** $O(mnd)$ time, dominated by the matrix product, and $O(mn)$ extra memory, against
   $O(mnd)$ memory for the broadcast difference. For very large $n$, exact search gives way to an

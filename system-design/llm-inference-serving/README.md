@@ -110,7 +110,7 @@ $L = \lambda \cdot W$: at peak, $L_{\text{peak}} = 3{,}000 \times 24.8 = 74{,}40
 flight. At 128 per replica and 20% headroom for replicas booting or failing health checks,
 $74{,}400 / 128 \times 1.2 = 697.5$, rounded up to **698 replicas**, draining
 $698 \times 128 / 24.8 \approx 3{,}603$ requests/sec — peak arrival runs the pool at
-$\approx 83\%$ utilization. Counting GPU time directly gives the same count and also splits the
+$`\approx 83\%`$ utilization. Counting GPU time directly gives the same count and also splits the
 bill: $1{,}200/12{,}000 + 300 \times 0.040/128 = 0.194$ GPU-seconds per request, 52% prefill.
 
 **First-token latency.** A 1,200-token prompt is prefilled in $\lceil 1{,}200/512 \rceil = 3$
@@ -126,7 +126,7 @@ long-context tail.
 
 **Daily cost.** $43{,}200{,}000$ requests/day at 1,200 input and 300 output tokens each is
 $51.84 \times 10^9$ input and $12.96 \times 10^9$ output tokens/day. At \$0.03/\$0.10 per 1,000
-tokens, that's $\$1{,}555{,}200 + \$1{,}296{,}000 = \$2{,}851{,}200$/day, or $\$0.066$/request.
+tokens, that's $`\$1{,}555{,}200 + \$1{,}296{,}000 = \$2{,}851{,}200`$/day, or $`\$0.066`$/request.
 
 ### Data model and API
 
@@ -278,7 +278,7 @@ $\approx 1{,}081$, and $\approx 2{,}162$ requests/sec that no other tier's backl
 The floors are work-conserving, so a tier may use idle capacity above its own: at the design's peak
 split (free 50%, plus 35%, enterprise 15% of $3{,}000$ requests/sec) plus and enterprise leave
 $\approx 2{,}103$ requests/sec free can draw on, so free's $1{,}500$ is served in full while
-enterprise sits at $\approx 21\%$ of its floor. Each tier also gets its own admission queue, capped
+enterprise sits at $`\approx 21\%`$ of its floor. Each tier also gets its own admission queue, capped
 by the Little's-law rule above against its floor and the wait its target allows — 50 ms for the
 paid tiers ($\approx 54$ and $\approx 108$ requests), 3 s for free ($\approx 1{,}081$) — past
 which it sheds load with `503` rather than growing a queue no target can absorb.

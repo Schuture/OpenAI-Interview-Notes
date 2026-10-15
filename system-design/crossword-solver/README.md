@@ -88,7 +88,7 @@ $\approx 50.3$.
 **Worker pool size.** The search is elastic — a hard puzzle will use every worker it is given, up to its
 cap — so the pool size is a budget: allow 8 workers per active puzzle on average. At peak,
 $50.3 \times 8 \approx 403$ workers are busy; with 20% headroom, rounded up to a multiple of the cap, the
-pool is **512 workers** ($403 / 512 \approx 79\%$ utilized at peak). At full 64-worker fan-out for the
+pool is **512 workers** ($`403 / 512 \approx 79\%`$ utilized at peak). At full 64-worker fan-out for the
 whole budget, one puzzle expands at most $64 \times 2{,}000 \times 300 = 38{,}400{,}000$ nodes (2,000
 expansions/sec/worker is an assumption, not a measurement) — tens of millions, nowhere near the
 $10^{248}$ floor above: distribution alone buys at most a factor of 64, and the rest closes only once

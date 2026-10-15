@@ -242,7 +242,7 @@ Keeping every run at full fidelity forever is not worth its storage: at 62.2 GB/
 about 22.7 TB. Instead, the 14-day hot window (871 GB) covers live debugging, and long-term storage keeps only
 every failed run plus a 5% sample of successful ones, sampled by hashing `run_id` (not re-randomized daily, so
 the same cohort stays sampled over time for drift tracking). With an 8% production failure rate, that keeps
-$0.08 + 0.92 \times 0.05 = 12.6\%$ of runs, cutting annual long-term storage to about 2.86 TB, a $7.9\times$
+$`0.08 + 0.92 \times 0.05 = 12.6\%`$ of runs, cutting annual long-term storage to about 2.86 TB, a $7.9\times$
 reduction, without losing a single failure to debug. Sampling individual *steps* instead of whole runs was
 rejected: a trajectory with some steps kept and others dropped cannot be replayed end to end, so the unit of
 sampling has to be the run.

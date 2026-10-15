@@ -29,7 +29,7 @@ Scale for this design:
 
 In scope: the primary POI store and its write path; the spatial index — how it is built, kept in sync
 with the primary store, and either replicated or sharded across query-serving nodes; the radius-search and
-exact-$K$-nearest query paths, both with an optional category filter; caching of popular queries. Out of
+exact-$`K`$-nearest query paths, both with an optional category filter; caching of popular queries. Out of
 scope: ranking beyond distance and rating (personalization, ads, sponsored placement); rendering map tiles
 and the CDN that serves them; turning a free-text address into coordinates; photo and review storage;
 authenticating business owners.
@@ -174,7 +174,7 @@ replica through the asynchronous indexer and its change log (Deep dive (c)).
 **(a) Spatial index: Geohash vs. QuadTree, and the boundary problem.** Geohash turns a (lat, lon) pair into a
 short string by bisecting the longitude and latitude ranges in alternation — longitude first — appending a
 1 bit whenever the point falls in the upper half of the current range, and packing every 5 bits into one
-base32 character. A precision-$p$ hash encodes $5p$ bits, split $\lceil 5p/2 \rceil$ to longitude and
+base32 character. A precision-$`p`$ hash encodes $5p$ bits, split $\lceil 5p/2 \rceil$ to longitude and
 $\lfloor 5p/2 \rfloor$ to latitude (longitude gets the odd bit, since it goes first), giving a cell of
 height $180 / 2^{\text{lat bits}}$ degrees and width $360 / 2^{\text{lon bits}}$ degrees. At precision 6
 that is $0.61\text{ km} \times 1.22\text{ km}$ at the equator, but a degree of longitude covers less ground

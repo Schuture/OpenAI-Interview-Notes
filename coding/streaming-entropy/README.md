@@ -55,7 +55,7 @@ def softmax_entropy_stable(logits: np.ndarray) -> float:
 ### Part 3 — Entropy in fixed-size blocks, O(1) extra space
 
 *O(1) extra space* here means the code must not allocate any array whose size depends on $N$ — in
-particular, no length-$N$ vector of probabilities. Split `logits` into consecutive slices of a fixed
+particular, no length-$`N`$ vector of probabilities. Split `logits` into consecutive slices of a fixed
 `block_size` (e.g. `2`, which need not divide $N$, so the last slice may be shorter), and keep only a
 fixed number of running scalars between slices. The whole array is available and may be read more than
 once.

@@ -102,13 +102,13 @@ peak.
 
 **Target pool size.** $2{,}640$ workers leaves no slack for ones booting, draining, or failing a
 health check; with 20% headroom, $2{,}640 \times 1.2 = 3{,}168$, rounded up to **3,200 workers**,
-which finish $3{,}200 / 165 \approx 19.4$ jobs/sec — peak arrival runs it at $\approx 82.5\%$
+which finish $3{,}200 / 165 \approx 19.4$ jobs/sec — peak arrival runs it at $`\approx 82.5\%`$
 utilization, keeping queueing delay small.
 
 **Backlog during a capacity dip.** At the given floor of $1{,}800$ GPUs, the pool finishes only
 $10.9$ jobs/sec, a deficit of $\approx 5.1$ jobs/sec against peak arrivals; over the 1,200-second
 dip that adds $\approx 6{,}100$ jobs. The $\approx 1{,}155$ jobs that were running on the $1{,}400$
-reclaimed GPUs ($82.5\%$ of them busy) rejoin the queue too, on average half done, worth
+reclaimed GPUs ($`82.5\%`$ of them busy) rejoin the queue too, on average half done, worth
 $\approx 580$ more average jobs — a backlog of $\approx 6{,}690$ if every request is admitted. Once
 the pool is back at 3,200 workers, the surplus over peak arrivals is $\approx 3.4$ jobs/sec, so
 draining takes $\approx 1{,}970$ seconds, **about 33 minutes**, assuming arrivals stay at peak — far
@@ -234,13 +234,13 @@ the worker sees the flag wins, and the job ends `succeeded`.
 loss. Over each $T$ seconds of work a checkpoint costs $C$, and an unannounced worker loss (a
 crash, a reclaim without warning), arriving on average every $\text{MTBF}$ seconds, redoes on
 average $T/2$; the fraction of GPU time lost is therefore $C/T + T/(2 \cdot \text{MTBF})$, smallest
-at $T^* = \sqrt{2 C \cdot \text{MTBF}}$ (Young's approximation). It assumes losses form a Poisson
+at $`T^* = \sqrt{2 C \cdot \text{MTBF}}`$ (Young's approximation). It assumes losses form a Poisson
 process (a constant hazard, whatever a job has already done) with $C \ll \text{MTBF}$, so two
 losses within one interval are negligible; a restart cost $R$ adds about $R/\text{MTBF}$ to the
-loss but does not move $T^*$. A provider-wide outage is a burst rather than a rate, which is why
+loss but does not move $`T^*`$. A provider-wide outage is a burst rather than a rate, which is why
 $\text{MTBF}$ below comes from a volatile period.
 
-With $C = 3$ s and $\text{MTBF} = 900$ s, $T^* = \sqrt{2 \times 3 \times 900} \approx 73$ s — call
+With $C = 3$ s and $\text{MTBF} = 900$ s, $`T^* = \sqrt{2 \times 3 \times 900} \approx 73`$ s — call
 it 75 s. The loss there is under 9%, and the minimum is flat: 50 s or 100 s would cost less than
 one percentage point more. At worst a crash lands just before a checkpoint commits and redoes
 $T + C = 78$ s, inside the 90-second target.

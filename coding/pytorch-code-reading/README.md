@@ -228,7 +228,7 @@ noting which tensors the optimizer updates and which are constants, before answe
 2. `net(X)`: `(N, C) = (400, 4)`. `p`: the same shape, `(N, C) = (400, 4)`. `crowd()`:
    `(A, C, C) = (5, 4, 4)`.
 3. `p[i]` has shape `(C,)`, `M[a]` has shape `(C, C)`: a `(m,) @ (m, k)` vector-matrix product with
-   $m = k = C$, costing $O(C^2)$ time; the result `q` is a length-$C$ vector, $O(C)$ memory.
+   $m = k = C$, costing $O(C^2)$ time; the result `q` is a length-$`C`$ vector, $O(C)$ memory.
 4. `net.l1`: `(N, D) @ (D, H)`, time $O(NDH)$, forward output `(N, H)`, memory $O(NH)$. `net.l2`:
    `(N, H) @ (H, C)`, time $O(NHC)$, output `(N, C)`, memory $O(NC)$. Backward keeps `l1`'s input (`X`,
    $O(ND)$), the `ReLU` output ($O(NH)$; it is `l2`'s input and also gates the `ReLU` gradient, so the

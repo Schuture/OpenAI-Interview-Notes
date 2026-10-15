@@ -75,7 +75,7 @@ started yet change).
 ### Requirements and scale
 
 **Event storage.** $100{,}000{,}000$ users average $120$ event definitions each in a two-year span, for
-$1.2\times10^{10}$ rows; $20\%$, $2.4\times10^9$, are recurring series and the rest single occurrences. At
+$1.2\times10^{10}$ rows; $`20\%`$, $2.4\times10^9$, are recurring series and the rest single occurrences. At
 roughly 280 bytes a row (title, start/end, the recurrence fields, foreign keys, flags), the event store
 holds about $1.2\times10^{10}\times280 \approx 3{,}129$ GiB — a few terabytes, well inside a horizontally
 sharded store.
@@ -83,7 +83,7 @@ sharded store.
 **Read and write QPS.** $30{,}000{,}000$ daily active users write $2$ times a day on average — create,
 edit, cancel, or RSVP — for $6\times10^7$ writes/day: about $694$ QPS on average and, at a $5\times$ peak
 factor for the daily busy window, $3{,}472$ QPS at peak. The same users load $15$ views a day, for
-$4.5\times10^8$ reads/day: about $5{,}208$ QPS on average and $26{,}042$ at peak — a $7.5$:$1$ read-to-write
+$4.5\times10^8$ reads/day: about $5{,}208$ QPS on average and $26{,}042$ at peak — a $7.5$:$`1`$ read-to-write
 ratio, which is what makes the read path, not the write path, worth spending complexity on.
 
 **Instance index and write amplification.** The per-user instance index holds a row per occurrence per

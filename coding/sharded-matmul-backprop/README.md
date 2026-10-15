@@ -197,20 +197,26 @@ Write $\bar A = \partial L / \partial A$ for any array $A$.
 **Column-parallel.** Device $k$ holds $W_k$, the $k$-th block of columns of $W$, shape
 `(d_in, d_out_k)`, and a full copy of $X$.
 
-$$Y_k = X W_k \quad (B \times d_{out,k}), \qquad Y = \operatorname{all\_gather}_{\mathrm{axis}=1}(Y_0, \dots, Y_{n-1}).$$
+```math
+Y_k = X W_k \quad (B \times d_{out,k}), \qquad Y = \operatorname{all\_gather}_{\mathrm{axis}=1}(Y_0, \dots, Y_{n-1}).
+```
 
 No communication is needed to produce $Y_k$ itself; the gather is only needed where the full $Y$ must
 live on every device. Slice the given $\bar Y$ locally into $\bar Y_k$ (device $k$'s columns) and apply
 the product rule to $Y_k = X W_k$:
 
-$$\bar W_k = X^\top \bar Y_k \quad \text{(local)}, \qquad \bar X = \sum_k \bar Y_k W_k^\top = \operatorname{all\_reduce}\bigl(\bar Y_k W_k^\top\bigr).$$
+```math
+\bar W_k = X^\top \bar Y_k \quad \text{(local)}, \qquad \bar X = \sum_k \bar Y_k W_k^\top = \operatorname{all\_reduce}\bigl(\bar Y_k W_k^\top\bigr).
+```
 
 $X$ feeds every device's local product, so its gradient is a sum over devices — an all-reduce.
 
 **Row-parallel.** Device $k$ holds $W_k$, the $k$-th block of rows of $W$, shape `(d_in_k, d_out)`, and
 $X_k$, the matching block of columns of $X$, shape `(B, d_in_k)`.
 
-$$Y_k = X_k W_k \quad \text{(a partial sum, shape } B \times d_{out}\text{)}, \qquad Y = \sum_k Y_k = \operatorname{all\_reduce}(Y_0, \dots, Y_{n-1}).$$
+```math
+Y_k = X_k W_k \quad \text{(a partial sum, shape } B \times d_{out}\text{)}, \qquad Y = \sum_k Y_k = \operatorname{all\_reduce}(Y_0, \dots, Y_{n-1}).
+```
 
 Here $Y_k$ already has the right shape but is only part of the answer, so the forward pass itself needs
 an all-reduce. Given the full $\bar Y$, identical on every device once that reduction has run:

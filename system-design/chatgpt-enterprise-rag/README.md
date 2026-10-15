@@ -177,7 +177,7 @@ shard-mates. The middle ground: hash tenants onto shards by `tenant_id`, and giv
 roughly $5\times10^5$ chunks (about 10x average) its own dedicated shard — the long tail shares capacity
 efficiently, the few large tenants stay isolated.
 
-Permission filtering must run before ranking, not after: an ANN search returns the top-$k$ of the whole
+Permission filtering must run before ranking, not after: an ANN search returns the top-$`k`$ of the whole
 shard, and post-filtering by permission can leave far fewer than $k$ eligible results even when enough
 relevant ones exist deeper in the index — a real recall loss, and a place where an ineligible chunk's
 text can reach a log before it is filtered out. The search is instead restricted to eligible nodes
@@ -201,7 +201,7 @@ cheap enough to run on every query, in parallel, over the same ACL-filtered chun
 
 Cosine and BM25 scores sit on incomparable scales, and a mixing weight tuned for one tenant does not
 transfer to the next, so fusion uses reciprocal rank fusion: only each list's rank,
-$\text{score}(x) = \sum_r 1/(k_0 + \text{rank}_r(x))$ with $k_0 \approx 60$ damping low ranks — no
+$`\text{score}(x) = \sum_r 1/(k_0 + \text{rank}_r(x))`$ with $k_0 \approx 60$ damping low ranks — no
 per-tenant calibration, at the cost of a cruder combination than a properly tuned weighted sum.
 
 Fusion narrows the pool to about 150 candidates, which a reranker scores further, in one of three ways:

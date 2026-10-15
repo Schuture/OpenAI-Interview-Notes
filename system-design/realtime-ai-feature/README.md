@@ -85,7 +85,7 @@ $L_{\text{peak}} = 69.4 \times 5.54 \approx 385$ concurrent streams.
 **GPU replicas needed.** At 20 concurrent streams per replica, $385 / 20 \approx 19.2$ replicas cover
 peak load exactly; with 20% headroom for instances warming up or failing a health check,
 $19.2 \times 1.2 \approx 23.1$, rounded up to **24 replicas**, draining
-$24 \times 20 / 5.54 \approx 86.6$ requests/sec — peak load runs it at $\approx 80\%$ utilization.
+$24 \times 20 / 5.54 \approx 86.6$ requests/sec — peak load runs it at $`\approx 80\%`$ utilization.
 
 **Egress bandwidth.** Each token leaves as its own SSE event (`id:`, `event:`, and a short JSON `data:`
 line, about 55 bytes) plus HTTP/2 and TLS framing, about 100 bytes on the wire. Peak egress is

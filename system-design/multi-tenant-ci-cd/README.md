@@ -94,7 +94,7 @@ $L = \lambda \cdot W$, takes $W = 20 + 100 + 10 = 130$ s, not the 100 s runtime:
 running at peak (about 3,370 on average). An execution node runs one job at a time, so the pool needs at least that many; with 20%
 headroom for nodes booting, draining, or failing a health check, $16{,}852 \times 1.2 \approx
 20{,}222$, rounded up to **20,300 execution nodes**, which finish $20{,}300 / 130 \approx 156.2$
-jobs/sec — $\approx 83\%$ utilization at peak.
+jobs/sec — $`\approx 83\%`$ utilization at peak.
 
 **Status and log write volume.** Each job emits roughly 4 status changes (created, `queued`,
 `running`, a terminal one) and a log chunk every 2 s of its run ($100 / 2 = 50$) — 54 events per job,

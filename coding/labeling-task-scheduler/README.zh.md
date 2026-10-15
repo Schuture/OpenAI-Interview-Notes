@@ -10,18 +10,18 @@
 
 ## 题目
 
-共有 $t$ 个任务，编号 $0, 1, \dots, t-1$；$m$ 个模型，编号 $0, \dots, m-1$；$h$ 个人类标注员，编号
+共有 $t$ 个任务，编号 $0, 1, \dots, t-1$；$`m`$ 个模型，编号 $0, \dots, m-1$；$`h`$ 个人类标注员，编号
 $0, \dots, h-1$。给一个任务打标签，就是把某个模型在这个任务上的输出展示给一个标注员，请他打分。
 一个*分配*（assignment）是一个三元组 $(\mathrm{task}, \mathrm{model}, \mathrm{human})$，记录一次这样的评审。
-*调度*（schedule）是一个有序列表 $S = (a_0, a_1, \dots, a_{L-1})$，其中每个分配 $a_j = (\mathrm{task}_j,
-\mathrm{model}_j, \mathrm{human}_j)$，顺序就是平台把这些评审派发出去的先后次序。顺序是有意义的：下面每一条规则
+*调度*（schedule）是一个有序列表 $S = (a_0, a_1, \dots, a_{L-1})$，其中每个分配 $`a_j = (\mathrm{task}_j,
+\mathrm{model}_j, \mathrm{human}_j)`$，顺序就是平台把这些评审派发出去的先后次序。顺序是有意义的：下面每一条规则
 都是针对 $S$ 的每个*前缀*陈述的——对 $0 \le p \le L$，长度为 $p$ 的前缀是 $S[:p] = (a_0, \dots, a_{p-1})$。
 
 另给定一个整数 $k \ge 0$。下面每个 Part 都共享两条基本规则：
 
-- **覆盖（coverage）。** 对每个标注员 $u$，$S$ 中满足 $\mathrm{human}_j = u$ 的分配至少有 $k$ 个。
+- **覆盖（coverage）。** 对每个标注员 $u$，$`S`$ 中满足 $`\mathrm{human}_j = u`$ 的分配至少有 $k$ 个。
 - **唯一（uniqueness）。** 任意两个分配不能同时任务相同且标注员相同：对 $i \ne j$，
-  $(\mathrm{task}_i, \mathrm{human}_i) \ne (\mathrm{task}_j, \mathrm{human}_j)$。
+  $`(\mathrm{task}_i, \mathrm{human}_i) \ne (\mathrm{task}_j, \mathrm{human}_j)`$。
 
 每个 Part 都还要求调度的分配数量尽可能少。
 
@@ -39,7 +39,7 @@ def build_basic_schedule(t: int, m: int, h: int, k: int) -> Optional[List[Assign
     returns a schedule of exactly h * k assignments satisfying coverage and uniqueness."""
 ```
 
-例子，取 $t = 2$、$m = 2$、$h = 3$、$k = 2$：一个合法的调度是
+例子，取 $t = 2$、$`m = 2`$、$`h = 3`$、$`k = 2`$：一个合法的调度是
 
 ```text
 (0, 0, 0), (1, 0, 1), (0, 0, 2), (1, 0, 0), (0, 0, 1), (1, 0, 2)
@@ -51,7 +51,9 @@ def build_basic_schedule(t: int, m: int, h: int, k: int) -> Optional[List[Assign
 
 对前缀 $S[:p]$、任务 $x$ 和模型 $i$，记
 
-$$c_p(x, i) = \sum_{j=0}^{p-1} [\mathrm{task}_j = x \text{ 且 } \mathrm{model}_j = i]$$
+```math
+c_p(x, i) = \sum_{j=0}^{p-1} [\mathrm{task}_j = x \text{ 且 } \mathrm{model}_j = i]
+```
 
 为这个前缀里模型 $i$ 在任务 $x$ 上被使用过的次数。如果对每个前缀 $p$ 和每个任务 $x$ 都有
 
@@ -66,7 +68,7 @@ def build_balanced_schedule(t: int, m: int, h: int, k: int) -> Optional[List[Ass
     by task at every prefix, with exactly h * k assignments."""
 ```
 
-例子，$t, m, h, k$ 与 Part 1 相同：一个最短的均衡调度是
+例子，$`t, m, h, k`$ 与 Part 1 相同：一个最短的均衡调度是
 
 ```text
 (0, 0, 0), (1, 0, 1), (0, 1, 2), (1, 1, 0), (0, 0, 1), (1, 0, 2)
@@ -78,7 +80,7 @@ def build_balanced_schedule(t: int, m: int, h: int, k: int) -> Optional[List[Ass
 ### Part 3 —— 在标注员维度上也均衡
 
 对标注员 $u$，按与上面 $c_p(x, i)$ 完全相同的方式定义 $c_p(u, i)$，只是统计对象换成满足
-$\mathrm{human}_j = u$ 且 $\mathrm{model}_j = i$ 的分配。如果对每个前缀 $p$ 和每个标注员 $u$ 都有
+$`\mathrm{human}_j = u`$ 且 $`\mathrm{model}_j = i`$ 的分配。如果对每个前缀 $p$ 和每个标注员 $u$ 都有
 $\max_i c_p(u, i) - \min_i c_p(u, i) \le 1$，就称这个调度*按标注员均衡*。
 
 实现 `build_doubly_balanced_schedule`：必须与 Part 2 一样保持覆盖、唯一、按任务均衡，此外还要尝试用一条
@@ -92,7 +94,7 @@ def build_doubly_balanced_schedule(t: int, m: int, h: int, k: int) -> Optional[L
     balanced by task. Attempts, via a greedy rule, to also be balanced by human."""
 ```
 
-例子，取 $t = 2$、$m = 3$、$h = 4$、$k = 2$：下面这个调度同时按任务均衡、按标注员均衡：
+例子，取 $t = 2$、$`m = 3`$、$`h = 4`$、$`k = 2`$：下面这个调度同时按任务均衡、按标注员均衡：
 
 ```text
 (0, 0, 0), (1, 0, 1), (0, 1, 2), (1, 1, 3), (1, 2, 0), (0, 2, 1), (1, 0, 2), (0, 0, 3)
@@ -112,8 +114,8 @@ def build_doubly_balanced_schedule(t: int, m: int, h: int, k: int) -> Optional[L
 ### Part 1
 
 唯一性不允许两个分配同时任务相同、标注员相同，所以单个标注员最多只能出现在 $t$ 个分配里，每个任务至多一次。
-覆盖条件因此要求 $k \le t$；这个条件也是充分的。当维度合法（$t, m, h > 0$）时，`build_basic_schedule` 在
-$k = 0$ 时返回 `[]`，在 $k > t$ 时返回 `None`；只要有一个维度不合法（$t \le 0$、$m \le 0$ 或 $h \le 0$），
+覆盖条件因此要求 $k \le t$；这个条件也是充分的。当维度合法（$`t, m, h > 0`$）时，`build_basic_schedule` 在
+$k = 0$ 时返回 `[]`，在 $k > t$ 时返回 `None`；只要有一个维度不合法（$`t \le 0`$、$`m \le 0`$ 或 $h \le 0$），
 不论 $k$ 取什么值都返回 `None`。
 
 每个分配都恰好让某一个标注员的计数加 1，所以要让全部 $h$ 个标注员都达到覆盖要求，至少需要 $h \cdot k$ 个分配；
@@ -139,7 +141,7 @@ def build_basic_schedule(t, m, h, k):
 ### Part 2
 
 固定一个任务 $x$，只看它自己在调度中出现的那些位置——这正是下面代码里 `task_seen[x]` 计数器在追踪的东西。
-给它的第 $c$ 次出现（$c = 0, 1, 2, \dots$）分配模型 $c \bmod m$，就是一个轮转：把 $c$ 写成 $c = qm + s$、
+给它的第 $c$ 次出现（$`c = 0, 1, 2, \dots`$）分配模型 $c \bmod m$，就是一个轮转：把 $c$ 写成 $c = qm + s$、
 $0 \le s < m$，模型 $0, \dots, s-1$ 各被用过 $q + 1$ 次，模型 $s, \dots, m-1$ 各被用过 $q$ 次，
 所以计数之差不超过 1——对每一个 $c$ 都成立，也就是在每个前缀都成立，不只是 $c$ 是 $m$ 的倍数的时候。
 
@@ -201,7 +203,7 @@ def build_doubly_balanced_schedule(t, m, h, k):
     return schedule
 ```
 
-按标注员均衡并不成立，而且不只是打破并列的方式不好。取 $t = 2$、$m = 3$、$h = 6$、$k = 2$，标注员 4 的
+按标注员均衡并不成立，而且不只是打破并列的方式不好。取 $t = 2$、$`m = 3`$、$`h = 6`$、$`k = 2`$，标注员 4 的
 两次分配都落在模型 2 上。第一次是任务 0，当时的计数是 $(1, 1, 0)$，最小值唯一地在模型 2；第二次是一轮之后
 的任务 1，当时的计数是 $(2, 2, 1)$，最小值又唯一地在模型 2。这两步都没有并列可打破，所以无论用什么样的
 打破并列的规则，都没法让标注员 4 在这两次分配里换一个模型；它最终的计数是 $(0, 0, 2)$，差值为 2。
