@@ -78,9 +78,7 @@ angle $\Theta$ covers $d$ vertically and $d \tan\Theta$ horizontally before it l
 $X = x_0 + d \tan\Theta$. On $`(-\pi/2,\; \pi/2)`$ the tangent is a strictly increasing bijection onto the
 whole line, and $P(\Theta \le a) = (a + \pi/2)/\pi$, so
 
-```math
-F(x) = P\left(\Theta \le \arctan\frac{x - x_0}{d}\right) = \frac{1}{2} + \frac{1}{\pi}\arctan\frac{x - x_0}{d}, \qquad f(x) = F'(x) = \frac{d}{\pi\left(d^{2} + (x - x_0)^{2}\right)} .
-```
+$$F(x) = P\left(\Theta \le \arctan\frac{x - x_0}{d}\right) = \frac{1}{2} + \frac{1}{\pi}\arctan\frac{x - x_0}{d}, \qquad f(x) = F'(x) = \frac{d}{\pi\left(d^{2} + (x - x_0)^{2}\right)} .$$
 
 With $Z = \tan\Theta$ this reads $X = x_0 + dZ$, where $Z$ has density $1/(\pi(1 + z^{2}))$: the
 *standard Cauchy* distribution, so $`X \sim \mathrm{Cauchy}(x_0,\; d)`$. As $F$ is symmetric about $x_0$ with
@@ -95,9 +93,7 @@ have probability only $2\varepsilon/\pi$, but land beyond $d \cot\varepsilon \ap
 
 **The expectation does not exist.** With $z = x - x_0$,
 
-```math
-E\bigl\lvert X - x_0 \bigr\rvert = \frac{d}{\pi}\int_{-\infty}^{\infty} \frac{\lvert z \rvert}{d^{2} + z^{2}}\;dz = \frac{2d}{\pi}\int_{0}^{\infty} \frac{z}{d^{2} + z^{2}}\;dz = \frac{d}{\pi}\Bigl[\ln (d^{2} + z^{2})\Bigr]_{0}^{\infty} = \infty .
-```
+$$E\bigl\lvert X - x_0 \bigr\rvert = \frac{d}{\pi}\int\_{-\infty}^{\infty} \frac{\lvert z \rvert}{d^{2} + z^{2}}\\;dz = \frac{2d}{\pi}\int\_{0}^{\infty} \frac{z}{d^{2} + z^{2}}\\;dz = \frac{d}{\pi}\Bigl[\ln (d^{2} + z^{2})\Bigr]\_{0}^{\infty} = \infty .$$
 
 The positive and the negative part both diverge, so $E[X]$ is undefined rather than $\pm\infty$, and
 symmetry does not rescue it: truncating at $x_0 - M$ and $x_0 + cM$ leaves $x_0 + \frac{d}{\pi}\ln c$ in the
@@ -111,17 +107,13 @@ That is integrable in $s$, so Fourier inversion gives
 $`\frac12 e^{-\lvert x \rvert} = \frac{1}{2\pi}\int e^{-isx}(1 + s^{2})^{-1}\;ds`$; read at $x = -t$ and
 doubled, it is exactly the integral wanted:
 
-```math
-e^{-\lvert t \rvert} = \int_{-\infty}^{\infty} e^{ist}\;\frac{ds}{\pi (1 + s^{2})} = \varphi_Z(t).
-```
+$$e^{-\lvert t \rvert} = \int\_{-\infty}^{\infty} e^{ist}\\;\frac{ds}{\pi (1 + s^{2})} = \varphi_Z(t).$$
 
 Hence $\varphi_X(t) = e^{itx_0}\varphi_Z(dt) = \exp\bigl(itx_0 - d\lvert t \rvert\bigr)$, and for independent
 flashes $\varphi_{\bar X_n}(t) = \varphi_X(t/n)^{n} = \exp\bigl(itx_0 - d\lvert t \rvert\bigr) = \varphi_X(t)$.
 A characteristic function determines the law, so for every $n$
 
-```math
-\bar X_n \sim \mathrm{Cauchy}(x_0,\; d), \qquad P\bigl(\lvert \bar X_n - x_0 \rvert > 10 d\bigr) = 1 - \frac{2}{\pi}\arctan 10 \approx 6.3\% .
-```
+$$\bar X_n \sim \mathrm{Cauchy}(x_0,\\; d), \qquad P\bigl(\lvert \bar X_n - x_0 \rvert > 10 d\bigr) = 1 - \frac{2}{\pi}\arctan 10 \approx 6.3\\% .$$
 
 The average of a million flashes has exactly the law of one flash; $\bar X_n$ is not consistent, and an
 error bar $\sigma/\sqrt n$ would be meaningless.
@@ -153,18 +145,14 @@ $q_n = F(x_0 + u/\sqrt n) = \frac12 + \frac{f(x_0) u}{\sqrt n} + o(n^{-1/2})$. N
 $\sqrt n (\hat m_n - x_0) > u$ holds exactly when $B_n < \lceil n/2 \rceil$, and $q_n(1 - q_n) \to \frac14$,
 so the central limit theorem for the binomial gives
 
-```math
-P\bigl(\sqrt n (\hat m_n - x_0) > u\bigr) = P\left(\frac{B_n - n q_n}{\sqrt{n q_n (1 - q_n)}} < -2 f(x_0) u + o(1)\right) \longrightarrow \Phi\bigl(-2 f(x_0) u\bigr),
-```
+$$P\bigl(\sqrt n (\hat m_n - x_0) > u\bigr) = P\left(\frac{B_n - n q_n}{\sqrt{n q_n (1 - q_n)}} \< -2 f(x_0) u + o(1)\right) \longrightarrow \Phi\bigl(-2 f(x_0) u\bigr),$$
 
 that is $`\sqrt n (\hat m_n - x_0) \Rightarrow N\bigl(0,\; 1/(4 f(x_0)^{2})\bigr)`$. With $f(x_0) = 1/(\pi d)$,
 $v_{\mathrm{med}} = \pi^{2} d^{2}/4$ and $`\sqrt{v_{\mathrm{med}}/n} = \pi d/(2\sqrt n) \approx 1.57\;d/\sqrt n`$.
 
 **The maximum likelihood estimator** $\hat\theta_n$ maximises
 
-```math
-\ell(\theta) = -\sum_{i=1}^{n} \ln\left(d^{2} + (X_i - \theta)^{2}\right) + \text{const}, \qquad \ell'(\theta) = \frac{1}{d}\sum_{i=1}^{n} \psi\left(\frac{X_i - \theta}{d}\right), \quad \psi(r) = \frac{2r}{1 + r^{2}} .
-```
+$$\ell(\theta) = -\sum\_{i=1}^{n} \ln\left(d^{2} + (X_i - \theta)^{2}\right) + \text{const}, \qquad \ell'(\theta) = \frac{1}{d}\sum\_{i=1}^{n} \psi\left(\frac{X_i - \theta}{d}\right), \quad \psi(r) = \frac{2r}{1 + r^{2}} .$$
 
 This $\psi$ is not merely bounded but *redescending*: $\psi(r) \to 0$ as $\lvert r \rvert \to \infty$, so a
 flash 100 km out pulls less than one 2 km out — not an ad-hoc robustification, but what the Cauchy tail
@@ -174,9 +162,7 @@ makes optimal.
 bounded function of $X$ for fixed $\theta$, and $1/d$-Lipschitz in $\theta$ for any sample, so the law of
 large numbers needs no moment and its convergence is uniform on compact sets:
 
-```math
-\frac{1}{n}\bigl[\ell(\theta) - \ell(x_0)\bigr] \longrightarrow -K(\theta) = -\ln\left(1 + \frac{(\theta - x_0)^{2}}{4 d^{2}}\right) \quad \text{almost surely},
-```
+$$\frac{1}{n}\bigl[\ell(\theta) - \ell(x_0)\bigr] \longrightarrow -K(\theta) = -\ln\left(1 + \frac{(\theta - x_0)^{2}}{4 d^{2}}\right) \quad \text{almost surely},$$
 
 where $K$ is the Kullback–Leibler divergence between the two laws, positive except at $\theta = x_0$. Far
 out no uniformity is needed: if $\theta > \hat m_n$ then half the flashes are at distance
@@ -190,9 +176,7 @@ $0 = \ell'(\hat\theta_n) = \ell'(x_0) + \ell''(x_0)(\hat\theta_n - x_0) + \dots$
 $\ell'(x_0)$ are bounded, so the ordinary central limit theorem applies although $X$ has no moments at all;
 they are centred by symmetry, and their variance is the Fisher information
 
-```math
-I = \mathrm{Var}\left(\frac{\psi(Z)}{d}\right) = \frac{4}{\pi d^{2}}\int_{-\infty}^{\infty} \frac{z^{2}}{(1 + z^{2})^{3}}\;dz = \frac{4}{\pi d^{2}} \cdot \frac{\pi}{8} = \frac{1}{2 d^{2}} ,
-```
+$$I = \mathrm{Var}\left(\frac{\psi(Z)}{d}\right) = \frac{4}{\pi d^{2}}\int\_{-\infty}^{\infty} \frac{z^{2}}{(1 + z^{2})^{3}}\\;dz = \frac{4}{\pi d^{2}} \cdot \frac{\pi}{8} = \frac{1}{2 d^{2}} ,$$
 
 while $-\frac1n \ell''(x_0) \to I$ as well. So $`\sqrt n (\hat\theta_n - x_0) \Rightarrow N(0,\; 1/I)`$ with
 $v_{\mathrm{mle}} = 2 d^{2}$ and $`\sqrt{v_{\mathrm{mle}}/n} = \sqrt 2\;d/\sqrt n`$: the estimator

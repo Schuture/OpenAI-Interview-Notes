@@ -68,18 +68,14 @@ assumes anonymous creation is allowed, just never deduplicated, and a single sha
 **Short-code length.** Planning for $Y=5$ years at $r = 1{,}200{,}000$ creates/day gives a total volume
 of
 
-```math
-n = r \cdot 365 \cdot Y = 2.19\times10^{9} \text{ codes.}
-```
+$$n = r \cdot 365 \cdot Y = 2.19\times10^{9} \text{ codes.}$$
 
 A base62 alphabet (62 symbols) of length $k$ names $N=62^k$ distinct codes. The scheme chosen in the
 short-code generation deep dive draws a code at random and retries on collision. When $i$ codes are
 already taken, a draw collides with probability $i/N$, so that insert needs $i/(N-i)$ retries on average,
 and filling the space to $n$ needs
 
-```math
-R = \sum_{i=0}^{n-1} \frac{i}{N-i} \approx \frac{n^2}{2N} \quad (n \ll N)
-```
+$$R = \sum\_{i=0}^{n-1} \frac{i}{N-i} \approx \frac{n^2}{2N} \quad (n \ll N)$$
 
 retries in expectation. This is an expected count, not the birthday-paradox probability of at least one
 collision, which at these sizes is essentially 1. At $k=6$ ($N\approx5.68\times10^{10}$, 3.9% full after

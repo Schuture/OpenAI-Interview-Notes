@@ -109,15 +109,11 @@ def predict_1nn_affine(X_train: np.ndarray, y_train: np.ndarray,
 最直接的无循环写法是用广播（broadcasting）相减：`X_query[:, None, :] - X_train[None, :, :]`，再平方、沿最后一个轴求和。
 结果正确，但要分配一个 `(m, n, d)` 的数组。把平方展开，就可以去掉第三个轴：
 
-```math
-\lVert q - x \rVert^2 = (q - x)^\top (q - x) = \lVert q \rVert^2 - 2 q^\top x + \lVert x \rVert^2 .
-```
+$$\lVert q - x \rVert^2 = (q - x)^\top (q - x) = \lVert q \rVert^2 - 2 q^\top x + \lVert x \rVert^2 .$$
 
 记 $Q$ = `X_query`、$`X`$ = `X_train`，$`m \times n`$ 的平方距离矩阵在 $(j, i)$ 处的元素是
 
-```math
-D_{ji} = \lVert q_j \rVert^2 + \lVert x_i \rVert^2 - 2 (Q X^\top)_{ji} .
-```
+$$D\_{ji} = \lVert q_j \rVert^2 + \lVert x_i \rVert^2 - 2 (Q X^\top)\_{ji} .$$
 
 三项的形状分别是 `(m, 1)`、`(n,)`、`(m, n)`，经广播相加得到 `(m, n)`。开销主要在矩阵乘法上：时间 $O(mnd)$，额外空间 $O(mn)$。
 平方根是增函数，所以欧氏距离本身的 argmin 与平方距离的相同，不需要开方。
@@ -147,15 +143,11 @@ def predict_1nn(X_train, y_train, X_query):
 **(a)** 固定一个查询点 $q$，看 $D$ 中它对应的那一行。$`\lVert q \rVert^2`$ 这一项对所有 $i$ 都相同，只是把整行平移了一个常数，
 既不改变最小值的位置，也不改变哪些元素并列。去掉它，再取相反数：
 
-```math
-z_i = 2 x_i^\top q - \lVert x_i \rVert^2 = \lVert q \rVert^2 - \lVert q - x_i \rVert^2 .
-```
+$$z_i = 2 x_i^\top q - \lVert x_i \rVert^2 = \lVert q \rVert^2 - \lVert q - x_i \rVert^2 .$$
 
 它是 $q$ 的仿射函数，即 $z = W_1 q + b_1$，其中
 
-```math
-W_1 = 2X \in \mathbb{R}^{n \times d} \quad (\text{第 } i \text{ 行是 } 2 x_i^\top), \qquad (b_1)_i = -\lVert x_i \rVert^2 ,
-```
+$$W_1 = 2X \in \mathbb{R}^{n \times d} \quad (\text{第 } i \text{ 行是 } 2 x_i^\top), \qquad (b_1)\_i = -\lVert x_i \rVert^2 ,$$
 
 两者都只依赖训练集。$`z_i`$ 等于一个常数减去平方距离，所以距离最小的位置恰好就是 $z$ 最大的位置，
 即 $\arg\max_i z_i = \mathrm{nn}(q)$，并列的情况也完全相同。被去掉的那一项是 $q$ 的二次函数，任何仿射层都算不出它；
@@ -166,12 +158,7 @@ softmax 不改变 argmax。所有的 $`p_i = \mathrm{softmax}(z)_i`$ 共用同�
 
 对 Part 1 的数据和查询点 $q_1 = (2, 1)$，有 $\lVert q_1 \rVert^2 = 5$，并且
 
-```math
-W_1 = \begin{pmatrix} 0 & 0 \\ 4 & 0 \\ 0 & 4 \\ 6 & 6 \end{pmatrix},\quad
-b_1 = \begin{pmatrix} 0 \\ -4 \\ -4 \\ -18 \end{pmatrix},\quad
-z = W_1 q_1 + b_1 = \begin{pmatrix} 0 \\ 4 \\ 0 \\ 0 \end{pmatrix},\quad
-5 - z = \begin{pmatrix} 5 \\ 1 \\ 5 \\ 5 \end{pmatrix}
-```
+$`\displaystyle W_1 = \begin{pmatrix} 0 & 0 \\ 4 & 0 \\ 0 & 4 \\ 6 & 6 \end{pmatrix},\quad b_1 = \begin{pmatrix} 0 \\ -4 \\ -4 \\ -18 \end{pmatrix},\quad z = W_1 q_1 + b_1 = \begin{pmatrix} 0 \\ 4 \\ 0 \\ 0 \end{pmatrix},\quad 5 - z = \begin{pmatrix} 5 \\ 1 \\ 5 \\ 5 \end{pmatrix}`$
 
 最后一个向量就是 Part 1 的表格里 $q_1$ 的那一行。$`(W_1, b_1)`$ 并不唯一：对任意 $c > 0$ 和任意 $t$，
 $(cW_1, cb_1 + t\mathbf{1})$ 的 argmax 都相同，$`c`$ 的作用相当于温度的倒数。取 $c = 1$ 时，softmax 同样会消去 $\lVert q \rVert^2$ 这个平移量，

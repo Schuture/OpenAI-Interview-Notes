@@ -206,23 +206,15 @@ def fit_and_score(X_train, labels, has_label, X_test, y_test):
 $(1 - r_j) / (K - 1)$ 报告其余每一个类别，其中 $K$ 是 `n_classes`——同一个 $r_j$ 就是 Part 1 估计的那个共享错误率，
 代替了一整张混淆矩阵。对一个由 $V_i$ 中的标注者投票、候选真实类别为 $c$ 的样本，它收到的这些投票的对数似然是
 
-```math
-L_i(c) = \sum_{j \in V_i} \Bigl( \mathbb{1}[\ell_{ij} = c] \log r_j
-+ \mathbb{1}[\ell_{ij} \ne c] \log \frac{1 - r_j}{K - 1} \Bigr) .
-```
+$$L_i(c) = \sum\_{j \in V_i} \Bigl( \mathbb{1}[\ell\_{ij} = c] \log r_j + \mathbb{1}[\ell\_{ij} \ne c] \log \frac{1 - r_j}{K - 1} \Bigr) .$$
 
 利用 $\mathbb{1}[\ell_{ij} \ne c] = 1 - \mathbb{1}[\ell_{ij} = c]$，把它拆成一个不依赖 $c$ 的项和一个依赖 $c$ 的项：
 
-```math
-L_i(c) = \sum_{j \in V_i} \log \frac{1 - r_j}{K - 1}
-+ \sum_{j \in V_i} \mathbb{1}[\ell_{ij} = c] \Bigl( \log r_j - \log \frac{1 - r_j}{K - 1} \Bigr) .
-```
+$$L_i(c) = \sum\_{j \in V_i} \log \frac{1 - r_j}{K - 1} + \sum\_{j \in V_i} \mathbb{1}[\ell\_{ij} = c] \Bigl( \log r_j - \log \frac{1 - r_j}{K - 1} \Bigr) .$$
 
 第一项对每个 $c$ 都相同，求 arg max 时可以去掉，剩下的正好是 `aggregate_labels` 的加权投票，权重为
 
-```math
-w_j = \log \frac{r_j (K - 1)}{1 - r_j} .
-```
+$$w_j = \log \frac{r_j (K - 1)}{1 - r_j} .$$
 
 这正是 Dawid–Skene EM 算法背后同一个思路的一次、不迭代的版本：它直接复用 Part 1 已经估计出的 $r_j$，
 而不是在混淆矩阵和软标签之间来回迭代。

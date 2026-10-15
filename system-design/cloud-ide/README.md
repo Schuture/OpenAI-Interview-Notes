@@ -70,9 +70,7 @@ registries. This design assumes only registries.
 timeout after the last tab closes, so it is held for $W = 20 + 15 = 35$ min $= 2{,}100$ s. By Little's law,
 $L = \lambda \cdot W$, with $L = 36{,}000$ live sandboxes at peak,
 
-```math
-\lambda_{\text{peak}} = L / W \approx 17.1 \text{ workspace starts (or resumes) per second.}
-```
+$$\lambda\_{\text{peak}} = L / W \approx 17.1 \text{ workspace starts (or resumes) per second.}$$
 
 Of these, about $\lambda_{\text{peak}} \times 1{,}200 \approx 20{,}600$ are in an active session and the
 other 15,400 are waiting out the timeout.

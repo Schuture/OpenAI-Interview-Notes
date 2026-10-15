@@ -245,9 +245,7 @@ for t in reversed(range(rewards.shape[0])):         # was range(rewards.shape[0]
 于是两项在互相抵消的地方停下来。逐步来看，略去两个均值共同带来的 $1/N$，损失对 $V$ 的导数是
 $\log \pi(a \mid s) + 2 \cdot 0.5 \cdot (V - G)$，它在
 
-```math
-G - V = \log \pi(a \mid s)
-```
+$$G - V = \log \pi(a \mid s)$$
 
 处为零，也就是说基线最终停在它本该预测的回报之上一个*意外度*（surprisal）的位置；对一次采样取平均之后，
 优势等于熵的相反数：第 119 轮的平均优势是 -0.586，而熵是 0.612，`value loss` 是 0.528 而不是 0.077。训练照样能进行，

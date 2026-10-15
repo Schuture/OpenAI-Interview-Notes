@@ -15,6 +15,10 @@ Also checks maths. GitHub runs Markdown escapes and emphasis inside `$...$` and 
 (`\\{` `\\,` `\\%` `\\\\` lose their backslash, `}_..._` turns into italics), and only opens inline maths after
 whitespace or `(`, so `取值，$n$` and `top-$k$` print their dollars. Write display maths as a ```math block and any
 inline maths that trips a rule below as $`...`$, which GitHub passes to MathJax untouched.
+A ```math block inside a collapsed <details> section is never rendered (it shows as raw TeX), and neither is
+`$$...$$` there when it contains \\begin. In <details>, write display maths as one `$$...$$` line with every
+Markdown-special character escaped (the form `display_in_details` below produces), or as $`\\displaystyle ...`$
+when it needs \\begin{...}.
 GitHub also refuses some macros outright ("The following macros are not allowed: operatorname"); use \\mathrm{...}.
 """
 from __future__ import annotations
@@ -49,13 +53,48 @@ MATH_TOKEN = re.compile(r"\$(`+)[\s\S]*?\1\$|(`+)[\s\S]*?\2|\\\$|\$\$([\s\S]+?)\
 BLOCKED_MACROS = ("operatorname",)  # GitHub shows "The following macros are not allowed: ..." for these
 
 
+MD_SPECIAL = set("""!"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~""")
+
+
+def display_in_details(tex: str) -> str:
+    """The $$...$$ body that reaches MathJax as `tex` after GitHub's Markdown pass."""
+    out, i = [], 0
+    while i < len(tex):
+        c, prev, nxt = tex[i], tex[i - 1] if i else " ", tex[i + 1] if i + 1 < len(tex) else " "
+        if c == "\\" and nxt in MD_SPECIAL:
+            out.append("\\" * (4 if nxt == "\\" else 3 if nxt in "*`~<_" else 2) + ("" if nxt == "\\" else nxt))
+            i += 2
+            continue
+        if c in "*`~<" or (c == "_" and not (prev.isalnum() and nxt.isalnum())):
+            out.append("\\")
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def md_unescape(s: str) -> str:
+    return re.sub(r"\\([!-/:-@\[-`{-~])", r"\1", s)
+
+
+def details_lines(text: str) -> set[int]:
+    """Line numbers (1-based) inside a <details> section."""
+    inside, depth = set(), 0
+    for i, line in enumerate(text.split("\n"), 1):
+        depth += (line.strip() == "<details>") - (line.strip() == "</details>")
+        if depth:
+            inside.add(i)
+    return inside
+
+
 def math_problems(text: str) -> list[str]:
     """Maths GitHub would print literally or hand to MathJax mangled; each should be a ```math block or $`...`$."""
-    out, fence = [], None
+    out, fence, collapsed = [], None, details_lines(text)
     for i, line in enumerate(text.split("\n"), 1):
         opener = re.match(r"\s*(```+)\s*(\w*)", line)
         if fence is None and opener:
             fence = opener.group(2)
+            if fence == "math" and i in collapsed:
+                out.append(f"line {i}: a ```math block inside <details> is not rendered, use one $$...$$ line")
         elif fence is not None and opener and not opener.group(2):
             fence = None
         elif fence in (None, "math"):
@@ -65,7 +104,13 @@ def math_problems(text: str) -> list[str]:
     for m in MATH_TOKEN.finditer(text):
         lineno = text.count("\n", 0, m.start()) + 1
         if m.group(3) is not None:
-            out.append(f"line {lineno}: write display maths as a ```math block -> {m.group(0)[:50]!r}")
+            tex = md_unescape(m.group(3))
+            if lineno not in collapsed:
+                out.append(f"line {lineno}: write display maths as a ```math block -> {m.group(0)[:50]!r}")
+            elif "\n" in m.group(3) or "\\begin" in tex:
+                out.append(f"line {lineno}: in <details>, use one $$...$$ line, or $`\\displaystyle ...`$ for \\begin")
+            elif m.group(3) != display_in_details(tex):
+                out.append(f"line {lineno}: escape this $$...$$ as ${display_in_details(tex)[:60]}...$")
             continue
         c = m.group(4)
         if c is None:

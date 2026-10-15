@@ -108,9 +108,7 @@ flowchart LR
 
 设一步走子的接收时间戳为 $t_{\text{recv}}$，走子方的剩余时间为 $r$，这一回合的开始时间为 $t_{\text{turn}}$（`turn_started_at_ms`），走子方的新剩余时间是
 
-```math
-r' = r - (t_{\text{recv}} - t_{\text{turn}}) + \text{inc}, \quad \text{仅当 } r - (t_{\text{recv}} - t_{\text{turn}}) > 0
-```
+$$r' = r - (t\_{\text{recv}} - t\_{\text{turn}}) + \text{inc}, \quad \text{仅当 } r - (t\_{\text{recv}} - t\_{\text{turn}}) > 0$$
 
 也就是说，加秒在走完一步之后才加上（费舍尔加秒，Fischer increment）。差值不为正时，这步走子被拒绝，走子方超时判负——时间用完之后才到的走子不能挽救这一局。然后令 $t_{\text{turn}} := t_{\text{recv}}$，切换 `turn`，`version` 加一；客户端屏幕上的计时器只是从最近一条 `move.applied` 或 `clock.sync` 的读数往下倒数。双方各自走出第一步之前，棋钟都不走；第一步改用一个固定期限（例如 20 秒），超过期限就中止对局、不计结果。
 
