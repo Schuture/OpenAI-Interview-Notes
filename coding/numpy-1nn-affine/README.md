@@ -120,15 +120,11 @@ The direct loop-free version subtracts with broadcasting, `X_query[:, None, :] -
 then squares and sums over the last axis. It is correct but allocates an `(m, n, d)` array. Expanding
 the square removes the third axis:
 
-```math
-\lVert q - x \rVert^2 = (q - x)^\top (q - x) = \lVert q \rVert^2 - 2 q^\top x + \lVert x \rVert^2 .
-```
+$$\lVert q - x \rVert^2 = (q - x)^\top (q - x) = \lVert q \rVert^2 - 2 q^\top x + \lVert x \rVert^2 .$$
 
 With $Q$ = `X_query` and $X$ = `X_train`, entry $(j, i)$ of the $m \times n$ matrix of squared distances is
 
-```math
-D_{ji} = \lVert q_j \rVert^2 + \lVert x_i \rVert^2 - 2 (Q X^\top)_{ji} .
-```
+$$D\_{ji} = \lVert q_j \rVert^2 + \lVert x_i \rVert^2 - 2 (Q X^\top)\_{ji} .$$
 
 The three terms have shapes `(m, 1)`, `(n,)` and `(m, n)`, and broadcasting adds them to `(m, n)`. The
 matrix product dominates: $O(mnd)$ time and $O(mn)$ extra memory. The square root is increasing, so the
@@ -160,15 +156,11 @@ def predict_1nn(X_train, y_train, X_query):
 $i$. It shifts the whole row by a constant, so it changes neither the index of the minimum nor which
 entries tie. Drop it and flip the sign:
 
-```math
-z_i = 2 x_i^\top q - \lVert x_i \rVert^2 = \lVert q \rVert^2 - \lVert q - x_i \rVert^2 .
-```
+$$z_i = 2 x_i^\top q - \lVert x_i \rVert^2 = \lVert q \rVert^2 - \lVert q - x_i \rVert^2 .$$
 
 This is affine in $q$, namely $z = W_1 q + b_1$ with
 
-```math
-W_1 = 2X \in \mathbb{R}^{n \times d} \quad (\text{row } i \text{ is } 2 x_i^\top), \qquad (b_1)_i = -\lVert x_i \rVert^2 ,
-```
+$$W_1 = 2X \in \mathbb{R}^{n \times d} \quad (\text{row } i \text{ is } 2 x_i^\top), \qquad (b_1)\_i = -\lVert x_i \rVert^2 ,$$
 
 and both depend on the training set only. Because $z_i$ is a constant minus the squared distance, $z$
 is largest exactly where the distance is smallest, so $\arg\max_i z_i = \mathrm{nn}(q)$ with the same
@@ -181,12 +173,7 @@ $p_i = p_k$ if and only if $z_i = z_k$. Order and ties are preserved.
 
 For the data of Part 1 and the query $q_1 = (2, 1)$ with $\lVert q_1 \rVert^2 = 5$:
 
-```math
-W_1 = \begin{pmatrix} 0 & 0 \\ 4 & 0 \\ 0 & 4 \\ 6 & 6 \end{pmatrix},\quad
-b_1 = \begin{pmatrix} 0 \\ -4 \\ -4 \\ -18 \end{pmatrix},\quad
-z = W_1 q_1 + b_1 = \begin{pmatrix} 0 \\ 4 \\ 0 \\ 0 \end{pmatrix},\quad
-5 - z = \begin{pmatrix} 5 \\ 1 \\ 5 \\ 5 \end{pmatrix}
-```
+$`\displaystyle W_1 = \begin{pmatrix} 0 & 0 \\ 4 & 0 \\ 0 & 4 \\ 6 & 6 \end{pmatrix},\quad b_1 = \begin{pmatrix} 0 \\ -4 \\ -4 \\ -18 \end{pmatrix},\quad z = W_1 q_1 + b_1 = \begin{pmatrix} 0 \\ 4 \\ 0 \\ 0 \end{pmatrix},\quad 5 - z = \begin{pmatrix} 5 \\ 1 \\ 5 \\ 5 \end{pmatrix}`$
 
 The last vector is the row of $q_1$ in the table of Part 1. The pair $(W_1, b_1)$ is not unique:
 $(cW_1, cb_1 + t\mathbf{1})$ with any $c > 0$ and any $t$ has the same argmax, and $c$ acts as an inverse

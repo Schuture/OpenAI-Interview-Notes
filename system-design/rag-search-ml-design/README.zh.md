@@ -61,9 +61,7 @@
 
 损失函数用 InfoNCE。对一个锚点（这里是查询）$`q`$、它的正样本段落 $p^+$，以及 $N$ 个负样本段落 $\lbrace p_1^-, \dots, p_N^- \rbrace$：
 
-```math
-L_{\text{InfoNCE}} = -\log \frac{\exp(\mathrm{sim}(q, p^+) / \tau)}{\exp(\mathrm{sim}(q, p^+) / \tau) + \sum_{i=1}^{N} \exp(\mathrm{sim}(q, p_i^-) / \tau)}
-```
+$$L\_{\text{InfoNCE}} = -\log \frac{\exp(\mathrm{sim}(q, p^+) / \tau)}{\exp(\mathrm{sim}(q, p^+) / \tau) + \sum\_{i=1}^{N} \exp(\mathrm{sim}(q, p_i^-) / \tau)}$$
 
 `sim(·,·)` 是 L2 归一化向量之间的余弦相似度，取值在 $[-1, 1]$ 之内，所以 softmax 的尺度完全由温度 $\tau$ 决定。分母把正样本和每一个负样本都加了进去，因此这个损失恰好是在 `sim / τ` 上做的 $(N+1)$ 类交叉熵，正确类别就是正样本。
 
@@ -89,17 +87,13 @@ L_{\text{InfoNCE}} = -\log \frac{\exp(\mathrm{sim}(q, p^+) / \tau)}{\exp(\mathrm
 
 两份分数的量纲不同——余弦相似度有界，BM25 的分数无界，还依赖长度——所以倒数排名融合（reciprocal rank fusion）只用名次，不用分数：
 
-```math
-\text{score}(x) = \sum_{r \in \lbrace \text{dense}, \text{sparse} \rbrace} \frac{1}{k_0 + \text{rank}_r(x)}
-```
+$$\text{score}(x) = \sum\_{r \in \lbrace \text{dense}, \text{sparse} \rbrace} \frac{1}{k_0 + \text{rank}\_r(x)}$$
 
 其中名次 1 最好，没有出现在某份列表里的段落在那一份上贡献为零。常数 $k_0$（原论文取 60）的作用是把每份列表的头部压平，让“两边都认可”胜过“某一边的第一名”：在两份列表里都排第 10 的段落得分是 $2/70$，高于只在一份列表里排第 1 的 $1/61$；而 $k_0 = 0$ 时前者只有 0.2，会输给后者的 1。另一种做法是把两份分数按查询各自归一化后加权求和，它保留了真实的分差，调得好时效果可以更好，但只要查询构成或任何一个检索器变了，权重就得重调，所以默认用倒数排名融合。
 
 延迟交互以 ColBERT 为代表：不再把每段文本池化成一个向量，而是给查询和段落的每个 token 各留一个向量，用 MaxSim 给一对（查询，段落）打分——对查询里的每个 token，取它和段落各 token 的最大相似度，再求和：
 
-```math
-\text{score}(q, p) = \sum_{i} \max_{j} \; u_i \cdot v_j
-```
+$$\text{score}(q, p) = \sum\_{i} \max\_{j} \\; u_i \cdot v_j$$
 
 其中 $u_i$ 是查询各 token 的向量，$`v_j`$ 是段落各 token 的向量，都做了归一化，点积就是余弦相似度。和交叉编码器不同，段落一侧的 token 向量仍然可以离线算好；和双塔不同，查询的每个 token 都能匹配到段落里与它最贴合的那个 token，抓住被单个池化向量平均掉的短语或实体。代价一是存储——这里每个段落约 300 个向量，总共约 $1.2 \times 10^{10}$ 个，而不是 $4 \times 10^7$ 个，所以 ColBERT 把每个 token 的向量维度取得很小（128），ColBERTv2 又进一步压缩了 token 向量——二是检索要分两步：先对查询的每个 token 在全部 token 向量上做一次最近邻查找，汇集出候选段落，再在每个候选的全部 token 上精确计算 MaxSim。只有细粒度的短语匹配确实重要时，才值得为它搭这一套基础设施；它不是双塔的默认替代品。
 

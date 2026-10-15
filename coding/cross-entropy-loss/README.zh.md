@@ -136,9 +136,7 @@ def cross_entropy_grad(logits: np.ndarray, targets: np.ndarray, mask: np.ndarray
 
 记 $z = \text{logits}[b, t]$、$`y = \text{targets}[b, t]`$、$`m = \max_v z_v`$。由 $e^{z_v} = e^m e^{z_v - m}$，
 
-```math
-\log \sum_v e^{z_v} = m + \log \sum_v e^{z_v - m}.
-```
+$$\log \sum_v e^{z_v} = m + \log \sum_v e^{z_v - m}.$$
 
 每个指数 $z_v - m$ 都 $\le 0$，取最大值的那一项恰好为 $0$，右边的和因此总落在 $[1, V]$ 内，
 不论 $z$ 的量级：既不会溢出，也不会下溢为零。$`\ell = -(z_y - m) + \log \sum_v e^{z_v - m}`$，
@@ -189,10 +187,7 @@ def cross_entropy_masked(logits, targets, mask):
 记 $`q_v = \mathrm{softmax}(z)_v`$，把 $`p = (1 - \varepsilon)\,\text{one-hot}(y) + (\varepsilon / V)\mathbf{1}`$
 代入 $-\sum_v p_v \log q_v$，得到
 
-```math
--\sum_v p_v \log q_v = -(1 - \varepsilon) \log q_y - \frac{\varepsilon}{V} \sum_v \log q_v
-= -(1 - \varepsilon) \log q_y - \varepsilon \cdot \overline{\log q},
-```
+$$-\sum_v p_v \log q_v = -(1 - \varepsilon) \log q_y - \frac{\varepsilon}{V} \sum_v \log q_v = -(1 - \varepsilon) \log q_y - \varepsilon \cdot \overline{\log q},$$
 
 其中 $\overline{\log q} = \frac{1}{V}\sum_v \log q_v$ 是 $\log q_v$ 在整个词表上的均值。
 两项都能从 Part 1 已经算出的量得到（$`\log q_y`$ 就是 `nll` 取负），再加一次对
@@ -227,10 +222,7 @@ def cross_entropy_smoothed(logits, targets, mask, label_smoothing):
 
 **(a)** 由 $-\log q_v = -\log p_v + \log(p_v / q_v)$，两边乘以 $p_v$ 再对 $v$ 求和，得到
 
-```math
-H(p, q) = -\sum_v p_v \log q_v = -\sum_v p_v \log p_v + \sum_v p_v \log \frac{p_v}{q_v}
-= H(p) + \mathrm{KL}(p \Vert q).
-```
+$$H(p, q) = -\sum_v p_v \log q_v = -\sum_v p_v \log p_v + \sum_v p_v \log \frac{p_v}{q_v} = H(p) + \mathrm{KL}(p \Vert q).$$
 
 对 one-hot 的 $p$，$`H(p)`$ 恒为 $0$：$`v = y`$ 那一项是 $-1 \cdot \log 1 = 0$，其余每一项 $p_v = 0$。
 $H(p)$ 不依赖 `logits`——只有 $q$ 依赖——所以 $\ell(b, t)$ 与 $\mathrm{KL}(p \Vert q)$ 其实是 `logits`
@@ -239,10 +231,7 @@ $H(p)$ 不依赖 `logits`——只有 $q$ 依赖——所以 $\ell(b, t)$ 与 $\
 **(b)** 加入标签平滑后，Part 3 的目标分布 $p$ 同样不依赖 `logits`，所以 $H(p)$ 仍是一个
 不随 `logits` 变化的常数，只是这次是正的：
 
-```math
-H(p) = -\Bigl[(1 - \varepsilon) + \tfrac{\varepsilon}{V}\Bigr] \log\Bigl[(1 - \varepsilon) + \tfrac{\varepsilon}{V}\Bigr]
-- (V - 1) \cdot \frac{\varepsilon}{V} \log \frac{\varepsilon}{V}.
-```
+$$H(p) = -\Bigl[(1 - \varepsilon) + \tfrac{\varepsilon}{V}\Bigr] \log\Bigl[(1 - \varepsilon) + \tfrac{\varepsilon}{V}\Bigr] - (V - 1) \cdot \frac{\varepsilon}{V} \log \frac{\varepsilon}{V}.$$
 
 $\mathrm{KL}(p \Vert q) \ge 0$，等号当且仅当 $q = p$，而这是可以达到的：softmax 能取到任何全部为正的分布
 （取 `logits = log(p)`，加任意常数不影响 softmax）。所以 $H(p)$ 恰好是该位置损失的下确界：one-hot 目标下
@@ -251,10 +240,7 @@ $\mathrm{KL}(p \Vert q) \ge 0$，等号当且仅当 $q = p$，而这是可以达
 
 **(c)** 由 $\log q_j = z_j - \log \sum_k e^{z_k}$ 得 $\partial \log q_j / \partial z_i = \delta_{ij} - q_i$，于是
 
-```math
-\frac{\partial H(p, q)}{\partial z_i} = -\sum_j p_j \frac{\partial \log q_j}{\partial z_i}
-= -\sum_j p_j(\delta_{ij} - q_i) = -p_i + q_i \sum_j p_j = q_i - p_i,
-```
+$$\frac{\partial H(p, q)}{\partial z_i} = -\sum_j p_j \frac{\partial \log q_j}{\partial z_i} = -\sum_j p_j(\delta\_{ij} - q_i) = -p_i + q_i \sum_j p_j = q_i - p_i,$$
 
 这里用到 $\sum_j p_j = 1$。对 $N$ 个未被 mask 的位置取平均，会把每个位置的梯度都缩放 $1/N$；
 被 mask 的位置贡献的是零向量。

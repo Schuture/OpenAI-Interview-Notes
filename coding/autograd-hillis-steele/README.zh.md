@@ -146,22 +146,16 @@ def prefix_products(W):
 对任意矩阵 $X$，记 $\bar{X} = \partial L / \partial X$。对单次乘法 $Y = AB$，有 $Y_{ab} = \sum_c A_{ac} B_{cb}$，由链式法则得
 $`\bar{A}_{ac} = \sum_b \bar{Y}_{ab} B_{cb}`$，$`\bar{B}_{cb} = \sum_a A_{ac} \bar{Y}_{ab}`$，即
 
-```math
-\bar{A} = \bar{Y} B^\top, \qquad \bar{B} = A^\top \bar{Y}.
-```
+$$\bar{A} = \bar{Y} B^\top, \qquad \bar{B} = A^\top \bar{Y}.$$
 
 在前向传播中 $P_i$ 被用了两次：被损失直接使用，贡献 $G_i$；以及作为 $P_{i+1} = P_i W_{i+1}$ 的左因子。
 到达 $P_i$ 的总梯度 $A_i$ 是这两项贡献之和：
 
-```math
-A_{N-1} = G_{N-1}, \qquad A_i = G_i + A_{i+1} W_{i+1}^\top .
-```
+$$A\_{N-1} = G\_{N-1}, \qquad A_i = G_i + A\_{i+1} W\_{i+1}^\top .$$
 
 $W_i$ 只被用了一次，作为 $P_i = P_{i-1} W_i$ 的右因子，因此
 
-```math
-\frac{\partial L}{\partial W_i} = P_{i-1}^\top A_i \quad (i \ge 1), \qquad \frac{\partial L}{\partial W_0} = A_0 .
-```
+$$\frac{\partial L}{\partial W_i} = P\_{i-1}^\top A_i \quad (i \ge 1), \qquad \frac{\partial L}{\partial W_0} = A_0 .$$
 
 一个从 $i = N - 1$ 到 $0$ 的循环就能算出全部结果，代价是 $O(N D^3)$，与前向传播相同。
 
@@ -197,9 +191,7 @@ def scan_forward(W):
 反向。从最后一轮到第一轮逐轮回退。一轮运算把 $X$ 映射为 $Y$：$`j < s`$ 时 $Y_j = X_j$，$`j \ge s`$ 时 $Y_j = X_{j-s} X_j$。
 已知 $H = \partial L / \partial Y$，则 $X_j$ 每被使用一次，就按单次乘法的梯度公式得到一项：
 
-```math
-\bar{X}_j = \underbrace{H_j}_{j < s} + \underbrace{X_{j-s}^\top H_j}_{j \ge s} + \underbrace{H_{j+s} X_{j+s}^\top}_{j + s < N} .
-```
+$$\bar{X}\_j = \underbrace{H_j}\_{j \< s} + \underbrace{X\_{j-s}^\top H_j}\_{j \ge s} + \underbrace{H\_{j+s} X\_{j+s}^\top}\_{j + s \< N} .$$
 
 ```python
 def scan_backward(tape, G):

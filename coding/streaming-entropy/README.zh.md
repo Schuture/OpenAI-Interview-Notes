@@ -112,9 +112,7 @@ def softmax_entropy(logits):
 记 $Z = \sum_k e^{x_k}$，则 $p_i = e^{x_i}/Z$，$`\log p_i = x_i - \log Z`$。提出最大的指数
 $m = \max_k x_k$：由 $e^{x_i} = e^m e^{x_i - m}$，
 
-```math
-Z = e^m s, \qquad \log Z = m + \log s, \qquad s = \sum_k e^{x_k - m}.
-```
+$$Z = e^m s, \qquad \log Z = m + \log s, \qquad s = \sum_k e^{x_k - m}.$$
 
 每个指数 $x_k - m$ 都 $\le 0$，取到最大值的那一项恰好是 $0$，所以 $s$ 的每一项都落在 $(0, 1]$ 内，
 且 $s \ge 1$：无论 $x$ 有多大或跨度多宽，这个和都不会溢出，也不会消失为零。这就是先减去 $m$
@@ -147,23 +145,16 @@ def softmax_entropy_stable(logits):
 
 分块的两问共用一个恒等式。把 $\log p_i = x_i - \log Z$ 代入 $H$ 的定义，并用 $\sum_i p_i = 1$：
 
-```math
-H(p) = -\sum_i p_i(x_i - \log Z) = \log Z - \sum_i p_i x_i.
-```
+$$H(p) = -\sum_i p_i(x_i - \log Z) = \log Z - \sum_i p_i x_i.$$
 
 所以 $H$ 只需要 $\log Z$ 和 logits 按概率加权的和，两者都不需要先算出 $p$。用 Part 2 里的 $m$、$`s`$，
 有 $\log Z = m + \log s$。第二项代入 $x_i = m + (x_i - m)$，再除以 $Z = e^m s$：
 
-```math
-\sum_i p_i x_i = \frac{1}{Z}\sum_i e^{x_i} x_i = \frac{1}{s}\sum_i e^{x_i - m}\bigl(m + (x_i - m)\bigr)
-= m + \frac{u}{s}, \qquad u = \sum_i e^{x_i - m}(x_i - m).
-```
+$$\sum_i p_i x_i = \frac{1}{Z}\sum_i e^{x_i} x_i = \frac{1}{s}\sum_i e^{x_i - m}\bigl(m + (x_i - m)\bigr) = m + \frac{u}{s}, \qquad u = \sum_i e^{x_i - m}(x_i - m).$$
 
 两项一起代入 $H$，$`m`$ 正好抵消：
 
-```math
-H(p) = \log s - \frac{u}{s}.
-```
+$$H(p) = \log s - \frac{u}{s}.$$
 
 $s$ 和 $u$ 都是对 $i$ 的求和，一旦 $m$ 已知，就可以逐块累加。第一遍扫描各块得到 $m$；第二遍把 $s$、$`u`$
 一起累加——不需要第三遍，因为 $u/s$ 已经是 logits 按概率加权的均值，从头到尾都没有单独算出某个 $p_i$。
@@ -202,10 +193,7 @@ $\sum e^{x_k - m} = \sum e^{x_k - m_0} e^{m_0 - m} = s_0 e^{m_0 - m}$，居中�
 
 对 $u$，记 $\delta = m_0 - m \le 0$，代入 $x_k - m = (x_k - m_0) + \delta$：
 
-```math
-\sum_k e^{x_k - m}(x_k - m) = e^{\delta}\sum_k e^{x_k - m_0}\bigl((x_k - m_0) + \delta\bigr)
-= e^{\delta}\bigl(u_0 + \delta s_0\bigr),
-```
+$$\sum_k e^{x_k - m}(x_k - m) = e^{\delta}\sum_k e^{x_k - m_0}\bigl((x_k - m_0) + \delta\bigr) = e^{\delta}\bigl(u_0 + \delta s_0\bigr),$$
 
 居中在 $m_1$ 上的那些项同理。把新一段折叠进当前累加值，做的正是这个合并；最后的三元组按 Part 3
 的公式给出 $H$。

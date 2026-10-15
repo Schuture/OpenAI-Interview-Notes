@@ -80,9 +80,7 @@ known distribution.
 Since $T \ge 0$, the inequality $a \cdot \mathbf{1}[T \ge a] \le T$ holds for every $a > 0$. Taking
 expectations gives Markov's inequality $P(T \ge a) \le E[T] / a$, hence
 
-```math
-P(T > 5) \le P(T \ge 5) \le \frac{1}{5}.
-```
+$$P(T > 5) \le P(T \ge 5) \le \frac{1}{5}.$$
 
 For $P(T \ge 5)$ the bound is attained: $T = 5$ with probability $1/5$ and $T = 0$ otherwise has mean 1.
 For $P(T > 5)$ it is not, because $P(T > 5) = 1/5$ would force
@@ -106,9 +104,7 @@ which is the exact answer when $S$ is known. With only the mean known, Part 1 gi
 $S(t) \le 1/t = m/10$ for $m \le 10$, and the mass just above $t$ again brings all $m$ factors
 arbitrarily close to this bound at once:
 
-```math
-\text{guarantee} = 1 - \left(\frac{m}{10}\right)^{m} = 1 - \left(\frac{N+1}{10}\right)^{N+1}, \qquad N + 1 \le 10.
-```
+$$\text{guarantee} = 1 - \left(\frac{m}{10}\right)^{m} = 1 - \left(\frac{N+1}{10}\right)^{N+1}, \qquad N + 1 \le 10.$$
 
 For $N + 1 \ge 10$ the timeout is at most 1 and the guarantee is 0. A request that always takes
 $T = 1$ never finishes within a timeout below 1, and for the timeout 1 the distribution
@@ -120,9 +116,7 @@ $(1 + \varepsilon)^{-10} \to 1$.
 Minimise the failure probability $(m/10)^m$ through its logarithm $f(m) = m \ln(m/10)$, first over
 real $m$:
 
-```math
-f'(m) = \ln\frac{m}{10} + 1 = 0 \quad\Longrightarrow\quad m = \frac{10}{e} \approx 3.68 .
-```
+$$f'(m) = \ln\frac{m}{10} + 1 = 0 \quad\Longrightarrow\quad m = \frac{10}{e} \approx 3.68 .$$
 
 $f''(m) = 1/m > 0$, so $f$ is convex and the best integer is 3 or 4. Since $0.3^3 = 0.027$ and
 $0.4^4 = 0.0256$, four attempts of 2.5 minutes each are best, with the guarantee
@@ -137,9 +131,7 @@ about $e \approx 2.7$ times the mean.
 Yes: the exponential distribution with rate 1, $S(t) = e^{-t}$, which has mean 1. Every schedule fails
 with probability
 
-```math
-\prod_{i=1}^{m} S(t_i) = e^{-(t_1 + \dots + t_m)} = e^{-10} \approx 4.5 \times 10^{-5}.
-```
+$$\prod\_{i=1}^{m} S(t_i) = e^{-(t_1 + \dots + t_m)} = e^{-10} \approx 4.5 \times 10^{-5}.$$
 
 This is the *memoryless property* $P(T > s + t \mid T > s) = P(T > t)$: an attempt that has already run
 for $s$ minutes is exactly as good as a fresh one. Conversely, if all schedules fail with the same
@@ -164,26 +156,20 @@ different timeouts. Think of the distribution as chosen by an *adversary* who kn
 *Two attempts.* Let the timeouts be $a \le b$ with $a + b = 10$, and write $s_1 = S(a)$, $s_2 = S(b)$,
 so $s_1 \ge s_2$. Since $`E[T] = \int_0^\infty S(t)\;dt`$ and $S$ is non-increasing,
 
-```math
-1 = E[T] \ge \int_0^a S(t)\;dt + \int_a^b S(t)\;dt \ge a s_1 + (b - a) s_2 .
-```
+$$1 = E[T] \ge \int_0^a S(t)\\;dt + \int_a^b S(t)\\;dt \ge a s_1 + (b - a) s_2 .$$
 
 Conversely, every pair $1 \ge s_1 \ge s_2 \ge 0$ that satisfies this inequality is approached by a
 distribution with mean 1: mass $s_2$ just above $b$, mass $s_1 - s_2$ just above $a$, the rest at 0
 (a mean below 1 is made up by an arbitrarily small mass moved far out). The adversary therefore
 maximises $s_1 s_2$ under these constraints. By AM–GM,
 
-```math
-a s_1 \cdot (b - a) s_2 \le \left(\frac{a s_1 + (b - a) s_2}{2}\right)^{2} \le \frac{1}{4}, \qquad\text{so}\qquad s_1 s_2 \le \frac{1}{4a(b - a)} = \frac{1}{4a(10 - 2a)},
-```
+$$a s_1 \cdot (b - a) s_2 \le \left(\frac{a s_1 + (b - a) s_2}{2}\right)^{2} \le \frac{1}{4}, \qquad\text{so}\qquad s_1 s_2 \le \frac{1}{4a(b - a)} = \frac{1}{4a(10 - 2a)},$$
 
 with equality for $s_1 = 1/(2a)$ and $s_2 = 1/(2(10 - 2a))$. This pair satisfies $s_2 \le s_1 \le 1$
 exactly when $1/2 \le a \le 10/3$, and the worst-case failure probability is then $1/(4a(10 - 2a))$.
 It is smallest where $a(10 - 2a)$ is largest, at $a = 2.5$:
 
-```math
-\text{schedule } (2.5,\; 7.5), \qquad \text{worst-case failure probability } \frac{1}{4 \cdot 2.5 \cdot 5} = \frac{1}{50}, \qquad \text{guarantee } 0.98 .
-```
+$$\text{schedule } (2.5,\\; 7.5), \qquad \text{worst-case failure probability } \frac{1}{4 \cdot 2.5 \cdot 5} = \frac{1}{50}, \qquad \text{guarantee } 0.98 .$$
 
 Outside that range a constraint is active: for $a > 10/3$ the maximum is at $s_1 = s_2 = 1/b$, with
 failure probability $1/(10 - a)^2 > 9/400$, and for $a < 1/2$ it is at $s_1 = 1$, with failure

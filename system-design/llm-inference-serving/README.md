@@ -89,9 +89,7 @@ requests/sec; at 6x for the daily peak, peak submissions run at $3{,}000$ reques
 **KV cache per token.** With 32 layers, 8 KV heads, head dimension 128, and fp16 (2 bytes), one
 token's key and value together cost
 
-```math
-2 \times 32 \times 8 \times 128 \times 2 = 131{,}072 \text{ bytes} = 128 \text{ KiB.}
-```
+$$2 \times 32 \times 8 \times 128 \times 2 = 131{,}072 \text{ bytes} = 128 \text{ KiB.}$$
 
 Of the 80 GiB per GPU, 40 GiB holds the weights and 4 GiB the activation reserve, leaving a
 **36 GiB KV cache pool** per replica.

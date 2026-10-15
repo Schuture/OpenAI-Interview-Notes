@@ -131,9 +131,7 @@ board = [[ 3,  1],
 其基础分数的最大值。到了最后一行就无事可做：对所有 $j, k$，$`dp[N-1][j][k] = board[N-1][j]`$。
 否则，路径的第一步决定了剩下的部分：
 
-```math
-dp[i][j][k] = board[i][j] + \max\Bigl(\{\, dp[i{+}1][j{+}\delta][k] : \delta \in \{-1,0,1\},\ 0 \le j{+}\delta < M \,\} \ \cup\ \{\, dp[i{+}2][j][k{-}1] : k \ge 1,\ i{+}2 \le N{-}1 \,\}\Bigr).
-```
+$$dp[i][j][k] = board[i][j] + \max\Bigl(\\{\\, dp[i{+}1][j{+}\delta][k] : \delta \in \\{-1,0,1\\},\ 0 \le j{+}\delta \< M \\,\\} \ \cup\ \\{\\, dp[i{+}2][j][k{-}1] : k \ge 1,\ i{+}2 \le N{-}1 \\,\\}\Bigr).$$
 
 答案就是 $dp[0][p][K]$。状态共有 $N \cdot M \cdot (K+1)$ 个，每个状态的转移是 $O(1)$，所以时间和空间都是
 $O(N M K)$。
@@ -241,9 +239,7 @@ $k$ 次特殊移动的路径的最大总分（基础分数加奖励），边界�
 $(i', j', k')$，记 $w = board[i'][j']$、$`u' = [board[i][j] < w]`$，它就是那个状态的 $u$（方括号里的条件成立时取 1，
 否则取 0）：
 
-```math
-g[i][j][k][u] = board[i][j] + \max_{(i',j',k')} \Bigl( X \cdot [board[i][j] = w] + Y \cdot u \cdot u' + g[i'][j'][k'][u'] \Bigr).
-```
+$$g[i][j][k][u] = board[i][j] + \max\_{(i',j',k')} \Bigl( X \cdot [board[i][j] = w] + Y \cdot u \cdot u' + g[i'][j'][k'][u'] \Bigr).$$
 
 答案是 $g[0][p][K][0]$。这张表是 Part 1 的两倍大，所以时间和空间仍然是 $O(NMK)$。把上一个格子的值本身
 而不是 $u$ 放进状态也是正确的，因为值决定了 $u$；只是把行为完全相同的状态拆成了几份。

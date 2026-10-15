@@ -150,9 +150,7 @@ other $V - 1$ classes — both are choices, and PyTorch's `label_smoothing` argu
 Write $z = \text{logits}[b, t]$, $y = \text{targets}[b, t]$, and $m = \max_v z_v$. Since
 $e^{z_v} = e^m e^{z_v - m}$,
 
-```math
-\log \sum_v e^{z_v} = m + \log \sum_v e^{z_v - m}.
-```
+$$\log \sum_v e^{z_v} = m + \log \sum_v e^{z_v - m}.$$
 
 Every exponent $z_v - m$ is $\le 0$ and the one at $v = \arg\max$ is exactly $0$, so the sum on the right
 always lies in $[1, V]$, whatever the scale of $z$: it can neither overflow nor underflow to zero. The
@@ -206,10 +204,7 @@ def cross_entropy_masked(logits, targets, mask):
 Write $`q_v = \mathrm{softmax}(z)_v`$ and substitute
 $`p = (1 - \varepsilon)\,\text{one-hot}(y) + (\varepsilon / V)\mathbf{1}`$ into $-\sum_v p_v \log q_v$:
 
-```math
--\sum_v p_v \log q_v = -(1 - \varepsilon) \log q_y - \frac{\varepsilon}{V} \sum_v \log q_v
-= -(1 - \varepsilon) \log q_y - \varepsilon \cdot \overline{\log q},
-```
+$$-\sum_v p_v \log q_v = -(1 - \varepsilon) \log q_y - \frac{\varepsilon}{V} \sum_v \log q_v = -(1 - \varepsilon) \log q_y - \varepsilon \cdot \overline{\log q},$$
 
 where $\overline{\log q} = \frac{1}{V}\sum_v \log q_v$ is the plain mean of $\log q_v$ over the
 vocabulary. Both terms come from quantities Part 1 already computes ($\log q_y$ is `nll` negated) plus
@@ -245,10 +240,7 @@ divisor is therefore also the count of non-ignored positions, not $B \times T$.
 
 **(a)** Since $-\log q_v = -\log p_v + \log(p_v / q_v)$, multiplying by $p_v$ and summing over $v$ gives
 
-```math
-H(p, q) = -\sum_v p_v \log q_v = -\sum_v p_v \log p_v + \sum_v p_v \log \frac{p_v}{q_v}
-= H(p) + \mathrm{KL}(p \Vert q).
-```
+$$H(p, q) = -\sum_v p_v \log q_v = -\sum_v p_v \log p_v + \sum_v p_v \log \frac{p_v}{q_v} = H(p) + \mathrm{KL}(p \Vert q).$$
 
 For a one-hot $p$, $H(p) = 0$ identically: the term at $v = y$ is $-1 \cdot \log 1 = 0$, and every other
 term has $p_v = 0$. $H(p)$ does not depend on `logits` at all — only $q$ does — so $\ell(b, t) = H(p, q)$
@@ -258,10 +250,7 @@ Minimizing the loss over `logits` is minimizing $\mathrm{KL}(p \Vert q)$.
 **(b)** With label smoothing, the target $p$ of Part 3 still does not depend on `logits`, so
 $H(p)$ is again a `logits`-independent constant, but now a positive one:
 
-```math
-H(p) = -\Bigl[(1 - \varepsilon) + \tfrac{\varepsilon}{V}\Bigr] \log\Bigl[(1 - \varepsilon) + \tfrac{\varepsilon}{V}\Bigr]
-- (V - 1) \cdot \frac{\varepsilon}{V} \log \frac{\varepsilon}{V}.
-```
+$$H(p) = -\Bigl[(1 - \varepsilon) + \tfrac{\varepsilon}{V}\Bigr] \log\Bigl[(1 - \varepsilon) + \tfrac{\varepsilon}{V}\Bigr] - (V - 1) \cdot \frac{\varepsilon}{V} \log \frac{\varepsilon}{V}.$$
 
 $\mathrm{KL}(p \Vert q) \ge 0$, with equality iff $q = p$, which is reachable because softmax can equal
 any distribution with strictly positive entries (take `logits = log(p)`, up to an additive constant that
@@ -273,10 +262,7 @@ Part 3's example computed for one particular choice of `logits`.
 **(c)** Since $\log q_j = z_j - \log \sum_k e^{z_k}$, $\partial \log q_j / \partial z_i = \delta_{ij} -
 q_i$. Then
 
-```math
-\frac{\partial H(p, q)}{\partial z_i} = -\sum_j p_j \frac{\partial \log q_j}{\partial z_i}
-= -\sum_j p_j(\delta_{ij} - q_i) = -p_i + q_i \sum_j p_j = q_i - p_i,
-```
+$$\frac{\partial H(p, q)}{\partial z_i} = -\sum_j p_j \frac{\partial \log q_j}{\partial z_i} = -\sum_j p_j(\delta\_{ij} - q_i) = -p_i + q_i \sum_j p_j = q_i - p_i,$$
 
 using $\sum_j p_j = 1$. Averaging over $N$ unmasked positions scales every one of their gradients by
 $1/N$, and a masked position contributes the zero vector.

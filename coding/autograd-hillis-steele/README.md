@@ -162,22 +162,16 @@ Write $\bar{X} = \partial L / \partial X$ for any matrix $X$. For a single produ
 $Y_{ab} = \sum_c A_{ac} B_{cb}$, so the chain rule gives
 $`\bar{A}_{ac} = \sum_b \bar{Y}_{ab} B_{cb}`$ and $`\bar{B}_{cb} = \sum_a A_{ac} \bar{Y}_{ab}`$, that is
 
-```math
-\bar{A} = \bar{Y} B^\top, \qquad \bar{B} = A^\top \bar{Y}.
-```
+$$\bar{A} = \bar{Y} B^\top, \qquad \bar{B} = A^\top \bar{Y}.$$
 
 In the forward pass $P_i$ is used twice: by the loss, which contributes $G_i$, and as the left factor of
 $P_{i+1} = P_i W_{i+1}$. The total gradient $A_i$ arriving at $P_i$ is the sum of both contributions:
 
-```math
-A_{N-1} = G_{N-1}, \qquad A_i = G_i + A_{i+1} W_{i+1}^\top .
-```
+$$A\_{N-1} = G\_{N-1}, \qquad A_i = G_i + A\_{i+1} W\_{i+1}^\top .$$
 
 $W_i$ is used once, as the right factor of $P_i = P_{i-1} W_i$, hence
 
-```math
-\frac{\partial L}{\partial W_i} = P_{i-1}^\top A_i \quad (i \ge 1), \qquad \frac{\partial L}{\partial W_0} = A_0 .
-```
+$$\frac{\partial L}{\partial W_i} = P\_{i-1}^\top A_i \quad (i \ge 1), \qquad \frac{\partial L}{\partial W_0} = A_0 .$$
 
 One loop from $i = N - 1$ down to $0$ computes everything in $O(N D^3)$, the cost of the forward pass.
 
@@ -215,9 +209,7 @@ Backward. Undo the rounds from last to first. One round maps $X$ to $Y$ with $Y_
 $Y_j = X_{j-s} X_j$ for $j \ge s$. Given $H = \partial L / \partial Y$, entry $X_j$ receives one term for
 each place where it is used, by the rule for a single product:
 
-```math
-\bar{X}_j = \underbrace{H_j}_{j < s} + \underbrace{X_{j-s}^\top H_j}_{j \ge s} + \underbrace{H_{j+s} X_{j+s}^\top}_{j + s < N} .
-```
+$$\bar{X}\_j = \underbrace{H_j}\_{j \< s} + \underbrace{X\_{j-s}^\top H_j}\_{j \ge s} + \underbrace{H\_{j+s} X\_{j+s}^\top}\_{j + s \< N} .$$
 
 ```python
 def scan_backward(tape, G):

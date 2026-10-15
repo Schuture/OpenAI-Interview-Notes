@@ -66,9 +66,7 @@ $\frac1R \sum_{r=1}^{R} (T^{(r)} - x_0)^{2}$ 在这里是个糟糕的工具，�
 后落到岸上，所以 $X = x_0 + d \tan\Theta$。正切函数在 $`(-\pi/2,\; \pi/2)`$ 上是到整条实轴的严格增双射，
 而均匀分布的 $\Theta$ 满足 $P(\Theta \le a) = (a + \pi/2)/\pi$，于是
 
-```math
-F(x) = P\left(\Theta \le \arctan\frac{x - x_0}{d}\right) = \frac{1}{2} + \frac{1}{\pi}\arctan\frac{x - x_0}{d}, \qquad f(x) = F'(x) = \frac{d}{\pi\left(d^{2} + (x - x_0)^{2}\right)} .
-```
+$$F(x) = P\left(\Theta \le \arctan\frac{x - x_0}{d}\right) = \frac{1}{2} + \frac{1}{\pi}\arctan\frac{x - x_0}{d}, \qquad f(x) = F'(x) = \frac{d}{\pi\left(d^{2} + (x - x_0)^{2}\right)} .$$
 
 记 $Z = \tan\Theta$，上式就是 $X = x_0 + dZ$，而 $Z$ 的密度为 $1/(\pi(1 + z^{2}))$，即*标准柯西分布*（standard Cauchy
 distribution），于是 $`X \sim \mathrm{Cauchy}(x_0,\; d)`$。$`F`$ 关于 $x_0$ 对称且
@@ -82,9 +80,7 @@ $1 - F(x) = \frac{1}{\pi}\arctan\frac{d}{x - x_0} \sim \frac{d}{\pi (x - x_0)}$�
 
 **期望不存在。** 令 $z = x - x_0$，
 
-```math
-E\bigl\lvert X - x_0 \bigr\rvert = \frac{d}{\pi}\int_{-\infty}^{\infty} \frac{\lvert z \rvert}{d^{2} + z^{2}}\;dz = \frac{2d}{\pi}\int_{0}^{\infty} \frac{z}{d^{2} + z^{2}}\;dz = \frac{d}{\pi}\Bigl[\ln (d^{2} + z^{2})\Bigr]_{0}^{\infty} = \infty .
-```
+$$E\bigl\lvert X - x_0 \bigr\rvert = \frac{d}{\pi}\int\_{-\infty}^{\infty} \frac{\lvert z \rvert}{d^{2} + z^{2}}\\;dz = \frac{2d}{\pi}\int\_{0}^{\infty} \frac{z}{d^{2} + z^{2}}\\;dz = \frac{d}{\pi}\Bigl[\ln (d^{2} + z^{2})\Bigr]\_{0}^{\infty} = \infty .$$
 
 正部与负部都发散，所以 $E[X]$ 不是 $\pm\infty$ 而是没有定义；对称性也救不了它：在 $x_0 - M$ 与 $x_0 + cM$ 处截断，
 极限是 $x_0 + \frac{d}{\pi}\ln c$，取决于两侧尾巴各截到哪里。
@@ -95,17 +91,13 @@ $\varphi_Z(t) = E\bigl[e^{itZ}\bigr] = e^{-\lvert t \rvert}$。从拉普拉斯�
 它对 $s$ 可积，所以傅里叶反演成立：$`\frac12 e^{-\lvert x \rvert} = \frac{1}{2\pi}\int e^{-isx}(1 + s^{2})^{-1}\;ds`$；
 取 $x = -t$ 再乘以 2，得到的正是要求的那个积分：
 
-```math
-e^{-\lvert t \rvert} = \int_{-\infty}^{\infty} e^{ist}\;\frac{ds}{\pi (1 + s^{2})} = \varphi_Z(t).
-```
+$$e^{-\lvert t \rvert} = \int\_{-\infty}^{\infty} e^{ist}\\;\frac{ds}{\pi (1 + s^{2})} = \varphi_Z(t).$$
 
 由此 $\varphi_X(t) = e^{itx_0}\varphi_Z(dt) = \exp\bigl(itx_0 - d\lvert t \rvert\bigr)$，各次闪光独立，于是
 $\varphi_{\bar X_n}(t) = \varphi_X(t/n)^{n} = \exp\bigl(itx_0 - d\lvert t \rvert\bigr) = \varphi_X(t)$。
 特征函数唯一确定分布，因此对每个 $n$ 都有
 
-```math
-\bar X_n \sim \mathrm{Cauchy}(x_0,\; d), \qquad P\bigl(\lvert \bar X_n - x_0 \rvert > 10 d\bigr) = 1 - \frac{2}{\pi}\arctan 10 \approx 6.3\% .
-```
+$$\bar X_n \sim \mathrm{Cauchy}(x_0,\\; d), \qquad P\bigl(\lvert \bar X_n - x_0 \rvert > 10 d\bigr) = 1 - \frac{2}{\pi}\arctan 10 \approx 6.3\\% .$$
 
 一百万次闪光的平均值，分布与一次闪光完全相同；$`\bar X_n`$ 不相合，给它配 $\sigma/\sqrt n$ 的误差棒没有意义。
 
@@ -131,18 +123,14 @@ $`P(\hat m_n \ge x_0 + \varepsilon) \le P\bigl(\mathrm{Bin}(n,\; p) \ge n/2\bigr
 $q_n = F(x_0 + u/\sqrt n) = \frac12 + \frac{f(x_0) u}{\sqrt n} + o(n^{-1/2})$。此时 $\sqrt n (\hat m_n - x_0) > u$
 当且仅当 $B_n < \lceil n/2 \rceil$，而 $q_n(1 - q_n) \to \frac14$，由二项分布的中心极限定理，
 
-```math
-P\bigl(\sqrt n (\hat m_n - x_0) > u\bigr) = P\left(\frac{B_n - n q_n}{\sqrt{n q_n (1 - q_n)}} < -2 f(x_0) u + o(1)\right) \longrightarrow \Phi\bigl(-2 f(x_0) u\bigr),
-```
+$$P\bigl(\sqrt n (\hat m_n - x_0) > u\bigr) = P\left(\frac{B_n - n q_n}{\sqrt{n q_n (1 - q_n)}} \< -2 f(x_0) u + o(1)\right) \longrightarrow \Phi\bigl(-2 f(x_0) u\bigr),$$
 
 即 $`\sqrt n (\hat m_n - x_0) \Rightarrow N\bigl(0,\; 1/(4 f(x_0)^{2})\bigr)`$。代入 $f(x_0) = 1/(\pi d)$ 得
 $v_{\mathrm{med}} = \pi^{2} d^{2}/4$，$`\sqrt{v_{\mathrm{med}}/n} = \pi d/(2\sqrt n) \approx 1.57\;d/\sqrt n`$。
 
 **最大似然估计** $\hat\theta_n$ 使下式取最大：
 
-```math
-\ell(\theta) = -\sum_{i=1}^{n} \ln\left(d^{2} + (X_i - \theta)^{2}\right) + \text{常数}, \qquad \ell'(\theta) = \frac{1}{d}\sum_{i=1}^{n} \psi\left(\frac{X_i - \theta}{d}\right), \quad \psi(r) = \frac{2r}{1 + r^{2}} .
-```
+$$\ell(\theta) = -\sum\_{i=1}^{n} \ln\left(d^{2} + (X_i - \theta)^{2}\right) + \text{常数}, \qquad \ell'(\theta) = \frac{1}{d}\sum\_{i=1}^{n} \psi\left(\frac{X_i - \theta}{d}\right), \quad \psi(r) = \frac{2r}{1 + r^{2}} .$$
 
 这里的 $\psi$ 不只是有界，还是*重下降*（redescending）的：$`\lvert r \rvert \to \infty`$ 时 $\psi(r) \to 0$，
 所以 100 公里外的闪光，拉力比 2 公里外的还小。这不是临时加的稳健化手段，而是柯西尾部决定的最优做法。
@@ -150,9 +138,7 @@ $v_{\mathrm{med}} = \pi^{2} d^{2}/4$，$`\sqrt{v_{\mathrm{med}}/n} = \pi d/(2\sq
 *相合性。* 对数似然比 $\ln\frac{d^{2} + (X - \theta)^{2}}{d^{2} + (X - x_0)^{2}}$ 对固定的 $\theta$ 是 $X$ 的有界函数，
 作为 $\theta$ 的函数又对任何样本都是 $1/d$-Lipschitz 的，所以大数定律不需要任何矩，且在紧集上一致收敛：
 
-```math
-\frac{1}{n}\bigl[\ell(\theta) - \ell(x_0)\bigr] \longrightarrow -K(\theta) = -\ln\left(1 + \frac{(\theta - x_0)^{2}}{4 d^{2}}\right) \quad \text{几乎必然},
-```
+$$\frac{1}{n}\bigl[\ell(\theta) - \ell(x_0)\bigr] \longrightarrow -K(\theta) = -\ln\left(1 + \frac{(\theta - x_0)^{2}}{4 d^{2}}\right) \quad \text{几乎必然},$$
 
 其中 $K$ 是两个分布之间的 Kullback–Leibler 散度，除 $\theta = x_0$ 外恒正。远处不需要一致性：若 $\theta > \hat m_n$，
 则至少一半的闪光离 $\theta$ 有 $\theta - \hat m_n$ 那么远，于是
@@ -163,9 +149,7 @@ $\theta$ 最终都被 $x_0$ 比下去。于是 $\hat\theta_n \to x_0$ 几乎必�
 *渐近方差。* 把得分函数在 $x_0$ 处展开：$`0 = \ell'(\hat\theta_n) = \ell'(x_0) + \ell''(x_0)(\hat\theta_n - x_0) + \dots`$。
 $\ell'(x_0)$ 的各项有界，所以尽管 $X$ 一个矩都没有，普通的中心极限定理照样适用；由对称性各项均值为零，方差就是 Fisher 信息
 
-```math
-I = \mathrm{Var}\left(\frac{\psi(Z)}{d}\right) = \frac{4}{\pi d^{2}}\int_{-\infty}^{\infty} \frac{z^{2}}{(1 + z^{2})^{3}}\;dz = \frac{4}{\pi d^{2}} \cdot \frac{\pi}{8} = \frac{1}{2 d^{2}} ,
-```
+$$I = \mathrm{Var}\left(\frac{\psi(Z)}{d}\right) = \frac{4}{\pi d^{2}}\int\_{-\infty}^{\infty} \frac{z^{2}}{(1 + z^{2})^{3}}\\;dz = \frac{4}{\pi d^{2}} \cdot \frac{\pi}{8} = \frac{1}{2 d^{2}} ,$$
 
 同样地 $-\frac1n \ell''(x_0) \to I$。于是 $`\sqrt n (\hat\theta_n - x_0) \Rightarrow N(0,\; 1/I)`$，
 $v_{\mathrm{mle}} = 2 d^{2}$，$`\sqrt{v_{\mathrm{mle}}/n} = \sqrt 2\;d/\sqrt n`$：它达到了 $1/I$，是有效的。
