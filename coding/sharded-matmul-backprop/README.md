@@ -198,7 +198,7 @@ Write $\bar A = \partial L / \partial A$ for any array $A$.
 `(d_in, d_out_k)`, and a full copy of $X$.
 
 ```math
-Y_k = X W_k \quad (B \times d_{out,k}), \qquad Y = \operatorname{all\_gather}_{\mathrm{axis}=1}(Y_0, \dots, Y_{n-1}).
+Y_k = X W_k \quad (B \times d_{out,k}), \qquad Y = \mathrm{all\_gather}_{\mathrm{axis}=1}(Y_0, \dots, Y_{n-1}).
 ```
 
 No communication is needed to produce $Y_k$ itself; the gather is only needed where the full $Y$ must
@@ -206,7 +206,7 @@ live on every device. Slice the given $\bar Y$ locally into $\bar Y_k$ (device $
 the product rule to $Y_k = X W_k$:
 
 ```math
-\bar W_k = X^\top \bar Y_k \quad \text{(local)}, \qquad \bar X = \sum_k \bar Y_k W_k^\top = \operatorname{all\_reduce}\bigl(\bar Y_k W_k^\top\bigr).
+\bar W_k = X^\top \bar Y_k \quad \text{(local)}, \qquad \bar X = \sum_k \bar Y_k W_k^\top = \mathrm{all\_reduce}\bigl(\bar Y_k W_k^\top\bigr).
 ```
 
 $X$ feeds every device's local product, so its gradient is a sum over devices â€” an all-reduce.
@@ -215,7 +215,7 @@ $X$ feeds every device's local product, so its gradient is a sum over devices â€
 $X_k$, the matching block of columns of $X$, shape `(B, d_in_k)`.
 
 ```math
-Y_k = X_k W_k \quad \text{(a partial sum, shape } B \times d_{out}\text{)}, \qquad Y = \sum_k Y_k = \operatorname{all\_reduce}(Y_0, \dots, Y_{n-1}).
+Y_k = X_k W_k \quad \text{(a partial sum, shape } B \times d_{out}\text{)}, \qquad Y = \sum_k Y_k = \mathrm{all\_reduce}(Y_0, \dots, Y_{n-1}).
 ```
 
 Here $Y_k$ already has the right shape but is only part of the answer, so the forward pass itself needs

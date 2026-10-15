@@ -14,11 +14,11 @@
 `V` vocabulary classes, for each of `T` positions in each of `B` sequences. `targets` is an integer
 array of shape `(B, T)`; `targets[b, t]` is the id of the correct class at that position, an integer in
 `[0, V)`. Write $z = \text{logits}[b, t] \in \mathbb{R}^V$
-and $`\operatorname{softmax}(z)_i = e^{z_i} / \sum_k e^{z_k}`$. The *cross-entropy loss* at one position
+and $`\mathrm{softmax}(z)_i = e^{z_i} / \sum_k e^{z_k}`$. The *cross-entropy loss* at one position
 is the negative log-probability the model assigns to the correct class:
 
 ```math
-\ell(b, t) = -\log \operatorname{softmax}(z)_{y}, \qquad y = \text{targets}[b, t].
+\ell(b, t) = -\log \mathrm{softmax}(z)_{y}, \qquad y = \text{targets}[b, t].
 ```
 
 Complete the following four parts in NumPy.
@@ -90,8 +90,8 @@ p = (1 - \varepsilon) \cdot \text{one-hot}(y) + \frac{\varepsilon}{V} \mathbf{1}
 ```
 
 where $\varepsilon \in [0, 1)$ is `label_smoothing` and $\mathbf{1} \in \mathbb{R}^V$ is the all-ones
-vector. The loss at that position becomes $`-\sum_v p_v \log \operatorname{softmax}(z)_v`$ instead of
-$`-\log \operatorname{softmax}(z)_y`$. Implement `cross_entropy_smoothed(logits, targets, mask,
+vector. The loss at that position becomes $`-\sum_v p_v \log \mathrm{softmax}(z)_v`$ instead of
+$`-\log \mathrm{softmax}(z)_y`$. Implement `cross_entropy_smoothed(logits, targets, mask,
 label_smoothing)` with the same masking contract as Part 2; `label_smoothing = 0.0` must reproduce
 `cross_entropy_masked` exactly.
 
@@ -108,7 +108,7 @@ On the example of Part 2 with `label_smoothing = 0.2`, `cross_entropy_smoothed` 
 ### Part 4 — Cross-entropy, KL divergence, and the gradient
 
 Fix a position $(b, t)$ and write $p$ for the target distribution used there (one-hot in Parts 1–2, the
-smoothed distribution of Part 3) and $q = \operatorname{softmax}(z)$ for the model's predicted
+smoothed distribution of Part 3) and $q = \mathrm{softmax}(z)$ for the model's predicted
 distribution, so that $\ell(b, t) = H(p, q) = -\sum_v p_v \log q_v$.
 
 **(a)** Derive $H(p, q) = H(p) + \mathrm{KL}(p \Vert q)$, where $H(p) = -\sum_v p_v \log p_v$ is the
@@ -203,7 +203,7 @@ def cross_entropy_masked(logits, targets, mask):
 
 ### Part 3
 
-Write $`q_v = \operatorname{softmax}(z)_v`$ and substitute
+Write $`q_v = \mathrm{softmax}(z)_v`$ and substitute
 $`p = (1 - \varepsilon)\,\text{one-hot}(y) + (\varepsilon / V)\mathbf{1}`$ into $-\sum_v p_v \log q_v$:
 
 ```math

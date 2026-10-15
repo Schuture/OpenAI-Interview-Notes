@@ -11,10 +11,11 @@ The page is parsed with markdown-it (CommonMark rules, as GitHub uses); maths is
 Also checks the collapsed sections: GitHub renders <details>/<summary>, but only parses the Markdown inside when
 <details> starts a block, </summary> is followed by a blank line and </details> is preceded by one; tags must balance.
 
-Also checks maths. GitHub runs Markdown escapes and emphasis inside `$...$` and `$$...$$` before KaTeX sees them
+Also checks maths. GitHub runs Markdown escapes and emphasis inside `$...$` and `$$...$$` before MathJax sees them
 (`\\{` `\\,` `\\%` `\\\\` lose their backslash, `}_..._` turns into italics), and only opens inline maths after
 whitespace or `(`, so `取值，$n$` and `top-$k$` print their dollars. Write display maths as a ```math block and any
-inline maths that trips a rule below as $`...`$, which GitHub passes to KaTeX untouched.
+inline maths that trips a rule below as $`...`$, which GitHub passes to MathJax untouched.
+GitHub also refuses some macros outright ("The following macros are not allowed: operatorname"); use \\mathrm{...}.
 """
 from __future__ import annotations
 
@@ -45,10 +46,22 @@ PUNCT = r"""!"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~"""
 MATH_TOKEN = re.compile(r"\$(`+)[\s\S]*?\1\$|(`+)[\s\S]*?\2|\\\$|\$\$([\s\S]+?)\$\$|\$(?=[^\s$])((?:\\.|[^$\\])*?)(?<=\S)\$")
 
 
+BLOCKED_MACROS = ("operatorname",)  # GitHub shows "The following macros are not allowed: ..." for these
+
+
 def math_problems(text: str) -> list[str]:
-    """Maths GitHub would print literally or hand to KaTeX mangled; each should be a ```math block or $`...`$."""
+    """Maths GitHub would print literally or hand to MathJax mangled; each should be a ```math block or $`...`$."""
+    out, fence = [], None
+    for i, line in enumerate(text.split("\n"), 1):
+        opener = re.match(r"\s*(```+)\s*(\w*)", line)
+        if fence is None and opener:
+            fence = opener.group(2)
+        elif fence is not None and opener and not opener.group(2):
+            fence = None
+        elif fence in (None, "math"):
+            out += [f"line {i}: GitHub does not allow \\{m}, use \\mathrm{{...}}"
+                    for m in re.findall(r"\\(" + "|".join(BLOCKED_MACROS) + r")\b", line)]
     text = re.sub(r"^\s*```.*?^\s*```", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S | re.M)
-    out = []
     for m in MATH_TOKEN.finditer(text):
         lineno = text.count("\n", 0, m.start()) + 1
         if m.group(3) is not None:
