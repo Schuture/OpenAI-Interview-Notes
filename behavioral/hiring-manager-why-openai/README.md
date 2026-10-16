@@ -52,6 +52,11 @@ ground under pressure, and work with a non-engineering partner. The questions fa
 - Tell me about a time you failed at something you cared about.
 - Tell me about a time you pushed back on a decision, or held your ground under pressure, and what
   happened.
+- Tell me about a time you received negative feedback. What did you change afterwards?
+- Tell me about a time you had to give negative feedback to someone. How did you prepare, and how did
+  they respond?
+- For a project or product you owned, how did you define success, and which measures told you whether
+  you had reached it?
 
 ### Cross-functional collaboration
 

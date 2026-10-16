@@ -5,7 +5,7 @@
 <!-- meta:begin -->
 | Type | Priority | Difficulty | Roles | Topics | Format |
 | --- | --- | --- | --- | --- | --- |
-| Coding | ★★★☆☆ | Medium | SWE | bit-manipulation, iterator, string | 5 parts |
+| Coding | ★★★☆☆ | Medium | SWE | bit-manipulation, iterator, string | 6 parts |
 <!-- meta:end -->
 
 ## Problem
@@ -15,11 +15,11 @@ between `0` and `255`, and is written without a leading zero unless the segment 
 `"1.2.3.4"` and `"0.0.0.0"` are valid, `"1.2.03.4"` and `"1.2.00.4"` are not. Such an address
 corresponds to the 32-bit integer $a \cdot 2^{24} + b \cdot 2^{16} + c \cdot 2^{8} + d$, and addresses
 are ordered, and iterated, by this integer: `0.0.0.0` is the smallest possible address and
-`255.255.255.255` is the largest. Implement the following five parts as one class, `IPV4Iterator`, where
-each part extends the constructor and the iteration behaviour of the one before it. If the constructor's
+`255.255.255.255` is the largest. Implement Parts 1 to 5 as one class, `IPV4Iterator`, where
+each part extends the constructor and the iteration behaviour of the one before it; Part 6 asks for the same interface over IPv6 addresses, as a second class, `IPV6Iterator`. If the constructor's
 argument `ip_or_cidr` does not split into exactly four such segments, or a segment is not written in the
 form above, or a segment's value exceeds `255`, the constructor raises `ValueError`. Every invalid
-argument in all five parts raises `ValueError`, so an input that breaks several rules at once may be
+argument in all six parts raises `ValueError`, so an input that breaks several rules at once may be
 rejected by whichever check runs first.
 
 ### Part 1 — Forward iteration
@@ -158,6 +158,66 @@ it.next_batch(100)  -> the remaining 11 addresses, ending with "203.0.113.31"
 it.next_batch(5)    -> []
 ```
 
+### Part 6 — IPv6
+
+An IPv6 address is a 128-bit integer, written as eight *groups* of 16 bits separated by colons. A group is
+written as 1 to 4 hexadecimal digits (`0`-`9`, `a`-`f`, `A`-`F`; the case is not significant and leading
+zeros are allowed), so `2001:0DB8:0:0:0:0:0:1` is an address. The leftmost group holds the most significant
+16 bits, addresses are ordered, and iterated, by their integer value, `::` (all zero) is the smallest address
+and `ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff` is the largest.
+
+An address may be written in *compressed* form: the sign `::` stands for one or more consecutive groups that
+are all `0`, as many as are needed to make eight groups in total. `::` may appear at most once, and at either
+end or in the middle (`::1`, `1::`, `1::2`, and `::` alone). Because it replaces at least one group, at most
+seven groups are written around it. Without `::` exactly eight groups are written. Anything else is invalid:
+dotted IPv4 notation, a zone id such as `%eth0`, square brackets, a sign, whitespace, a group of more than
+four digits, an empty group (as in `:1::2`, `1::2:` or `:::`), more than one `::`, and a `::` next to eight
+written groups.
+
+Every address the iterator produces is written in *canonical* form (RFC 5952): lowercase hexadecimal, no leading
+zeros in a group (a zero group is `0`), and the single longest run of two or more consecutive zero groups
+replaced by `::`; if several runs have the same longest length, the leftmost is replaced. A single zero group
+is never replaced.
+
+```text
+2001:0db8:0000:0000:0001:0000:0000:0001  ->  2001:db8::1:0:0:1    # two runs of length 2: the leftmost
+2001:db8:0:0:1:0:0:0                     ->  2001:db8:0:0:1::     # the run of length 3 is longer
+2001:db8:0:1:0:1:1:1                     ->  2001:db8:0:1:0:1:1:1 # a lone zero group is kept as 0
+0:0:0:0:0:0:0:0 -> ::      0:0:0:0:0:0:0:1 -> ::1      1:0:0:0:0:0:0:0 -> 1::
+```
+
+`IPV6Iterator` has the interface and behaviour of Parts 1 to 5 with 128 in place of 32: `ip_or_cidr` is an
+address or `"address/prefix"` with `prefix` an integer from `0` to `128` written without a leading zero; the
+network address and broadcast address are obtained by clearing, respectively setting, the low `128 - prefix`
+bits; `reverse`, `step` and `next_batch(size)` are as before, ending at `ffff:...:ffff` or `::` when no
+block is given. The first address produced is `ip_or_cidr` itself, in canonical form whatever way it was
+written. An argument that is not of this form raises `ValueError`, as does `step <= 0` or `size < 0`.
+
+```py
+class IPV6Iterator:
+    def __init__(self, ip_or_cidr: str, reverse: bool = False, step: int = 1) -> None:
+        """ip_or_cidr is an IPv6 address or "address/prefix", in any spelling allowed above.
+        Raises ValueError if it is invalid or if step <= 0."""
+
+    def __iter__(self) -> "IPV6Iterator": ...
+
+    def __next__(self) -> str:
+        """Returns the next address in canonical form; StopIteration once the block (or the address
+        space) is left."""
+
+    def next_batch(self, size: int) -> list[str]:
+        """As in Part 5."""
+```
+
+Example, starting from `2001:DB8:0:0:0:0:0:FFFE`:
+
+```text
+call 1: 2001:db8::fffe    # the input, in canonical form
+call 2: 2001:db8::ffff
+call 3: 2001:db8::1:0     # the last group overflowed, carrying into the group before it; the zero run is now shorter
+call 4: 2001:db8::1:1
+```
+
 ## Reference solution
 
 <details>
@@ -166,7 +226,8 @@ it.next_batch(5)    -> []
 Two points worth confirming with the interviewer: whether malformed input should raise in the
 constructor right away (assumed here) rather than lazily on the first `__next__`; and whether a CIDR
 seed must already be the network address, rather than any address inside the block as here — the
-standard library's own `ipaddress.IPv4Network(s, strict=False)` makes the same "loose" choice.
+standard library's own `ipaddress.IPv4Network(s, strict=False)` makes the same "loose" choice. For IPv6, whether a dotted IPv4 tail or a zone id
+should be accepted (rejected here).
 
 ### Part 1
 
@@ -373,10 +434,142 @@ A caller that stops draining once `len(batch) < size` must use `size > 0`: with 
 | `__next__` | $O(1)$ | $O(1)$ |
 | `next_batch(size)` | $O(k)$, $k$ = addresses returned | $O(k)$ |
 
+### Part 6
+
+Only the width and the text form change. An address is still one integer, the cursor is still an integer,
+and `_lo`/`_hi` still bound the walk, so Parts 2 to 5 carry over with `32` replaced by `128`. A 128-bit
+value needs no special treatment in Python, whose ints have arbitrary precision; in a language with
+fixed-width integers the cursor becomes two 64-bit words, an increment is an add with carry out of the low
+word, and the bound check compares the high words first. `next_batch` only calls `next(self)`, so
+`IPV6Iterator` borrows Part 5's function unchanged.
+
+Parsing splits on `::` first. With no `::` the text must have exactly eight groups; with one, the two sides
+are parsed on their own (either may be empty) and the zero groups between them are whatever is missing from
+eight, which must be at least one. Each group is checked against `[0-9A-Fa-f]{1,4}`, which on its own rules
+out signs, spaces, `%`, `.` and over-long groups, and an empty piece between colons.
+
+Formatting scans the eight groups for maximal runs of zeros, remembers the first run of the greatest length,
+and writes `::` in its place when that length is at least 2. Replacing `>` by `>=` in the scan would move
+the compression to the rightmost run on a tie, which is what RFC 5952 forbids.
+
+```python
+_GROUP_RE = re.compile(r"\A[0-9A-Fa-f]{1,4}\Z")
+_PREFIX6_RE = re.compile(r"\A(0|[1-9][0-9]{0,2})\Z")
+MAX_IP6 = (1 << 128) - 1   # ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+
+
+def _parse_groups(text):
+    # NOTE: "" gives [] -- that is how "::" at either end, or "::" alone, has an empty side. An empty
+    # piece after a split, from ":::" or a lone leading/trailing colon, fails the group regex instead
+    if text == "":
+        return []
+    groups = []
+    for piece in text.split(":"):
+        if not _GROUP_RE.match(piece):
+            raise ValueError(f"bad group {piece!r} in {text!r}: 1-4 hex digits expected")
+        groups.append(int(piece, 16))
+    return groups
+
+
+def parse_ip6(s):
+    if s.count("::") > 1:
+        raise ValueError(f"'::' may appear at most once: {s!r}")
+    if "::" in s:
+        head, tail = s.split("::")      # NOTE: exactly two parts here, either of which may be empty
+        left, right = _parse_groups(head), _parse_groups(tail)
+        # NOTE: '::' must stand for at least one zero group, so at most 7 groups are written around it;
+        # "1:2:3:4:5:6:7:8::" is rejected even though its value would be well defined
+        if len(left) + len(right) > 7:
+            raise ValueError(f"'::' must replace at least one group: {s!r}")
+        groups = left + [0] * (8 - len(left) - len(right)) + right
+    else:
+        groups = _parse_groups(s)
+        if len(groups) != 8:
+            raise ValueError(f"expected 8 groups without '::', got {len(groups)}: {s!r}")
+    value = 0
+    for g in groups:
+        value = (value << 16) | g       # NOTE: big-endian -- the leftmost group is the most significant 16 bits
+    return value
+
+
+def int_to_ip6(value):
+    groups = [(value >> shift) & 0xFFFF for shift in range(112, -1, -16)]
+    best_start, best_len, i = 0, 0, 0
+    while i < 8:                         # find the longest run of zero groups
+        if groups[i] != 0:
+            i += 1
+            continue
+        j = i
+        while j < 8 and groups[j] == 0:
+            j += 1
+        # NOTE: strict '>' keeps the leftmost run on a tie, as RFC 5952 requires
+        if j - i > best_len:
+            best_start, best_len = i, j - i
+        i = j
+    # NOTE: a lone zero group is written "0", never "::" -- only runs of 2 or more are compressed
+    if best_len < 2:
+        return ":".join(f"{g:x}" for g in groups)
+    left = ":".join(f"{g:x}" for g in groups[:best_start])
+    right = ":".join(f"{g:x}" for g in groups[best_start + best_len:])
+    return left + "::" + right           # NOTE: an empty side gives "::1", "1::" and "::" with no stray colon
+
+
+def _parse_prefix6(s):
+    if not _PREFIX6_RE.match(s):
+        raise ValueError(f"bad prefix {s!r}: must be digits with no leading zero")
+    value = int(s)
+    if value > 128:
+        raise ValueError(f"prefix {value} out of range 0-128")
+    return value
+
+
+def block_bounds6(start, prefix):
+    low = (1 << (128 - prefix)) - 1      # the host bits; prefix 0 gives all 128 bits, prefix 128 gives none
+    network = start & (MAX_IP6 ^ low)
+    return network, network | low
+
+
+class IPV6Iterator:
+    def __init__(self, ip_or_cidr, reverse=False, step=1):
+        if step <= 0:
+            raise ValueError(f"step must be a positive integer, got {step}")
+        if ip_or_cidr.count("/") > 1:
+            raise ValueError(f"bad CIDR notation: {ip_or_cidr!r}")
+        ip_part, slash, prefix_part = ip_or_cidr.partition("/")
+        self._cursor = parse_ip6(ip_part)
+        if slash:
+            self._lo, self._hi = block_bounds6(self._cursor, _parse_prefix6(prefix_part))
+        else:
+            self._lo, self._hi = 0, MAX_IP6
+        self._reverse = reverse
+        self._step = step
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        # NOTE: the cursor is a Python int, so a jump past ffff:...:ffff (or below ::) does not wrap
+        # around; a pair of uint64 words would wrap to a small value here and the walk would never stop
+        if self._cursor < self._lo or self._cursor > self._hi:
+            raise StopIteration
+        result = int_to_ip6(self._cursor)
+        self._cursor += -self._step if self._reverse else self._step
+        return result
+
+
+IPV6Iterator.next_batch = IPV4Iterator.next_batch   # next_batch only calls next(self), so it is shared as is
+```
+
+Parsing and formatting look at eight groups, so both are $O(1)$, and `__next__` is $O(1)$ time and memory as
+for IPv4. Walking a whole IPv6 block is a different matter: a `/64` holds $2^{64}$ addresses, so a caller
+must bound the walk with `next_batch` or `islice`.
+
 ### Follow-ups
 
-- IPv6 addresses are 128-bit; the same masking idea works unchanged with Python's arbitrary-width ints,
-  replacing every `32`/`0xFFFFFFFF` above with `128`/`(1 << 128) - 1`.
+- Accepting an embedded IPv4 tail, as in `::ffff:192.0.2.1`, means parsing the last 32 bits with the IPv4
+  rules above; the tail counts as two groups toward the eight.
+- One class for both families can dispatch on whether the address part contains `:`, with the width and the
+  parser/formatter pair stored on the instance.
 - To walk a CIDR block while excluding some sub-blocks, skip forward past an excluded sub-block's
   broadcast (or back past its network address) instead of advancing by one address at a time.
 - Iterating the union of several CIDR blocks needs the blocks merged into disjoint, sorted ranges first,
@@ -577,6 +770,182 @@ for _ in range(1000):
     assert got == oracle_sequence(seed, reverse, step, 10 ** 6), (seed, reverse, step)
     assert it.next_batch(0) == [] and it.next_batch(3) == []
     assert rejects(lambda: it.next_batch(-1))
+
+# --- Part 6: IPv6, the worked example and the canonical-form rules ---
+assert list(itertools.islice(IPV6Iterator("2001:DB8:0:0:0:0:0:FFFE"), 4)) == \
+    ["2001:db8::fffe", "2001:db8::ffff", "2001:db8::1:0", "2001:db8::1:1"]
+CANON = {
+    "2001:0db8:0000:0000:0001:0000:0000:0001": "2001:db8::1:0:0:1",    # tie between two runs: leftmost
+    "2001:db8:0:1:1:1:1:1": "2001:db8:0:1:1:1:1:1",
+    "2001:db8:0:1:0:1:1:1": "2001:db8:0:1:0:1:1:1",                    # a single zero group stays "0"
+    "2001:db8:0:0:1:0:0:0": "2001:db8:0:0:1::",                        # the longer, trailing run wins
+    "0:0:0:0:0:0:0:0": "::", "0:0:0:0:0:0:0:1": "::1", "1:0:0:0:0:0:0:0": "1::",
+    "ABCD:EF01:0:0:0:0:0:2": "abcd:ef01::2", "1:2:3:4:5:6:7:8": "1:2:3:4:5:6:7:8",
+    "0:1:0:0:2:0:0:0": "0:1:0:0:2::", "1:0:0:2:0:0:3:4": "1::2:0:0:3:4",
+}
+for text, want in CANON.items():
+    assert int_to_ip6(parse_ip6(text)) == want, text
+    assert next(IPV6Iterator(text)) == want, text
+assert parse_ip6("::") == 0 and parse_ip6("::1") == 1 and parse_ip6("1::") == 1 << 112
+assert parse_ip6("1:2:3:4:5:6:7::") == 0x0001000200030004000500060007 << 16
+assert parse_ip6("::2:3:4:5:6:7:8") == 0x0002000300040005000600070008
+assert parse_ip6("a::B") == parse_ip6("A::b") == parse_ip6("000A:0:0:0:0:0:0:000b")
+assert list(IPV6Iterator("ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe")) == \
+    ["ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe", "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"]
+assert list(IPV6Iterator("::1", reverse=True)) == ["::1", "::"]
+assert list(IPV6Iterator("2001:db8::7/128")) == ["2001:db8::7"]
+assert list(IPV6Iterator("2001:db8::5/126")) == ["2001:db8::5", "2001:db8::6", "2001:db8::7"]
+assert list(IPV6Iterator("2001:db8::5/126", reverse=True)) == ["2001:db8::5", "2001:db8::4"]
+assert list(IPV6Iterator("2001:db8::ffff:fff0/124", step=5)) == \
+    ["2001:db8::ffff:fff0", "2001:db8::ffff:fff5", "2001:db8::ffff:fffa", "2001:db8::ffff:ffff"]
+assert list(IPV6Iterator("2001:db8::ffff:fff0/124", step=6)) == \
+    ["2001:db8::ffff:fff0", "2001:db8::ffff:fff6", "2001:db8::ffff:fffc"]
+assert block_bounds6(parse_ip6("2001:db8::5"), 0) == (0, MAX_IP6)
+assert IPV6Iterator("2001:db8::fff0/124").next_batch(100)[-1] == "2001:db8::ffff"
+assert IPV6Iterator("::").next_batch(0) == [] and rejects(lambda: IPV6Iterator("::").next_batch(-1))
+assert rejects(lambda: IPV6Iterator("::", step=0))
+
+BAD6 = ["", ":", ":::", "::::", "1::2::3", "1:2:3:4:5:6:7", "1:2:3:4:5:6:7:8:9", "1:2:3:4:5:6:7:8::",
+        "::1:2:3:4:5:6:7:8", ":1:2:3:4:5:6:7", "1:2:3:4:5:6:7:", "1::2:", ":1::2", "1:::2", "12345::", "g::",
+        "::1.2.3.4", "::ffff:1.2.3.4", "fe80::1%eth0", "[::1]", " ::1", "::1\n", "::1 ", "+1::", "-1::",
+        "::/", "::/-1", "::/129", "::/08", "::/00", "::/1/2", "::/8\n", "::/ 8", "::/٣"]
+for s in BAD6:
+    assert rejects(lambda: IPV6Iterator(s)), repr(s)
+
+# --- Part 6: independent oracle, ipaddress parses, masks and formats; nothing from the solution is called ---
+MAX6 = 2 ** 128 - 1
+
+
+def oracle6_bounds(s):
+    ip_part, slash, prefix_part = s.partition("/")
+    if "%" in ip_part or "." in ip_part:                # zone ids and embedded IPv4 are out of scope
+        raise ValueError(ip_part)
+    start = int(ipaddress.IPv6Address(ip_part))
+    if not slash:
+        return start, 0, MAX6
+    if not (prefix_part.isascii() and prefix_part.isdigit()) or prefix_part != str(int(prefix_part)):
+        raise ValueError(f"bad prefix {prefix_part!r}")
+    net = ipaddress.IPv6Network(f"{ip_part}/{prefix_part}", strict=False)
+    return start, int(net.network_address), int(net.broadcast_address)
+
+
+def oracle6_sequence(s, reverse, step, count):
+    start, lo, hi = oracle6_bounds(s)
+    out, cur = [], start
+    while len(out) < count and lo <= cur <= hi:
+        out.append(oracle6_text(cur))
+        cur += -step if reverse else step
+    return out
+
+
+def oracle6_text(value):
+    addr = ipaddress.IPv6Address(value)
+    if addr.ipv4_mapped is None:
+        return addr.compressed
+    # newer Pythons print ::ffff:0:0/96 with a dotted tail; the canonical form here is all hexadecimal
+    return "::ffff:%x:%x" % ((value >> 16) & 0xFFFF, value & 0xFFFF)
+
+
+def exploded6(value):
+    return ":".join(format((value >> shift) & 0xFFFF, "04x") for shift in range(112, -1, -16))
+
+
+def rand6_value():
+    # many zero groups, so that runs, ties and lone zeros all occur often
+    groups = [rng.choice([0, 0, 0, 0xFFFF, rng.getrandbits(rng.randint(1, 16))]) for _ in range(8)]
+    return int("".join(f"{g:04x}" for g in groups), 16)
+
+
+def rand6():
+    return oracle6_text(rand6_value())
+
+
+for s in BAD6:                                          # the oracle agrees on every rejected string
+    assert rejects(lambda: oracle6_bounds(s)), repr(s)
+
+def padded(g):
+    return format(g, "x").zfill(rng.randint(1, 4))      # leading zeros up to four digits, never fewer than needed
+
+
+# round trip against ipaddress: format, and parse every spelling of the same address
+for _ in range(5000):
+    value = rand6_value()
+    addr = ipaddress.IPv6Address(value)
+    assert int_to_ip6(value) == oracle6_text(value), hex(value)
+    groups = [(value >> sh) & 0xFFFF for sh in range(112, -1, -16)]
+    spellings = [oracle6_text(value), oracle6_text(value).upper(), exploded6(value), exploded6(value).upper(),
+                 ":".join(f"{g:x}" for g in groups), ":".join(padded(g) for g in groups)]
+    # every '::' placement over a run of zero groups, maximal or not, at either end or in the middle
+    for i in range(8):
+        for j in range(i + 1, 9):
+            if all(g == 0 for g in groups[i:j]):
+                spellings.append(":".join(f"{g:x}" for g in groups[:i]) + "::" + ":".join(f"{g:x}" for g in groups[j:]))
+    for text in spellings:
+        assert parse_ip6(text) == value, (text, hex(value))
+        assert next(IPV6Iterator(text)) == oracle6_text(value), text
+assert int_to_ip6(0) == "::" and int_to_ip6(MAX6) == "ffff:" * 7 + "ffff"
+
+# small blocks (/120 to /128): drain fully and compare address by address
+for _ in range(1500):
+    seed = f"{rand6()}/{rng.randint(120, 128)}"
+    reverse, step = rng.random() < 0.5, rng.randint(1, 5)
+    assert list(IPV6Iterator(seed, reverse=reverse, step=step)) == \
+        oracle6_sequence(seed, reverse, step, 10 ** 6), (seed, reverse, step)
+
+# any prefix, or none: a seed within a few steps of the end it walks toward is drained fully (so the stop
+# after ffff:...:ffff and after :: is checked, with steps beyond 64 bits too); a random seed checks the start
+for _ in range(1500):
+    suffix = rng.choice(["", f"/{rng.randint(0, 128)}"])
+    reverse, step = rng.random() < 0.5, rng.choice([1, 1, 2, 3, 7, 2 ** 16, 2 ** 64 + 1])
+    _, lo, hi = oracle6_bounds(rand6() + suffix)
+    gap = rng.randint(0, min(20 * step, hi - lo))
+    seed = oracle6_text(lo + gap if reverse else hi - gap) + suffix
+    assert list(IPV6Iterator(seed, reverse=reverse, step=step)) == \
+        oracle6_sequence(seed, reverse, step, 10 ** 6), (seed, reverse, step)
+    seed = rand6() + suffix
+    assert list(itertools.islice(IPV6Iterator(seed, reverse=reverse, step=step), 5)) == \
+        oracle6_sequence(seed, reverse, step, 5), (seed, reverse, step)
+
+# random corruptions of valid inputs: rejected exactly when the oracle rejects them
+ALPHABET6 = "0123456789abcdefABCDEFgx:::./ -+%\n٣"
+n_rejected6 = 0
+for _ in range(20000):
+    base = rng.choice([oracle6_text(rand6_value()), exploded6(rand6_value())])
+    chars = list(base + rng.choice(["", f"/{rng.randint(0, 128)}"]))
+    for _ in range(rng.randint(1, 3)):
+        i, op = rng.randrange(len(chars) + 1), rng.randrange(3)
+        if op == 0:
+            chars.insert(i, rng.choice(ALPHABET6))
+        elif i < len(chars):
+            chars[i:i + 1] = [] if op == 1 else [rng.choice(ALPHABET6)]
+    s = "".join(chars)
+    oracle_rejects = rejects(lambda: oracle6_bounds(s))
+    assert rejects(lambda: IPV6Iterator(s)) == oracle_rejects, repr(s)
+    if oracle_rejects:
+        n_rejected6 += 1
+    else:
+        assert list(itertools.islice(IPV6Iterator(s), 3)) == oracle6_sequence(s, False, 1, 3), repr(s)
+assert min(n_rejected6, 20000 - n_rejected6) > 2000
+
+# next_batch interleaved with next() on IPv6 blocks
+for _ in range(500):
+    seed = f"{rand6()}/{rng.randint(122, 128)}"
+    reverse, step = rng.random() < 0.5, rng.randint(1, 4)
+    it, got = IPV6Iterator(seed, reverse=reverse, step=step), []
+    while True:
+        if rng.random() < 0.3:
+            try:
+                got.append(next(it))
+            except StopIteration:
+                break
+        else:
+            size = rng.randint(0, 10)
+            batch = it.next_batch(size)
+            got += batch
+            if len(batch) < size:
+                break
+    assert got == oracle6_sequence(seed, reverse, step, 10 ** 6), (seed, reverse, step)
+    assert it.next_batch(0) == [] and it.next_batch(3) == []
 
 print("all checks passed")
 ```

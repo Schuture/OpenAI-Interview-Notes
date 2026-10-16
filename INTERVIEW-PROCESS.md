@@ -6,17 +6,21 @@
 > This page collects the patterns that recur across publicly shared interview accounts. It is not an official
 > description of any hiring process, nothing here is guaranteed, and teams differ from one another. Treat it as
 > a map of what to expect, and let your recruiter's own instructions override anything written here.
-> Last reviewed against community reports from September 2026.
+> Last reviewed against community reports from October 2026.
 
 ## Getting an interview
 
 Most accounts start one of four ways, in rough order of how often they come up: a recruiter reaches out (often
 on LinkedIn); a referral from someone inside, including people met at events rather than old colleagues; an
-outside recruiting agency; or an ordinary application through the careers site. An online assessment is rarely
-mentioned — the recruiter conversation usually leads straight to the technical rounds.
+outside recruiting agency; or an ordinary application through the careers site. For experienced hires an online
+assessment is rarely mentioned — the recruiter conversation usually leads straight to the technical rounds.
+New-grad software roles are the exception: they start with an automatically graded online assessment of four
+short, independent problems ([an example set](coding/new-grad-online-assessment/README.md)).
 
 Two practical notes. Candidates who rescheduled several times report the process being dropped, so treat the
-first slot you accept as the one you will take. And the recruiter conversation is a good moment to ask which
+first slot you accept as the one you will take. The schedule can also move from the company's side: some loops
+were rescheduled again and again, with a different interviewer each time and twelve to thirty-six hours'
+notice. And the recruiter conversation is a good moment to ask which
 level your background is being calibrated at; people who asked got an answer, and level mismatches are a common
 reason a loop ends late rather than early.
 
@@ -25,7 +29,7 @@ reason a loop ends late rather than early.
 | Stage | Typical shape |
 | --- | --- |
 | Recruiter screen | About half an hour. Background, why this company, which kind of work you want, compensation expectations, timeline, location. A few people report being turned down at this stage. |
-| Phone screens | Two rounds of about an hour, one coding and one system design, most often back to back on the same day. Some loops split them across two days; a few report a single 75-minute coding round instead. |
+| Phone screens | Two rounds of about an hour, one coding and one system design, most often back to back on the same day. Some loops split them across two days; a few report a single 75-minute coding round instead. Research loops can have four screening rounds, two general coding and two ML coding, and some research orgs swap one general coding round for a 75-minute maths and reasoning round. |
 | Virtual onsite | Four to five rounds: coding, system design, behavioral, a technical deep dive presented from your own slides, and a hiring-manager conversation. ML-leaning roles add a 60–75 minute ML coding round, sometimes in a notebook. |
 | Team match | Where the loop was not run by one specific team, a hiring-manager conversation decides the team afterwards. Loops opened by a single team usually skip this. |
 | References | Commonly one peer and one manager, and they may be former colleagues. Usually requested after the technical rounds, not before. |
@@ -40,6 +44,11 @@ Two variations show up often enough to plan for. Since around August 2026, a num
 loops insert the **hiring-manager behavioral round before the onsite**, as a gate rather than as a closing
 conversation.
 
+Two more appear now and then. When a deadline is close, the phone screens and the onsite can be **merged into
+one block** (two coding rounds, design, a project presentation and the hiring manager) and decided together.
+And a phone screen whose design round gave too little signal can be followed by **a second design round**
+before any decision.
+
 ## What each round asks for
 
 | Round | Usual length | What it is looking for | Where to practise here |
@@ -48,7 +57,7 @@ conversation.
 | ML coding | 60–75 min | Implementing or debugging practical ML code, plus the reasoning behind it: shapes, gradients, numerical stability, data quality. | The ML-flavoured coding problems |
 | System design | 60 min | Requirements, estimates, data model and API, an architecture, then two or three deep dives. Recent loops lean towards AI infrastructure and towards device or job scheduling. | The [system design problems](README.md#problems) |
 | Technical deep dive | Usually 60 min, 45 in some research orgs | One past project of yours, presented from slides, with the interviewer pushing on decisions, trade-offs and measured impact. | [Technical deep dive](behavioral/technical-deep-dive/README.md) |
-| Behavioral / hiring manager | 30–60 min | Ownership, conflict, cross-functional work, why this company, and your views on AGI and safety. | [Hiring manager round](behavioral/hiring-manager-why-openai/README.md) |
+| Behavioral / hiring manager | 30–60 min | Ownership, conflict, cross-functional work, why this company, and your views on AGI and safety. Questions are often drawn at random from a shared bank, so five or six well-prepared stories cover most of them. | [Hiring manager round](behavioral/hiring-manager-why-openai/README.md) |
 
 ## How problems are handed out
 
@@ -60,13 +69,17 @@ time for the later ones, and reworking your design halfway through is expensive.
 
 **Tests may or may not be provided.** Some problems come with hidden or visible test cases that your code has to
 pass; others come with nothing and you are expected to write your own, or to walk through your code out loud.
-Both happen often enough that you should be ready for either.
+Both happen often enough that you should be ready for either. When tests are provided, all of them usually
+have to pass, and starter code or helper functions often come with them. Code that does not run counts against
+you even in an open-ended refactoring problem, so keep it runnable at every step. An interviewer may also hand
+you the very problem you solved in an earlier round; say so straight away and a replacement is found.
 
 **The environment is a shared editor plus a video call**, most often CoderPad and Google Meet, with a
 whiteboard tool such as Excalidraw for design rounds. Output and logs land at the bottom of the editor pane,
 which is easy to miss while debugging. Any language is usually allowed, and Python is the common choice; people
 who used more verbose languages report running out of time. AI coding assistants are not allowed, and at least
-one loop asked for editor autocomplete to be turned off.
+one loop asked for editor autocomplete to be turned off; looking up documentation with a web search (a pandas
+call, a big-integer API) is usually fine.
 
 **The prompt you get in advance varies.** Some recruiters send a detailed note (one named the Python threading
 primitives worth reviewing, and said the standard library documentation would be available during the
@@ -91,8 +104,9 @@ team lost its headcount, or because the match with the team was wrong from the s
 ## If it does not work out
 
 The most commonly reported cooling-off period is about twelve months, though not every account agrees — one
-candidate was told there was no cooling-off period and to apply to a different team, and another was told the
-limit was on how many roles you may apply to in a window. Ask your recruiter rather than relying on any of this.
+candidate was told there was no cooling-off period and to apply to a different team, another was told the
+limit was on how many roles you may apply to in a window, and six months is the other figure recruiters give.
+Candidates judged borderline were told some rounds might be skipped on a later attempt. Ask your recruiter rather than relying on any of this.
 
 ## Preparing with this repository
 

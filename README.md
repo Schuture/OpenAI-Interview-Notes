@@ -8,7 +8,7 @@ Full problem statements, worked solutions, and code that CI runs on every push.*
 English · [中文](README.zh.md)
 
 [![Check](https://github.com/Schuture/OpenAI-Interview-Notes/actions/workflows/check.yml/badge.svg)](https://github.com/Schuture/OpenAI-Interview-Notes/actions/workflows/check.yml)
-![Problems](https://img.shields.io/badge/problems-63-blue)
+![Problems](https://img.shields.io/badge/problems-69-blue)
 ![Languages](https://img.shields.io/badge/languages-English%20%7C%20%E4%B8%AD%E6%96%87-blue)
 [![Text: CC BY-NC 4.0](https://img.shields.io/badge/text-CC%20BY--NC%204.0-lightgrey)](LICENSE)
 [![Code: MIT](https://img.shields.io/badge/code-MIT-green)](LICENSE-CODE)
@@ -27,8 +27,8 @@ English · [中文](README.zh.md)
 
 | Section | Problems | What they cover |
 | --- | ---: | --- |
-| [Coding](#problems) | 37 | Data structures, simulation, concurrency, parsing, object-oriented design and refactoring, plus twelve ML and maths problems: NumPy and PyTorch from scratch, derivations, debugging, reinforcement learning and probability |
-| [System design](#problems) | 22 | Product and infrastructure systems (payments, chat, CI/CD, webhooks, device fleets) and four AI systems: inference serving, video generation, retrieval and agent evaluation |
+| [Coding](#problems) | 42 | Data structures, simulation, concurrency, parsing, object-oriented design and refactoring, plus twelve ML and maths problems: NumPy and PyTorch from scratch, derivations, debugging, reinforcement learning and probability |
+| [System design](#problems) | 23 | Product and infrastructure systems (payments, chat, CI/CD, webhooks, device fleets) and four AI systems: inference serving, video generation, retrieval and agent evaluation |
 | [Behavioral & other](#problems) | 4 | Recruiter screen, hiring-manager round, technical deep dive with slides, engineering management |
 
 Alongside the problems, [How the loop runs](INTERVIEW-PROCESS.md) collects what community reports agree on
@@ -112,7 +112,7 @@ A page's ```` ```python ```` blocks run top to bottom as one script; ```` ```py 
 Sorted by priority within each section. A dash under Difficulty means it has not been rated.
 
 <!-- index:begin -->
-### Coding (38)
+### Coding (42)
 
 | # | Problem | Priority | Difficulty | Roles | Topics |
 | ---: | --- | --- | --- | --- | --- |
@@ -128,46 +128,50 @@ Sorted by priority within each section. A dash under Difficulty means it has not
 | 10 | [Noisy Annotators](coding/noisy-annotators/README.md) | ★★★★☆ | Medium | MLE · RS · RE | data-cleaning, label-noise, evaluation, numpy |
 | 11 | [Type Inference for a Toy Language](coding/type-inference/README.md) | ★★★★☆ | Medium | SWE · RE | recursion, unification, tree |
 | 12 | [Data Labeling Task Scheduler](coding/labeling-task-scheduler/README.md) | ★★★★☆ | Medium | SWE · RE · MLE | scheduling, greedy, fairness |
-| 13 | [Durable KV Store: Custom Serialization](coding/durable-kv-store/README.md) | ★★★☆☆ | Medium | SWE · Infra Eng | serialization, persistence, parsing, storage, fault-tolerance |
-| 14 | [Streaming Entropy](coding/streaming-entropy/README.md) | ★★★☆☆ | Medium | RS · RE · MLE | numerical-stability, softmax, streaming |
-| 15 | [Chat Bot Refactoring](coding/chat-bot-refactoring/README.md) | ★★★☆☆ | Medium | SWE | refactoring, oop-design, event-driven, testing |
-| 16 | [IPv4 / CIDR Iterator](coding/ipv4-cidr-iterator/README.md) | ★★★☆☆ | Medium | SWE | bit-manipulation, iterator, string |
-| 17 | [Shard Rebalancing with an Overlap Limit](coding/shard-rebalance/README.md) | ★★★☆☆ | Medium | SWE | intervals, greedy, heap, consistent-hashing |
-| 18 | [Restart Strategies under a Known Mean (Las Vegas)](coding/restart-strategy-math/README.md) | ★★★☆☆ | Hard | RS · RE | probability, inequalities, algorithm-design |
-| 19 | [Version Dependency](coding/version-dependency/README.md) | ★★★☆☆ | Medium | SWE · RE | binary-search, backtracking, topological-sort |
-| 20 | [Sliding-Window Event Aggregation](coding/event-window-aggregation/README.md) | ★★★☆☆ | Medium | SWE · Infra Eng | sliding-window, streaming, hashmap, heap |
-| 21 | [Three-Card Hands and Folding](coding/poker-hands/README.md) | ★★★☆☆ | Medium | SWE | simulation, sorting, rules-engine |
-| 22 | [Text Editor: Buffer, Undo, Autocomplete](coding/text-editor/README.md) | ★★★☆☆ | Medium | SWE · RE | data-structure, stack, trie, collaboration |
-| 23 | [Fault-Tolerant Work Queue](coding/fault-tolerant-work-queue/README.md) | ★☆☆☆☆ | Medium | Infra Eng | queue, state-machine, retry |
-| 24 | [Cross-Entropy Loss from Scratch](coding/cross-entropy-loss/README.md) | ★☆☆☆☆ | Medium | MLE · RE | numpy, numerical-stability, loss-functions, kl-divergence |
-| 25 | [Best Grid Path with K Row Skips](coding/grid-path-limited-jumps/README.md) | ★☆☆☆☆ | Hard | SWE | dp, grid, counting |
-| 26 | [cd Command / Path Resolution](coding/cd-command/README.md) | ★☆☆☆☆ | Medium | SWE | string-processing, stack, symlinks |
-| 27 | [Spreadsheet with Cell Dependencies (OpenSheet)](coding/spreadsheet-dependencies/README.md) | ★☆☆☆☆ | Medium | SWE | graph, dfs, topological-sort, recursion |
-| 28 | [ModalLock and FairModalLock](coding/modal-lock/README.md) | ★☆☆☆☆ | Hard | SWE · MLE | concurrency, threading, fairness |
-| 29 | [Sharded Matmul: Forward, Backward, Bug Hunt](coding/sharded-matmul-backprop/README.md) | ★☆☆☆☆ | Hard | MLE · RE | linear-algebra, parallelism, autograd, numpy, pytorch, debugging |
-| 30 | [Resumable Iterators (1D, 2D, Arbitrary Depth)](coding/resumable-iterator/README.md) | ★☆☆☆☆ | Medium | SWE | iterator, oop-design, state |
-| 31 | [PyTorch Code Reading & Extension](coding/pytorch-code-reading/README.md) | ★☆☆☆☆ | — | RE · MLE | code-reading, pytorch, complexity |
-| 32 | [In-Memory SQL-like Database](coding/in-memory-database/README.md) | ★☆☆☆☆ | Medium | SWE | data-structure, oop-design, sql |
-| 33 | [Time-Travel Key-Value Store](coding/time-based-kv-store/README.md) | ★☆☆☆☆ | Medium | SWE | binary-search, testing, concurrency |
-| 34 | [Lighthouse Beams and Heavy Tails](coding/cauchy-lighthouse/README.md) | ★☆☆☆☆ | Hard | RS · RE | probability, heavy-tails, simulation, estimation |
-| 35 | [RL Training Loop Bug Hunt](coding/rl-training-debug/README.md) | ★☆☆☆☆ | Hard | RS · RE · MLE | reinforcement-learning, policy-gradient, debugging, pytorch |
-| 36 | [Rate Limiter Bug Hunt](coding/rate-limiter-debug/README.md) | ★☆☆☆☆ | Medium | SWE · Infra Eng | debugging, concurrency, sliding-window, testing |
-| 37 | [Scheduling Agent Tool Calls with Dependencies](coding/agent-tool-scheduler/README.md) | ★☆☆☆☆ | Medium | SWE · RE · Infra Eng | scheduling, dag, simulation, concurrency |
-| 38 | [Binary Search with Delayed Answers](coding/guess-number-delayed/README.md) | ★☆☆☆☆ | Medium | SWE · RE | binary-search, interaction, algorithm-design |
+| 13 | [Fault-Tolerant Work Queue](coding/fault-tolerant-work-queue/README.md) | ★★★★☆ | Medium | SWE · Infra Eng | queue, state-machine, retry |
+| 14 | [Three-Card Hands and Folding](coding/poker-hands/README.md) | ★★★★☆ | Medium | SWE | simulation, sorting, rules-engine |
+| 15 | [Durable KV Store: Custom Serialization](coding/durable-kv-store/README.md) | ★★★☆☆ | Medium | SWE · Infra Eng | serialization, persistence, parsing, storage, fault-tolerance |
+| 16 | [Streaming Entropy](coding/streaming-entropy/README.md) | ★★★☆☆ | Medium | RS · RE · MLE | numerical-stability, softmax, streaming |
+| 17 | [Chat Bot Refactoring](coding/chat-bot-refactoring/README.md) | ★★★☆☆ | Medium | SWE | refactoring, oop-design, event-driven, testing |
+| 18 | [IPv4 / CIDR Iterator](coding/ipv4-cidr-iterator/README.md) | ★★★☆☆ | Medium | SWE | bit-manipulation, iterator, string |
+| 19 | [Shard Rebalancing with an Overlap Limit](coding/shard-rebalance/README.md) | ★★★☆☆ | Medium | SWE | intervals, greedy, heap, consistent-hashing |
+| 20 | [Restart Strategies under a Known Mean (Las Vegas)](coding/restart-strategy-math/README.md) | ★★★☆☆ | Hard | RS · RE | probability, inequalities, algorithm-design |
+| 21 | [Version Dependency](coding/version-dependency/README.md) | ★★★☆☆ | Medium | SWE · RE | binary-search, backtracking, topological-sort |
+| 22 | [Sliding-Window Event Aggregation](coding/event-window-aggregation/README.md) | ★★★☆☆ | Medium | SWE · Infra Eng | sliding-window, streaming, hashmap, heap |
+| 23 | [Text Editor: Buffer, Undo, Autocomplete](coding/text-editor/README.md) | ★★★☆☆ | Medium | SWE · RE | data-structure, stack, trie, collaboration |
+| 24 | [Rectangle Board with Undo](coding/rectangle-board/README.md) | ★★☆☆☆ | Medium | SWE | data-structure, state-management, undo, spatial-index |
+| 25 | [Cross-Entropy Loss from Scratch](coding/cross-entropy-loss/README.md) | ★☆☆☆☆ | Medium | MLE · RE | numpy, numerical-stability, loss-functions, kl-divergence |
+| 26 | [Best Grid Path with K Row Skips](coding/grid-path-limited-jumps/README.md) | ★☆☆☆☆ | Hard | SWE | dp, grid, counting |
+| 27 | [cd Command / Path Resolution](coding/cd-command/README.md) | ★☆☆☆☆ | Medium | SWE | string-processing, stack, symlinks |
+| 28 | [Spreadsheet with Cell Dependencies (OpenSheet)](coding/spreadsheet-dependencies/README.md) | ★☆☆☆☆ | Medium | SWE | graph, dfs, topological-sort, recursion |
+| 29 | [ModalLock and FairModalLock](coding/modal-lock/README.md) | ★☆☆☆☆ | Hard | SWE · MLE | concurrency, threading, fairness |
+| 30 | [Sharded Matmul: Forward, Backward, Bug Hunt](coding/sharded-matmul-backprop/README.md) | ★☆☆☆☆ | Hard | MLE · RE | linear-algebra, parallelism, autograd, numpy, pytorch, debugging |
+| 31 | [Resumable Iterators (1D, 2D, Arbitrary Depth)](coding/resumable-iterator/README.md) | ★☆☆☆☆ | Medium | SWE | iterator, oop-design, state |
+| 32 | [PyTorch Code Reading & Extension](coding/pytorch-code-reading/README.md) | ★☆☆☆☆ | — | RE · MLE | code-reading, pytorch, complexity |
+| 33 | [In-Memory SQL-like Database](coding/in-memory-database/README.md) | ★☆☆☆☆ | Medium | SWE | data-structure, oop-design, sql |
+| 34 | [Time-Travel Key-Value Store](coding/time-based-kv-store/README.md) | ★☆☆☆☆ | Medium | SWE | binary-search, testing, concurrency |
+| 35 | [Lighthouse Beams and Heavy Tails](coding/cauchy-lighthouse/README.md) | ★☆☆☆☆ | Hard | RS · RE | probability, heavy-tails, simulation, estimation |
+| 36 | [RL Training Loop Bug Hunt](coding/rl-training-debug/README.md) | ★☆☆☆☆ | Hard | RS · RE · MLE | reinforcement-learning, policy-gradient, debugging, pytorch |
+| 37 | [Rate Limiter Bug Hunt](coding/rate-limiter-debug/README.md) | ★☆☆☆☆ | Medium | SWE · Infra Eng | debugging, concurrency, sliding-window, testing |
+| 38 | [Scheduling Agent Tool Calls with Dependencies](coding/agent-tool-scheduler/README.md) | ★☆☆☆☆ | Medium | SWE · RE · Infra Eng | scheduling, dag, simulation, concurrency |
+| 39 | [Binary Search with Delayed Answers](coding/guess-number-delayed/README.md) | ★☆☆☆☆ | Medium | SWE · RE | binary-search, interaction, algorithm-design |
+| 40 | [Job Scheduler Bug Hunt](coding/job-scheduler-debug/README.md) | ★☆☆☆☆ | Medium | SWE · Infra Eng | debugging, concurrency, asyncio, heap, testing |
+| 41 | [New-Grad Online Assessment](coding/new-grad-online-assessment/README.md) | ★☆☆☆☆ | Easy | SWE | graph, counting, simulation, dp |
+| 42 | [Linked List with Checkpoints](coding/checkpointed-linked-list/README.md) | ★☆☆☆☆ | Medium | SWE | linked-list, data-structure, indexing |
 
-### System design (21)
+### System design (23)
 
 | # | Problem | Priority | Difficulty | Roles | Topics |
 | ---: | --- | --- | --- | --- | --- |
 | 1 | [Payment System / Coffee-Shop Ordering](system-design/payment-coffee-shop/README.md) | ★★★★★ | Medium | SWE | payment, idempotency, ledger |
 | 2 | [Online Chess Platform (Chess.com-style)](system-design/chess-platform/README.md) | ★★★★★ | — | SWE · Infra Eng | websocket, matchmaking, game-state, idempotency, consistent-hashing |
 | 3 | [Video Generation Pipeline (Sora-style)](system-design/video-generation-pipeline/README.md) | ★★★★★ | Medium | SWE · Infra Eng · EM | gpu-scheduling, queueing, fault-tolerance |
-| 4 | [LLM Inference Serving](system-design/llm-inference-serving/README.md) | ★★★★☆ | — | SWE · Infra Eng · MLE | gpu-scheduling, batching, streaming, rate-limiting, cost |
-| 5 | [Cloud IDE](system-design/cloud-ide/README.md) | ★★★☆☆ | Hard | SWE · Infra Eng · EM | sandbox, vm-lifecycle, websocket, streaming |
-| 6 | [Device Fleet Monitoring and Command Dispatch](system-design/device-fleet-monitoring/README.md) | ★★★☆☆ | — | SWE · Infra Eng | iot, messaging, idempotency, reconciliation, telemetry |
-| 7 | [Image Sharing with Deduplication](system-design/image-dedup-sharing/README.md) | ★★☆☆☆ | Medium | SWE | storage, deduplication, consistency |
-| 8 | [Distributed Crossword Solver](system-design/crossword-solver/README.md) | ★★☆☆☆ | — | SWE · Infra Eng | distributed-search, backtracking, job-system |
-| 9 | [AI Chatbot Front End](system-design/ai-chatbot-frontend/README.md) | ★★☆☆☆ | — | SWE | frontend, streaming, client-state, auth |
+| 4 | [Cloud IDE](system-design/cloud-ide/README.md) | ★★★★☆ | Hard | SWE · Infra Eng · EM | sandbox, vm-lifecycle, websocket, streaming |
+| 5 | [LLM Inference Serving](system-design/llm-inference-serving/README.md) | ★★★★☆ | — | SWE · Infra Eng · MLE | gpu-scheduling, batching, streaming, rate-limiting, cost |
+| 6 | [Device Fleet Monitoring and Command Dispatch](system-design/device-fleet-monitoring/README.md) | ★★★★☆ | — | SWE · Infra Eng | iot, messaging, idempotency, reconciliation, telemetry |
+| 7 | [AI Chatbot Front End](system-design/ai-chatbot-frontend/README.md) | ★★★☆☆ | — | SWE | frontend, streaming, client-state, auth |
+| 8 | [Image Sharing with Deduplication](system-design/image-dedup-sharing/README.md) | ★★☆☆☆ | Medium | SWE | storage, deduplication, consistency |
+| 9 | [Distributed Crossword Solver](system-design/crossword-solver/README.md) | ★★☆☆☆ | — | SWE · Infra Eng | distributed-search, backtracking, job-system |
 | 10 | [Multi-Tenant CI/CD](system-design/multi-tenant-ci-cd/README.md) | ★★☆☆☆ | — | SWE · Infra Eng | scheduling, exactly-once, multi-tenancy |
 | 11 | [Slack-style Messaging](system-design/slack/README.md) | ★★☆☆☆ | — | SWE · EM | messaging, pubsub, multi-device, multi-tenancy |
 | 12 | [Search & RAG ML Design (spoken)](system-design/rag-search-ml-design/README.md) | ★★☆☆☆ | — | RE · MLE | retrieval, contrastive-learning, ranking, evaluation |
@@ -180,6 +184,8 @@ Sorted by priority within each section. A dash under Difficulty means it has not
 | 19 | [ChatGPT Enterprise: RAG over Company Data](system-design/chatgpt-enterprise-rag/README.md) | ★☆☆☆☆ | — | MLE · RE | rag, retrieval, access-control |
 | 20 | [GPT-3 Playground (Full-Stack)](system-design/gpt3-playground/README.md) | ★☆☆☆☆ | — | SWE | fullstack, frontend, streaming, schema-design |
 | 21 | [Agent Harness and Evaluation Framework](system-design/agent-harness-eval/README.md) | ★☆☆☆☆ | — | RE · MLE · RS | agent, evaluation, tooling, observability |
+| 22 | [Digital Game Store and Distribution (Steam-style)](system-design/game-distribution-platform/README.md) | ★☆☆☆☆ | Hard | SWE · Infra Eng | cdn, object-storage, licensing, delta-updates |
+| 23 | [Typing Race Game](system-design/typing-race-game/README.md) | ★☆☆☆☆ | Medium | SWE | real-time, websocket, matchmaking, leaderboard, latency |
 
 ### Behavioral & other (4)
 

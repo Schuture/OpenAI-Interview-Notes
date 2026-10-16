@@ -1,0 +1,13 @@
+title: New-Grad Online Assessment
+title_zh: 应届生在线测评（OA）
+summary: 'Four independent auto-graded problems: the end of a walk in a functional graph, counting 4-node paths that cover four node types, simulating neighbour eating on a line, and a three-option no-repeat cost DP with plan reconstruction.'
+summary_zh: 四道相互独立的自动评测题：函数图上游走的终点、统计覆盖四种节点类型的四点路径、模拟直线上的邻居吞食，以及三选一且不能连续重复的成本 DP 并还原方案。
+category: coding
+kind: Online assessment
+kind_zh: 在线测评
+roles: [SWE]
+topics: [graph, counting, simulation, dp]
+difficulty: easy
+frequency: rare
+format: 4 independent parts
+order: 52

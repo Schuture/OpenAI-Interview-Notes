@@ -5,7 +5,7 @@
 <!-- meta:begin -->
 | 题型 | 优先级 | 难度 | 岗位 | 考点 | 轮次 |
 | --- | --- | --- | --- | --- | --- |
-| 系统设计 | ★★★☆☆ | — | SWE · Infra Eng | iot, messaging, idempotency, reconciliation, telemetry | 电话面 · 现场面 |
+| 系统设计 | ★★★★☆ | — | SWE · Infra Eng | iot, messaging, idempotency, reconciliation, telemetry | 电话面 · 现场面 |
 <!-- meta:end -->
 
 ## 题目

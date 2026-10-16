@@ -5,7 +5,7 @@
 <!-- meta:begin -->
 | 题型 | 优先级 | 难度 | 岗位 | 考点 | 形式 | 轮次 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 编程 | ★★★☆☆ | 中等 | SWE | simulation, sorting, rules-engine | 3 个部分 | 电话面 |
+| 编程 | ★★★★☆ | 中等 | SWE | simulation, sorting, rules-engine | 3 个部分 | 电话面 |
 <!-- meta:end -->
 
 ## 题目

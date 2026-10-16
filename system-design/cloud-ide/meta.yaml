@@ -8,6 +8,6 @@ kind_zh: 系统设计
 roles: [SWE, Infra Eng, EM]
 topics: [sandbox, vm-lifecycle, websocket, streaming]
 difficulty: hard
-frequency: medium
+frequency: high
 stage: [phone-screen, onsite]
 order: 4

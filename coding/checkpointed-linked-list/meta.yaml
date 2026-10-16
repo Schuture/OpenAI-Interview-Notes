@@ -1,0 +1,14 @@
+title: Linked List with Checkpoints
+title_zh: 带检查点的链表
+summary: A vector of strings stored as a singly linked list, first with plain insert and lookup, then with evenly spaced checkpoint pointers that must stay exact after every insertion, then a vector that picks the spacing itself.
+summary_zh: 用单向链表实现字符串向量：先是普通的插入和查找，再加上必须在每次插入后保持精确的等间距检查点，最后让向量自己选择间距。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE]
+topics: [linked-list, data-structure, indexing]
+difficulty: medium
+frequency: rare
+stage: [onsite]
+format: 3 parts / 60 min
+order: 55

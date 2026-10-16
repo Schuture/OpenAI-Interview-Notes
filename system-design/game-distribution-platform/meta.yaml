@@ -1,0 +1,13 @@
+title: Digital Game Store and Distribution (Steam-style)
+title_zh: 数字游戏商店与分发（类 Steam）
+summary: 'A game store with licences, large-build delivery and a developer release pipeline: chunked builds and delta patches over a CDN, offline-capable licence tokens with revocation, launch-day preloading and regional blocking.'
+summary_zh: 带许可管理的游戏商店与大体积构建分发，以及开发者发布流水线；难点是分块构建与增量补丁经 CDN 分发、可离线且可撤销的许可令牌、发售日预下载，以及地区封禁。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE, Infra Eng]
+topics: [cdn, object-storage, licensing, delta-updates]
+difficulty: hard
+frequency: rare
+stage: [onsite]
+order: 53

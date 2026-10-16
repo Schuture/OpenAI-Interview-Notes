@@ -8,7 +8,7 @@ kind_zh: 编程
 roles: [SWE]
 topics: [simulation, sorting, rules-engine]
 difficulty: medium
-frequency: medium
+frequency: high
 stage: [phone-screen]
 format: 3 parts
 order: 35

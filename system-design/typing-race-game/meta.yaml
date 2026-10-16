@@ -1,0 +1,13 @@
+title: Typing Race Game
+title_zh: 打字竞速游戏
+summary: Real-time typing races for 2-8 players on one shared passage, with rating-based matchmaking, a server-authoritative 1-second error cooldown, a race lifecycle that survives duplicates and server loss, a rating leaderboard, and fair results under unequal network latency.
+summary_zh: 2 到 8 名玩家在同一段文字上实时竞速打字：按等级分匹配，服务器权威的 1 秒出错冷却，能抵御重复消息与服务器故障的比赛生命周期，等级分排行榜，以及网络延迟不均时的公平结算。
+category: system-design
+kind: System design
+kind_zh: 系统设计
+roles: [SWE]
+topics: [real-time, websocket, matchmaking, leaderboard, latency]
+difficulty: medium
+frequency: rare
+stage: [phone-screen]
+order: 54
