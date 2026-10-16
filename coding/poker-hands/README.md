@@ -5,7 +5,7 @@
 <!-- meta:begin -->
 | Type | Priority | Difficulty | Roles | Topics | Format | Round |
 | --- | --- | --- | --- | --- | --- | --- |
-| Coding | ★★★☆☆ | Medium | SWE | simulation, sorting, rules-engine | 3 parts | Phone screen |
+| Coding | ★★★★☆ | Medium | SWE | simulation, sorting, rules-engine | 3 parts | Phone screen |
 <!-- meta:end -->
 
 ## Problem

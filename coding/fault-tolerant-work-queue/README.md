@@ -5,7 +5,7 @@
 <!-- meta:begin -->
 | Type | Priority | Difficulty | Roles | Topics | Format |
 | --- | --- | --- | --- | --- | --- |
-| Coding | ★☆☆☆☆ | Medium | Infra Eng | queue, state-machine, retry | 3 parts |
+| Coding | ★★★★☆ | Medium | SWE · Infra Eng | queue, state-machine, retry | 4 parts |
 <!-- meta:end -->
 
 ## Problem
@@ -29,9 +29,12 @@ through a small state machine. This part only needs three of its states:
 `submit(task_id, payload)` adds a new task in the `ready` state. Raises `ValueError` if `task_id` was
 already submitted.
 
-`reserve(worker_id)` hands the calling worker, out of the tasks currently `ready`, the one that entered
-`ready` earliest — first in, first out, regardless of whether a task got to `ready` by being freshly
-submitted or by being returned there. It moves that task to `reserved` and returns a `Reservation`
+Every accepted `submit` gives its task a *submission number*: 1 for the first task, 2 for the second, and
+so on. A task keeps its submission number for its whole life.
+
+`reserve(worker_id)` hands the calling worker, out of the tasks currently `ready`, the one with the
+smallest submission number — first in, first out by original submission, regardless of whether a task got
+to `ready` by being freshly submitted or by being returned there. It moves that task to `reserved` and returns a `Reservation`
 holding `task_id`, `payload`, and a fresh *token*: a value, unique to this one act of reserving this one
 task, that `complete` and `fail` must present back. Returns `None` if no task is `ready`.
 
@@ -40,7 +43,8 @@ task, that `complete` and `fail` must present back. Returns `None` if no task is
 `InvalidReservationError`. If `task_id` was never submitted, it raises `UnknownTaskError` instead.
 
 `fail(task_id, token)` checks `token` under the exact same rule as `complete`. Once it matches, the task
-goes back to `ready`, at the back of the queue. This part places no limit on how many times a task may
+goes back to `ready`, with its submission number unchanged, so `reserve` picks it ahead of every ready
+task submitted after it. This part places no limit on how many times a task may
 fail and be retried.
 
 Reserving a task again — after it fails, or after any other event returns it to `ready` — issues a brand
@@ -71,13 +75,14 @@ Example:
 q = WorkQueue()
 q.submit('t1', 'build')
 q.submit('t2', 'test')
+q.submit('t3', 'deploy')
 
 r1 = q.reserve('w1')          # r1.task_id == 't1'
 r2 = q.reserve('w2')          # r2.task_id == 't2'
 q.complete('t1', r1.token)    # 't1' -> completed
-q.fail('t2', r2.token)        # 't2' -> ready, back of the queue
+q.fail('t2', r2.token)        # 't2' -> ready; its number 2 is still below 't3''s 3
 
-r3 = q.reserve('w3')          # r3.task_id == 't2' again, with a new token
+r3 = q.reserve('w3')          # r3.task_id == 't2' again (not 't3'), with a new token
 q.complete('t2', r2.token)    # raises InvalidReservationError: r2.token is stale
 q.complete('t2', r3.token)    # succeeds
 ```
@@ -113,7 +118,7 @@ returns are at most $10^9$.
 There is no background thread scanning for expirations. Instead, every call to a `WorkQueue` method,
 `submit` included, begins with a *reclaiming pass*: each reservation whose lease has expired by then is
 ended with the same effect as if its worker had called `fail` on it at that moment, so its task re-enters
-`ready` at the back of the queue. One pass handles the expired reservations one at a time, in ascending
+`ready` with its submission number unchanged. One pass handles the expired reservations one at a time, in ascending
 order of lease deadline, breaking ties by ascending `task_id`. Only then does the call do its own work.
 
 Once a reservation is reclaimed this way, its token stops working for `complete`/`fail` under the exact
@@ -149,8 +154,8 @@ exactly as before. `complete` is unaffected: a completed task still ends in the 
 
 `dead_letters()` returns the `task_id` of every task currently `dead`, in the order they became `dead`.
 
-`requeue_dead(task_id)` moves a `dead` task to the back of the `ready` queue and resets its attempt count
-to 0, as if it had just been submitted, so it gets `max_attempts` more reservations. Raises
+`requeue_dead(task_id)` moves a `dead` task back to `ready`, with its submission number unchanged, and
+resets its attempt count to 0, so it gets `max_attempts` more reservations. Raises
 `UnknownTaskError` if `task_id` was never submitted, or `ValueError` if it is not currently `dead`. Like
 every other method, `dead_letters` and `requeue_dead` begin with a reclaiming pass.
 
@@ -175,20 +180,76 @@ t=0  q.fail('t1', rB.token)       # 2 >= 2 attempts -> dead
      rC = q.reserve('C')          # 1st reservation again
 ```
 
+### Part 4 — Dependencies
+
+`submit` takes a third argument, `depends_on`: a sequence of `task_id`s, empty by default, naming the
+task's *dependencies*. A task is *unblocked* once every one of its dependencies is `completed`; a task
+without dependencies is always unblocked. A `depends_on` holds at most 10 ids, and an id listed twice
+counts once.
+
+- Every id in `depends_on` must belong to a task submitted earlier; otherwise `submit` raises
+  `UnknownTaskError`. Since a task can only depend on tasks submitted
+  before it, the dependency graph has no cycle. A `task_id` that was already submitted still raises `ValueError`,
+  and that check comes first.
+- If any dependency is currently `dead`, `submit` raises `ValueError`. A rejected `submit` changes nothing.
+- `reserve` hands out, among the tasks that are `ready` *and* unblocked, the one with the smallest
+  submission number. A `ready` task that is still blocked is skipped, and it keeps its place for when it
+  gets unblocked. Returns `None` if no task qualifies.
+- A task whose dependency is `dead` can never be unblocked, so it is dead as well. Whenever a task becomes
+  `dead` (through `fail` or lease expiry), every task that depends on it, directly or through a chain of
+  dependencies, and is not `dead` yet becomes `dead` in the same step: first the task itself, then the
+  others in ascending order of submission number. Their attempt counts stay as they are.
+  `dead_letters()` lists tasks in the order they became `dead`, these ones included.
+- `requeue_dead(task_id)` follows Part 3, and additionally raises `ValueError` if any dependency of the
+  task is currently `dead`. It revives only that one task: tasks that died with it stay `dead` until they are
+  requeued themselves, after their own dependencies are no longer `dead`.
+
+```py
+class WorkQueue:
+    def submit(self, task_id: str, payload: Any, depends_on: "Sequence[str]" = ()) -> None: ...
+```
+
+Example, with `lease_duration = 10` and `max_attempts = 2`. Tasks `c` and `e` depend on `a`, `d` depends
+on `b` and `c`, and `f` depends on `d`:
+
+```text
+q.submit('a', 'x');  q.submit('b', 'x')                  # submission numbers 1, 2
+q.submit('c', 'x', depends_on=['a'])                     # 3
+q.submit('d', 'x', depends_on=['b', 'c'])                # 4
+q.submit('e', 'x', depends_on=['a'])                     # 5
+q.submit('f', 'x', depends_on=['d'])                     # 6
+
+rA = q.reserve('w1')              # 'a'
+rB = q.reserve('w2')              # 'b'
+q.reserve('w3')                   # None: c, d, e, f are blocked
+q.complete('a', rA.token)         # c and e are unblocked
+rC = q.reserve('w1')              # 'c', number 3 < 5
+q.fail('b', rB.token)             # 1 < 2 attempts -> ready
+rB2 = q.reserve('w2')             # 'b' again, number 2 < 5
+q.complete('c', rC.token)         # d still waits for b
+rE = q.reserve('w1')              # 'e'
+q.reserve('w3')                   # None: d and f are blocked
+q.fail('b', rB2.token)            # 2 >= 2 attempts -> dead; d and f die with it
+q.dead_letters()                  # -> ['b', 'd', 'f']
+q.requeue_dead('d')               # raises ValueError: b is dead
+```
+
 ## Reference solution
 
 <details>
 <summary>Show the reference solution</summary>
 
 Two things worth confirming with the interviewer before coding: whether a task that comes back to
-`ready` (after a failure, a timeout, or `requeue_dead`) shares one FIFO order with freshly submitted
-tasks or gets some priority; and whether the retry cap counts reservations or retries after the first —
+`ready` (after a failure, a timeout, or `requeue_dead`) goes behind everything queued so far or keeps
+its original place in the submission order, which the statement fixes as the latter; and whether the retry cap counts reservations or retries after the first —
 `max_attempts = 3` allows three reservations where "3 retries" would allow four, the usual off-by-one.
 
 ### Part 1
 
-A dict keyed by `task_id` holds each task's authoritative state; a `deque` holds the `task_id`s currently
-`ready`, in the order they got there: `reserve` pops the front, `submit` and a requeue append at the back.
+A dict keyed by `task_id` holds each task's authoritative state, including its submission number `seq`;
+a min-heap of `(seq, task_id)` holds the tasks currently `ready`: `reserve` pops the smallest, and `submit`
+and every return to `ready` push. A returned task is pushed under its own old `seq`, so it comes out ahead
+of every task submitted after it; a FIFO `deque` with an append at the back would get this wrong.
 `complete` and `fail` share one check, `_lookup_reserved`: an unknown `task_id` raises `UnknownTaskError`;
 anything else — a wrong token, a token from a reservation that already ended, a task that is not
 `reserved` at all (an already-`completed` one included) — raises `InvalidReservationError`, because in
@@ -196,7 +257,6 @@ each case the caller's token is not the task's current reservation.
 
 ```python
 import heapq
-from collections import deque
 from typing import Any, NamedTuple
 
 
@@ -215,10 +275,11 @@ class Reservation(NamedTuple):
 
 
 class _Task:
-    __slots__ = ("payload", "status", "attempts", "token", "deadline")
+    __slots__ = ("payload", "status", "attempts", "token", "deadline", "seq")
 
-    def __init__(self, payload):
+    def __init__(self, payload, seq):
         self.payload = payload
+        self.seq = seq                              # submission number: fixed for the task's whole life
         self.status = "ready"
         self.attempts = 0
         self.token = None
@@ -228,21 +289,22 @@ class _Task:
 class WorkQueue:
     def __init__(self):
         self._tasks: dict[str, _Task] = {}
-        self._ready = deque()
+        self._ready = []                            # min-heap of (seq, task_id)
         self._next_token = 0
 
     def submit(self, task_id, payload):
-        self._reclaim_expired()                     # NOTE: submit reclaims too, so expired tasks queue ahead of this one
+        self._reclaim_expired()                     # NOTE: submit reclaims too, so expired tasks re-enter ready before this one is added
         if task_id in self._tasks:
             raise ValueError(f"duplicate task_id {task_id!r}")
-        self._tasks[task_id] = _Task(payload)
-        self._ready.append(task_id)
+        seq = len(self._tasks)                      # NOTE: rejected submits add nothing, so numbers stay consecutive
+        self._tasks[task_id] = _Task(payload, seq)
+        heapq.heappush(self._ready, (seq, task_id))
 
     def reserve(self, worker_id):
         self._reclaim_expired()
         if not self._ready:
             return None
-        task_id = self._ready.popleft()
+        _, task_id = heapq.heappop(self._ready)
         task = self._tasks[task_id]
         task.attempts += 1                          # NOTE: counted here, at reserve time -- not in fail()
         self._next_token += 1
@@ -268,28 +330,31 @@ class WorkQueue:
 
     def _release(self, task_id, task):               # NOTE: Part 3 replaces this with a ready-or-dead version
         task.status, task.token, task.deadline = "ready", None, None
-        self._ready.append(task_id)
+        heapq.heappush(self._ready, (task.seq, task_id))    # NOTE: the ORIGINAL seq, not a fresh one -- appending to a FIFO would put it behind newer tasks
 
     def _reclaim_expired(self):                       # NOTE: no-op until Part 2 gives it a real body
         pass
 ```
 
-With no heap yet, every method here is $O(1)$. The Part 1 example, run on this class:
+Each `submit`, `reserve` and return to `ready` is one heap operation, $O(\log n)$ for $n$ tasks; `complete`
+is $O(1)$. The Part 1 example, run on this class:
 
 ```python
 q = WorkQueue()
 q.submit('t1', 'build')
 q.submit('t2', 'test')
+q.submit('t3', 'deploy')
 r1, r2 = q.reserve('w1'), q.reserve('w2')
 q.complete('t1', r1.token)
 q.fail('t2', r2.token)
 r3 = q.reserve('w3')
-assert (r1.task_id, r2.task_id, r3.task_id) == ('t1', 't2', 't2')
+assert (r1.task_id, r2.task_id, r3.task_id) == ('t1', 't2', 't2')      # t2 goes ahead of t3
 try:
     q.complete('t2', r2.token)
     raise AssertionError("stale token accepted")
 except InvalidReservationError:
     q.complete('t2', r3.token)
+assert q.reserve('w4').task_id == 't3'
 ```
 
 ### Part 2
@@ -307,7 +372,7 @@ def __init__(self, clock, lease_duration):
     self._clock = clock
     self._lease_duration = lease_duration
     self._tasks: dict[str, _Task] = {}
-    self._ready = deque()
+    self._ready = []           # min-heap of (seq, task_id)
     self._next_token = 0
     self._leases = []          # min-heap of (deadline, task_id, token)
 
@@ -319,7 +384,7 @@ def reserve(self, worker_id):
     self._reclaim_expired()
     if not self._ready:
         return None
-    task_id = self._ready.popleft()
+    _, task_id = heapq.heappop(self._ready)
     task = self._tasks[task_id]
     task.attempts += 1
     self._next_token += 1
@@ -372,7 +437,7 @@ def __init__(self, clock, lease_duration, max_attempts):
     self._lease_duration = lease_duration
     self._max_attempts = max_attempts
     self._tasks: dict[str, _Task] = {}
-    self._ready = deque()
+    self._ready = []
     self._dead = []            # task_ids, in the order they entered `dead`
     self._next_token = 0
     self._leases = []
@@ -388,7 +453,7 @@ def _release(self, task_id, task):
         self._dead.append(task_id)
     else:
         task.status = "ready"
-        self._ready.append(task_id)
+        heapq.heappush(self._ready, (task.seq, task_id))
 
 
 WorkQueue._release = _release
@@ -411,7 +476,7 @@ def requeue_dead(self, task_id):
         raise ValueError(f"{task_id!r} is not in the dead-letter queue")
     self._dead.remove(task_id)
     task.status, task.attempts = "ready", 0
-    self._ready.append(task_id)
+    heapq.heappush(self._ready, (task.seq, task_id))     # NOTE: back under its original seq, not at the back of the line
 
 
 WorkQueue.requeue_dead = requeue_dead
@@ -419,6 +484,171 @@ WorkQueue.requeue_dead = requeue_dead
 
 `max_attempts = 1` needs no special case: the first reservation already brings `attempts` to `1`, so a
 single `fail` (or a single expiry) sends the task straight to `dead`.
+
+### Part 4
+
+Each task stores its distinct dependency ids and `pending`, the number of them not yet `completed`.
+Next to the tasks, a reverse-edge map sends each task to the dict of its dependants. Then:
+
+- The ready heap now holds only tasks that are `ready` and have `pending == 0`, so `reserve` is unchanged:
+  the top of the heap is the earliest-submitted unblocked task. A task is pushed when it is submitted or
+  requeued with `pending == 0`, when it returns to `ready` after a reservation (it was unblocked then), and
+  when `complete` brings its `pending` to 0.
+- `complete` walks the reverse edges of the finished task once and drops them.
+- A task becoming `dead` runs a DFS over the reverse edges, kills each not-yet-dead dependant once, and
+  appends them sorted by `seq` after the task itself. No dependant of a dying task has `pending == 0`, so
+  none of them is on the heap and nothing needs removing from it.
+- `requeue_dead` rebuilds `pending` and the edges of the one task; both are idempotent.
+
+Let $n$ be the number of calls. Every edge is added by a `submit` or `requeue_dead` call (at most 10 each)
+and removed at most once. Every death, direct or by cascade, ends a stay in a live state that one such call
+started. Hence the total is $O(n \log n)$, and a single `reserve` is still $O(\log n)$.
+
+```python
+class _Task:
+    __slots__ = ("payload", "status", "attempts", "token", "deadline", "seq", "deps", "pending")
+
+    def __init__(self, payload, seq, deps):
+        self.payload = payload
+        self.seq = seq
+        self.status = "ready"
+        self.attempts = 0
+        self.token = None
+        self.deadline = None
+        self.deps = deps           # distinct dependency ids
+        self.pending = 0           # how many of them are not yet completed
+
+
+def __init__(self, clock, lease_duration, max_attempts):
+    self._clock = clock
+    self._lease_duration = lease_duration
+    self._max_attempts = max_attempts
+    self._tasks: dict[str, _Task] = {}
+    self._ready = []           # min-heap of (seq, task_id): ready tasks whose pending == 0, and only those
+    self._dead = []
+    self._next_token = 0
+    self._leases = []
+    self._dependents: dict[str, dict[str, None]] = {}    # reverse edges: task_id -> its not-yet-dead dependants
+
+
+WorkQueue.__init__ = __init__
+
+
+def _link(self, task_id, task):
+    task.pending = 0
+    for dep_id in task.deps:
+        if self._tasks[dep_id].status != "completed":
+            task.pending += 1
+            self._dependents.setdefault(dep_id, {})[task_id] = None    # NOTE: a dict, so linking twice is harmless
+    if task.pending == 0:
+        heapq.heappush(self._ready, (task.seq, task_id))
+
+
+WorkQueue._link = _link
+
+
+def submit(self, task_id, payload, depends_on=()):
+    self._reclaim_expired()
+    if task_id in self._tasks:
+        raise ValueError(f"duplicate task_id {task_id!r}")
+    deps = tuple(dict.fromkeys(depends_on))          # NOTE: a repeated id must count once, or pending never reaches 0
+    for dep_id in deps:
+        if dep_id not in self._tasks:                # NOTE: task_id itself is not stored yet, so a self-dependency lands here too
+            raise UnknownTaskError(dep_id)
+    for dep_id in deps:
+        if self._tasks[dep_id].status == "dead":
+            raise ValueError(f"dependency {dep_id!r} is dead")
+    task = _Task(payload, len(self._tasks), deps)    # NOTE: validate everything above first -- a rejected submit must change nothing
+    self._tasks[task_id] = task
+    self._link(task_id, task)
+
+
+WorkQueue.submit = submit
+
+
+def complete(self, task_id, token):
+    task = self._lookup_reserved(task_id, token)
+    task.status, task.token, task.deadline = "completed", None, None
+    for child_id in self._dependents.pop(task_id, ()):    # each edge is used once: its source is now final
+        child = self._tasks[child_id]
+        if child.status == "ready":                  # NOTE: a dead child is skipped -- requeue_dead recounts from scratch
+            child.pending -= 1
+            if child.pending == 0:
+                heapq.heappush(self._ready, (child.seq, child_id))
+
+
+WorkQueue.complete = complete
+
+
+def _release(self, task_id, task):
+    task.token, task.deadline = None, None
+    if task.attempts < self._max_attempts:
+        task.status = "ready"                        # NOTE: pending is 0 here -- it was reserved -- so it goes straight back on the heap
+        heapq.heappush(self._ready, (task.seq, task_id))
+        return
+    task.status = "dead"
+    self._dead.append(task_id)
+    doomed, stack = [], [task_id]
+    while stack:
+        for child_id in self._dependents.pop(stack.pop(), ()):     # edges out of a dead task are dropped; requeue_dead re-adds them
+            child = self._tasks[child_id]
+            if child.status != "dead":
+                child.status = "dead"                # NOTE: marked at once, so a child reachable by two paths is collected once
+                doomed.append(child_id)
+                stack.append(child_id)
+    doomed.sort(key=lambda child_id: self._tasks[child_id].seq)    # NOTE: the DFS order is arbitrary; the statement says ascending seq
+    self._dead.extend(doomed)
+
+
+WorkQueue._release = _release
+
+
+def requeue_dead(self, task_id):
+    self._reclaim_expired()
+    task = self._tasks.get(task_id)
+    if task is None:
+        raise UnknownTaskError(task_id)
+    if task.status != "dead":
+        raise ValueError(f"{task_id!r} is not in the dead-letter queue")
+    if any(self._tasks[dep_id].status == "dead" for dep_id in task.deps):
+        raise ValueError(f"{task_id!r} has a dead dependency")     # NOTE: otherwise a ready task could wait on a dead one forever
+    self._dead.remove(task_id)
+    task.status, task.attempts = "ready", 0
+    self._link(task_id, task)
+
+
+WorkQueue.requeue_dead = requeue_dead
+```
+
+The Part 4 example, run on this class:
+
+```python
+q = WorkQueue(ManualClock(), lease_duration=10, max_attempts=2)
+q.submit('a', 'x')
+q.submit('b', 'x')
+q.submit('c', 'x', depends_on=['a'])
+q.submit('d', 'x', depends_on=['b', 'c'])
+q.submit('e', 'x', depends_on=['a'])
+q.submit('f', 'x', depends_on=['d'])
+rA, rB = q.reserve('w1'), q.reserve('w2')
+assert (rA.task_id, rB.task_id) == ('a', 'b') and q.reserve('w3') is None
+q.complete('a', rA.token)
+rC = q.reserve('w1')
+assert rC.task_id == 'c'
+q.fail('b', rB.token)
+rB2 = q.reserve('w2')
+assert rB2.task_id == 'b'
+q.complete('c', rC.token)
+rE = q.reserve('w1')
+assert rE.task_id == 'e' and q.reserve('w3') is None
+q.fail('b', rB2.token)
+assert q.dead_letters() == ['b', 'd', 'f']
+try:
+    q.requeue_dead('d')
+    raise AssertionError("revived with a dead dependency")
+except ValueError:
+    pass
+```
 
 ### Follow-ups
 
@@ -431,10 +661,10 @@ single `fail` (or a single expiry) sends the task straight to `dead`.
   forward lets the lease stay short.
 - The queue lives in memory, so a crash loses everything. Durability means logging each state transition
   before applying it in memory and replaying the log after a restart.
-- Tasks that carry a list of `dependencies`: a task waits in a fifth state, `blocked`, and joins the
-  back of `ready` only once every dependency has reached `completed`. A dependency may name a task
-  not submitted yet, so `submit` has to walk the dependency edges out of the new task and reject the
-  submission when they lead back to it.
+- A per-task `cooldown`: a task that fails or expires becomes reservable again only at
+  `failure_time + cooldown`, still under its original submission number. Park it in a second min-heap keyed
+  by that release time and, at the start of every call after the reclaiming pass, move every entry that is
+  due into the ready heap; a cascade must not touch parked tasks that are not dead.
 
 <details>
 <summary>Checks (runnable)</summary>
@@ -446,15 +676,15 @@ import time
 
 class NaiveWorkQueue:
     """A direct reading of the statement: no heap, no helper shared with WorkQueue.
-    Every call scans every task to find expired leases."""
+    Every call scans every task: for expired leases, for the next task to reserve,
+    and for the dependants of a task that died."""
 
     def __init__(self, clock, lease_duration, max_attempts):
         self.clock = clock
         self.lease_duration = lease_duration
         self.max_attempts = max_attempts
         self.status, self.payload, self.attempts = {}, {}, {}
-        self.token, self.deadline, self.order = {}, {}, {}
-        self._seq = 0
+        self.token, self.deadline, self.order, self.deps = {}, {}, {}, {}
         self._next_token = 0
         self.dead_order = []
 
@@ -462,8 +692,6 @@ class NaiveWorkQueue:
         self.status[task_id] = "ready"
         self.token[task_id] = None
         self.deadline[task_id] = None
-        self._seq += 1
-        self.order[task_id] = self._seq
 
     def _reclaim_all(self):
         now = self.clock.now()
@@ -475,28 +703,48 @@ class NaiveWorkQueue:
             self._expire_or_kill(task_id)
 
     def _expire_or_kill(self, task_id):
-        if self.attempts[task_id] >= self.max_attempts:
-            self.status[task_id] = "dead"
-            self.token[task_id] = None
-            self.deadline[task_id] = None
-            self.dead_order.append(task_id)
-        else:
+        if self.attempts[task_id] < self.max_attempts:
             self._mark_ready(task_id)
+            return
+        self.status[task_id] = "dead"
+        self.token[task_id] = None
+        self.deadline[task_id] = None
+        self.dead_order.append(task_id)
+        doomed, changed = set(), True        # everything that depends on a dead task, transitively
+        while changed:
+            changed = False
+            for t in self.status:
+                if self.status[t] != "dead" and t not in doomed and any(
+                        self.status[d] == "dead" or d in doomed for d in self.deps[t]):
+                    doomed.add(t)
+                    changed = True
+        for t in sorted(doomed, key=lambda t: self.order[t]):
+            self.status[t] = "dead"
+            self.dead_order.append(t)
 
-    def submit(self, task_id, payload):
+    def submit(self, task_id, payload, depends_on=()):
         self._reclaim_all()
         if task_id in self.status:
             raise ValueError(f"duplicate task_id {task_id!r}")
+        for d in depends_on:
+            if d not in self.status:
+                raise UnknownTaskError(d)
+        for d in depends_on:
+            if self.status[d] == "dead":
+                raise ValueError(f"dependency {d!r} is dead")
         self.payload[task_id] = payload
         self.attempts[task_id] = 0
+        self.order[task_id] = len(self.order) + 1
+        self.deps[task_id] = set(depends_on)
         self._mark_ready(task_id)
 
     def reserve(self, worker_id):
         self._reclaim_all()
-        ready_ids = [t for t, st in self.status.items() if st == "ready"]
-        if not ready_ids:
+        eligible = [t for t, st in self.status.items()
+                    if st == "ready" and all(self.status[d] == "completed" for d in self.deps[t])]
+        if not eligible:
             return None
-        task_id = min(ready_ids, key=lambda t: self.order[t])
+        task_id = min(eligible, key=lambda t: self.order[t])
         self.attempts[task_id] += 1
         self._next_token += 1
         self.token[task_id] = self._next_token
@@ -531,14 +779,16 @@ class NaiveWorkQueue:
             raise UnknownTaskError(task_id)
         if self.status[task_id] != "dead":
             raise ValueError(f"{task_id!r} is not in the dead-letter queue")
+        if any(self.status[d] == "dead" for d in self.deps[task_id]):
+            raise ValueError(f"{task_id!r} has a dead dependency")
         self.dead_order.remove(task_id)
         self.attempts[task_id] = 0
         self._mark_ready(task_id)
 
 
-def expect(error, fn, *args):
+def expect(error, fn, *args, **kwargs):
     try:
-        fn(*args)
+        fn(*args, **kwargs)
     except error:
         return
     raise AssertionError(f"expected {error.__name__}")
@@ -559,6 +809,14 @@ for Queue in (WorkQueue, NaiveWorkQueue):
     expect(ValueError, q.requeue_dead, 't1')             # reserved, not dead
     expect(UnknownTaskError, q.requeue_dead, 'nope')
 
+    q = Queue(ManualClock(), lease_duration=3, max_attempts=5)   # a returned task keeps its place
+    for name in 'abcd':
+        q.submit(name, 0)
+    ra, rb, rc = q.reserve('w'), q.reserve('w'), q.reserve('w')
+    q.fail('c', rc.token)
+    q.fail('a', ra.token)
+    assert [q.reserve('w').task_id for _ in range(3)] == ['a', 'c', 'd']   # not 'd', 'c', 'a'
+
     clock = ManualClock()                                # valid at the deadline, expired one tick later
     q = Queue(clock, lease_duration=3, max_attempts=5)
     q.submit('x', 0)
@@ -569,8 +827,8 @@ for Queue in (WorkQueue, NaiveWorkQueue):
     clock.advance(1)
     expect(InvalidReservationError, q.complete, 'y', ry.token)
 
-    clock = ManualClock()                                # one pass goes by (deadline, task_id); submit runs one
-    q = Queue(clock, lease_duration=4, max_attempts=5)
+    clock = ManualClock()                                # a pass goes by (deadline, task_id); submit runs one
+    q = Queue(clock, lease_duration=4, max_attempts=1)
     q.submit('c', 0)
     q.reserve('w')                                       # c: deadline 4
     clock.advance(1)
@@ -578,8 +836,8 @@ for Queue in (WorkQueue, NaiveWorkQueue):
     q.submit('a', 0)
     q.reserve('w'), q.reserve('w')                       # b, a: deadline 5
     clock.advance(5)
-    q.submit('d', 0)                                     # reclaims c, then a, then b, before appending d
-    assert [q.reserve('w').task_id for _ in range(4)] == ['c', 'a', 'b', 'd']
+    q.submit('d', 0)                                     # reclaims c, then a, then b (max_attempts = 1: all dead)
+    assert q.dead_letters() == ['c', 'a', 'b']
 
     clock = ManualClock()                                # max_attempts = 1: a single expiry is fatal
     q = Queue(clock, lease_duration=2, max_attempts=1)
@@ -588,11 +846,58 @@ for Queue in (WorkQueue, NaiveWorkQueue):
     clock.advance(3)
     assert q.dead_letters() == ['z']
 
+    q = Queue(ManualClock(), lease_duration=10, max_attempts=2)   # the Part 4 example
+    q.submit('a', 'x')
+    q.submit('b', 'x')
+    q.submit('c', 'x', depends_on=['a'])
+    q.submit('d', 'x', depends_on=['b', 'c'])
+    q.submit('e', 'x', depends_on=['a'])
+    q.submit('f', 'x', depends_on=['d'])
+    rA, rB = q.reserve('w1'), q.reserve('w2')
+    assert (rA.task_id, rB.task_id) == ('a', 'b') and q.reserve('w3') is None
+    q.complete('a', rA.token)
+    rC = q.reserve('w1')
+    assert rC.task_id == 'c'                             # c and e are unblocked; c was submitted first
+    q.fail('b', rB.token)
+    rB2 = q.reserve('w2')
+    assert rB2.task_id == 'b' and rB2.token != rB.token  # b keeps its place ahead of e
+    q.complete('c', rC.token)
+    rE = q.reserve('w1')
+    assert rE.task_id == 'e' and q.reserve('w3') is None      # d still waits for b
+    q.fail('b', rB2.token)
+    assert q.dead_letters() == ['b', 'd', 'f']           # d and f die with b
+    expect(ValueError, q.requeue_dead, 'd')              # b is dead
+    q.complete('e', rE.token)
+    assert q.reserve('w1') is None
+    q.requeue_dead('b')                                  # b alone comes back; d and f stay dead
+    assert q.dead_letters() == ['d', 'f']
+    rB3 = q.reserve('w1')
+    assert rB3.task_id == 'b'
+    q.complete('b', rB3.token)
+    q.requeue_dead('d')
+    q.requeue_dead('f')
+    assert q.reserve('w1').task_id == 'd' and q.reserve('w1') is None    # f waits for d
+
+    q = Queue(ManualClock(), lease_duration=10, max_attempts=3)   # submit-time rejections
+    q.submit('a', 0)
+    expect(UnknownTaskError, q.submit, 'b', 0, depends_on=['a', 'zzz'])
+    expect(UnknownTaskError, q.submit, 'b', 0, depends_on=['b'])  # self-dependency: not submitted yet
+    expect(ValueError, q.submit, 'a', 0, depends_on=['a'])        # duplicate id comes first
+    q.submit('b', 0, depends_on=['a', 'a'])              # rejected calls left no trace; repeats count once
+    q.complete('a', q.reserve('w').token)
+    assert q.reserve('w').task_id == 'b'
+    q = Queue(ManualClock(), lease_duration=10, max_attempts=1)
+    q.submit('a', 0)
+    q.fail('a', q.reserve('w').token)
+    expect(ValueError, q.submit, 'b', 0, depends_on=['a'])        # dead dependency
+    q.requeue_dead('a')
+    q.submit('b', 0, depends_on=['a'])
+
 
 # --- randomized cross-check against NaiveWorkQueue, plus the statement's invariants ---
-def outcome_of(fn, *args):
+def outcome_of(fn, *args, **kwargs):
     try:
-        return ("ok", fn(*args))
+        return ("ok", fn(*args, **kwargs))
     except Exception as e:
         return ("err", type(e).__name__)
 
@@ -606,10 +911,10 @@ def fuzz(seed, n_ops):
     slow = NaiveWorkQueue(clock, lease_duration, max_attempts)
     all_task_ids, issued, retired, ever_completed, outcomes = [], [], set(), set(), {}
 
-    def run(name, *args):
-        of = outcome_of(getattr(fast, name), *args)
-        os_ = outcome_of(getattr(slow, name), *args)
-        assert of == os_, (seed, name, args, of, os_)
+    def run(name, *args, **kwargs):
+        of = outcome_of(getattr(fast, name), *args, **kwargs)
+        os_ = outcome_of(getattr(slow, name), *args, **kwargs)
+        assert of == os_, (seed, name, args, kwargs, of, os_)
         key = f"{name}:{'ok' if of[0] == 'ok' else 'err:' + of[1]}"
         outcomes[key] = outcomes.get(key, 0) + 1
         return of
@@ -618,7 +923,12 @@ def fuzz(seed, n_ops):
         pick = rng.random()
         if pick < 0.25 or not all_task_ids:
             tid = rng.choice(all_task_ids) if all_task_ids and rng.random() < 0.1 else f"task{step}"
-            if run("submit", tid, step)[0] == "ok":
+            deps = []
+            if all_task_ids and rng.random() < 0.6:
+                deps = [rng.choice(all_task_ids) for _ in range(rng.randint(1, 3))]   # repeats allowed
+                if rng.random() < 0.05:
+                    deps.append(rng.choice([f"ghost{step}", tid]))                    # unknown, or itself
+            if run("submit", tid, step, depends_on=deps)[0] == "ok":
                 all_task_ids.append(tid)
         elif pick < 0.45:
             of = run("reserve", f"w{step % 5}")
@@ -635,7 +945,10 @@ def fuzz(seed, n_ops):
                 tid, token = f"ghost{step}", rng.randint(-5, 5)
             else:
                 tid, token = rng.choice(all_task_ids), rng.randint(-5, 5)
+            before = len(slow.dead_order)
             of = run(method, tid, token)
+            if len(slow.dead_order) - before >= 2:
+                outcomes["cascade"] = outcomes.get("cascade", 0) + 1
             if (tid, token) in retired:
                 assert of == ("err", "InvalidReservationError")          # an ended reservation never revives
             if of[0] == "ok" and method == "complete":
@@ -651,6 +964,11 @@ def fuzz(seed, n_ops):
             assert task.status == slow.status[tid] and task.token == slow.token[tid]
             assert task.attempts == slow.attempts[tid] <= max_attempts
             assert tid not in ever_completed or task.status == "completed"
+            if slow.status[tid] in ("ready", "reserved"):
+                assert all(slow.status[d] != "dead" for d in slow.deps[tid])      # nothing live waits on a dead task
+            if slow.status[tid] == "reserved":
+                assert all(slow.status[d] == "completed" for d in slow.deps[tid])
+        assert fast.dead_letters() == slow.dead_letters()
         retired.update(r for r in issued if slow.token[r[0]] != r[1])
     return outcomes
 
@@ -661,12 +979,13 @@ for seed in range(1500):
         totals[key] = totals.get(key, 0) + count
 elapsed = time.perf_counter() - start
 
-for name in ["submit:ok", "submit:err:ValueError", "reserve:ok", "reserve:none", "dead_letters:ok",
-             "complete:ok", "complete:err:UnknownTaskError", "complete:err:InvalidReservationError",
-             "fail:ok", "fail:err:UnknownTaskError", "fail:err:InvalidReservationError",
-             "requeue_dead:ok", "requeue_dead:err:UnknownTaskError", "requeue_dead:err:ValueError"]:
+for name in ["submit:ok", "submit:err:ValueError", "submit:err:UnknownTaskError", "reserve:ok", "reserve:none",
+             "dead_letters:ok", "complete:ok", "complete:err:UnknownTaskError",
+             "complete:err:InvalidReservationError", "fail:ok", "fail:err:UnknownTaskError",
+             "fail:err:InvalidReservationError", "requeue_dead:ok", "requeue_dead:err:UnknownTaskError",
+             "requeue_dead:err:ValueError", "cascade"]:
     assert totals.get(name, 0) > 50, (name, totals.get(name, 0))    # every branch fires many times
-assert elapsed < 10, elapsed                             # loose bound: 120,000 steps on two queues
+assert elapsed < 20, elapsed                             # loose bound: 120,000 steps on two queues
 
 print("all checks passed")
 ```

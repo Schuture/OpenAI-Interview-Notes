@@ -5,7 +5,7 @@
 <!-- meta:begin -->
 | Type | Priority | Difficulty | Roles | Topics | Round |
 | --- | --- | --- | --- | --- | --- |
-| System design | ★★★☆☆ | — | SWE · Infra Eng | iot, messaging, idempotency, reconciliation, telemetry | Phone screen · Onsite |
+| System design | ★★★★☆ | — | SWE · Infra Eng | iot, messaging, idempotency, reconciliation, telemetry | Phone screen · Onsite |
 <!-- meta:end -->
 
 ## Problem

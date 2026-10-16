@@ -5,7 +5,7 @@
 <!-- meta:begin -->
 | Type | Priority | Difficulty | Roles | Topics | Format | Round |
 | --- | --- | --- | --- | --- | --- | --- |
-| System design | ★★☆☆☆ | — | SWE | frontend, streaming, client-state, auth | 60 min | Onsite · Phone screen |
+| System design | ★★★☆☆ | — | SWE | frontend, streaming, client-state, auth | 60 min | Onsite · Phone screen |
 <!-- meta:end -->
 
 ## Problem

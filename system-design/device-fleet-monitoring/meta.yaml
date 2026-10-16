@@ -10,6 +10,6 @@ kind: System design
 kind_zh: 系统设计
 roles: [SWE, Infra Eng]
 topics: [iot, messaging, idempotency, reconciliation, telemetry]
-frequency: medium
+frequency: high
 stage: [phone-screen, onsite]
 order: 21

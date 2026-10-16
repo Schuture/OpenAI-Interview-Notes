@@ -5,7 +5,7 @@
 <!-- meta:begin -->
 | 题型 | 优先级 | 难度 | 岗位 | 考点 | 形式 | 轮次 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 系统设计 | ★★☆☆☆ | — | SWE | frontend, streaming, client-state, auth | 60 分钟 | 现场面 · 电话面 |
+| 系统设计 | ★★★☆☆ | — | SWE | frontend, streaming, client-state, auth | 60 分钟 | 现场面 · 电话面 |
 <!-- meta:end -->
 
 ## 题目

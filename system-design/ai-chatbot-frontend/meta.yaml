@@ -7,7 +7,7 @@ kind: System design
 kind_zh: 系统设计
 roles: [SWE]
 topics: [frontend, streaming, client-state, auth]
-frequency: low
+frequency: medium
 stage: [onsite, phone-screen]
 format: 60 min
 order: 11

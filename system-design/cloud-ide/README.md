@@ -5,7 +5,7 @@
 <!-- meta:begin -->
 | Type | Priority | Difficulty | Roles | Topics | Round |
 | --- | --- | --- | --- | --- | --- |
-| System design | ★★★☆☆ | Hard | SWE · Infra Eng · EM | sandbox, vm-lifecycle, websocket, streaming | Phone screen · Onsite |
+| System design | ★★★★☆ | Hard | SWE · Infra Eng · EM | sandbox, vm-lifecycle, websocket, streaming | Phone screen · Onsite |
 <!-- meta:end -->
 
 ## Problem
@@ -281,6 +281,18 @@ detach, attach fast enough for the 2-second path, and thin provisioning.
 - If users instead connect over SSH to a provisioned host, the SSH server supplies the PTY and a terminal
   multiplexer supplies reattachment; what remains is scheduling work across the host fleet, a separate
   design.
+- If several users share one SSH host, each gets a separate Unix account and home directory on the
+  host's volume, a cgroup per user for CPU and memory, and short-lived SSH certificates issued per
+  session by the control plane; revoking a collaborator stops issuing certificates and kills their
+  sessions, while the workspace volume stays owned by the host's creator.
+- For a 100 GB repository, a 10 GiB volume and a full clone on every start are both out: keep the
+  repository on the volume, prepare the clone and the build cache asynchronously when the workspace is
+  created (or from a prebuilt snapshot per branch), and run heavy compilation on separate build workers
+  that read the same sources and a shared remote cache, so compute scales apart from storage.
+- Walk the failure of each component in turn: a lost host reattaches the volume elsewhere and loses only
+  unsynced writes; a lost gateway costs one reconnect; a control-plane outage blocks new starts but not
+  running sessions; a block-store outage is the one that stops running workspaces, so it gets the
+  strictest SLO.
 
 <details>
 <summary>Estimate check (runnable)</summary>

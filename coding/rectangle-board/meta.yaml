@@ -1,0 +1,14 @@
+title: Rectangle Board with Undo
+title_zh: 带撤销的矩形画板
+summary: A grid board of axis-aligned rectangles built up in five parts - add, remove, undo, removing the topmost rectangle at a cell, and atomic batch removal that undo reverts as a single step - all on top of one change-log design.
+summary_zh: 分五步搭建一个放置轴对齐矩形的网格画板：添加、删除、撤销、删除某个格子处最上层的矩形，以及撤销时作为一步整体回滚的原子批量删除，全部建立在同一套变更日志设计之上。
+category: coding
+kind: Coding
+kind_zh: 编程
+roles: [SWE]
+topics: [data-structure, state-management, undo, spatial-index]
+difficulty: medium
+frequency: low
+stage: [phone-screen]
+format: 5 parts
+order: 50

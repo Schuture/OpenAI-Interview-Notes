@@ -1,0 +1,14 @@
+title: Job Scheduler Bug Hunt
+title_zh: 任务调度器找 bug
+summary: A threaded job scheduler and an asyncio one, each with three bugs behind a single user report (a raising job stuck in PENDING; submitted coroutines that never run); locate each bug, pin it down with a test, and fix it without rewriting the class.
+summary_zh: 一个线程版和一个 asyncio 版任务调度器，各藏着三个 bug，用户只报告了其中一个（抛异常的任务永远停在 PENDING；提交的协程从不运行）；逐个定位、用测试钉住、最小修复，不重写这个类。
+category: coding
+kind: Debugging · Python
+kind_zh: 调试 · Python
+roles: [SWE, Infra Eng]
+topics: [debugging, concurrency, asyncio, heap, testing]
+difficulty: medium
+frequency: rare
+stage: [onsite]
+format: 2 parts / 60 min
+order: 51
