@@ -123,42 +123,43 @@ class CycleError(ValueError):
 
 
 CELL_RE = re.compile(r'[A-Z]+[0-9]+')
-
-
-def _check_name(name):
-    if not CELL_RE.fullmatch(name):  # NOTE: not match() with '$', which also accepts 'A1\n'
-        raise FormulaError(f"not a valid cell name: {name!r}")
-
-
+# we write the whole grammar as one regex: a term, then any number of "[+-] term" blocks
 _TERM = r'(?:[A-Z]+[0-9]+|[0-9]{1,18})'
 _FORMULA_RE = re.compile(rf' *{_TERM}(?: *[+-] *{_TERM})* *')  # spaces only around terms
 _SIGNED_TERM_RE = re.compile(rf'[+-]?{_TERM}')
 
 
-def parse_formula(formula):
+def _check_name(name: str) -> None:
+    if not CELL_RE.fullmatch(name):  # warning: not match() with '$', which also accepts 'A1\n'
+        raise FormulaError(f"not a valid cell name: {name!r}")
+
+
+def parse_formula(formula: str) -> list[tuple[int, str, int | str]]:
     """Returns the formula's (sign, kind, value) terms, kind in {'NUM', 'CELL'}."""
     if not isinstance(formula, str) or not formula.startswith('='):
         raise FormulaError(f"formula must start with '=': {formula!r}")
     body = formula[1:]
-    if not _FORMULA_RE.fullmatch(body):  # NOTE: a bare term comes first, so no unary minus ("=-A1")
+    # warning: a bare term comes first, so there is no unary minus ("=-A1")
+    if not _FORMULA_RE.fullmatch(body):
         raise FormulaError(f"not a valid formula: {formula!r}")
+    # then we split the valid formula into its signed terms
     terms = []
-    for tok in _SIGNED_TERM_RE.findall(body.replace(' ', '')):
-        sign, tok = (-1, tok[1:]) if tok[0] == '-' else (1, tok.lstrip('+'))
-        terms.append((sign, 'CELL', tok) if CELL_RE.fullmatch(tok) else (sign, 'NUM', int(tok)))
+    for token in _SIGNED_TERM_RE.findall(body.replace(' ', '')):
+        sign, token = (-1, token[1:]) if token[0] == '-' else (1, token.lstrip('+'))
+        terms.append((sign, 'CELL', token) if CELL_RE.fullmatch(token) else (sign, 'NUM', int(token)))
     return terms
 
 
-def _referenced_cells(value):
+def _referenced_cells(value: int | str) -> set[str]:
     """Validates value; returns the cells its formula references (empty for a literal)."""
-    if isinstance(value, int) and not isinstance(value, bool):
+    if isinstance(value, int) and not isinstance(value, bool):  # warning: True is an int too
         return set()
     if isinstance(value, str) and value.startswith('='):
         return {item for _, kind, item in parse_formula(value) if kind == 'CELL'}
     raise FormulaError(f"neither an int nor a formula: {value!r}")
 
 
-def _eval_terms(value, lookup):
+def _eval_terms(value: int | str, lookup) -> int:
     """lookup(cell) returns the value of a cell the formula reads."""
     if isinstance(value, int):
         return value
@@ -170,29 +171,34 @@ def _eval_terms(value, lookup):
 
 class LazySpreadsheet:
     def __init__(self):
-        self.contents = {}
+        self.contents = {}  # cell -> int or formula
 
-    def set(self, name, value):
+    def set(self, name: str, value: int | str) -> None:
+        """Stores value for name. Raises FormulaError if name or value is not of the shape above."""
         _check_name(name)
-        _referenced_cells(value)  # validate now; get() parses the formula again
-        self.contents[name] = value  # NOTE: no cycle check here; get() finds cycles
+        _referenced_cells(value)  # we validate now; get() parses the formula again
+        self.contents[name] = value  # warning: no cycle check here, get() finds cycles
 
-    def get(self, name):
+    def get(self, name: str) -> int:
+        """Evaluates name, recursively reading the cells its formula references.
+        Raises CycleError if that needs a cell on a circular dependency."""
         _check_name(name)
         return self._eval(name, set(), {})
 
-    def _eval(self, name, visiting, memo):
+    def _eval(self, name: str, visiting: set[str], memo: dict[str, int]) -> int:
+        # we run a DFS: visiting is the current path, a path back into it is a cycle
+        # memo lives for one get() only, so it never goes stale, and a shared sub-cell is evaluated once
         if name in memo:
             return memo[name]
         if name in visiting:
             raise CycleError(f"circular reference through {name!r}")
         value = self.contents.get(name)
         if value is None:
-            result = 0
-        else:
-            visiting.add(name)  # NOTE: mark before recursing, so a path back to `name` is caught
-            result = _eval_terms(value, lambda c: self._eval(c, visiting, memo))
-            visiting.discard(name)  # NOTE: visiting is the current path; finished cells answer from memo
+            memo[name] = 0  # a cell never set reads as 0
+            return 0
+        visiting.add(name)  # warning: mark before recursing, so a path back to name is caught
+        result = _eval_terms(value, lambda cell: self._eval(cell, visiting, memo))
+        visiting.discard(name)  # warning: visiting is only the current path, finished cells answer from memo
         memo[name] = result
         return result
 ```
@@ -216,34 +222,44 @@ from collections import deque
 
 class Spreadsheet:
     def __init__(self):
-        self.contents = {}
-        self.cache = {}
+        self.contents = {}       # cell -> int or formula
+        self.cache = {}          # cell -> computed value
         self.dependencies = {}   # cell -> set of cells it reads
         self.dependents = {}     # cell -> set of cells that read it
 
-    def set(self, name, value):
+    def set(self, name: str, value: int | str) -> None:
+        """Same contract as LazySpreadsheet.set, but recomputes every affected cell immediately, and
+        raises CycleError (without changing anything) if value would create a circular dependency."""
+        # we check for a cycle before touching anything:
+        # value closes a cycle iff one of its references is name or already (transitively) reads name
+        # the same traversal gives the cells to recompute
         _check_name(name)
-        new_refs = _referenced_cells(value)  # raises FormulaError; touches nothing yet
-        affected = self._affected(name)      # everyone that (transitively) reads `name`, incl. itself
+        new_refs = _referenced_cells(value)  # raises FormulaError, touches nothing yet
+        affected = self._affected(name)  # everyone that (transitively) reads name, incl. itself
         if new_refs & affected:
             raise CycleError(f"{name} = {value!r} would close a cycle")
-        # NOTE: nothing above was mutated, so a rejected set needs no rollback.
+        # warning: nothing above was mutated, so a rejected set needs no rollback
 
-        for old in self.dependencies.get(name, ()):  # NOTE: drop old edges first -- otherwise a formula
-            self.dependents[old].discard(name)         #       that no longer reads X would still recompute on X
+        # first we drop the old edges
+        # warning: otherwise a formula that no longer reads X would still be recomputed on X
+        for old in self.dependencies.get(name, ()):
+            self.dependents[old].discard(name)
+        # then we add the new ones
         self.dependencies[name] = new_refs
-        for r in new_refs:
-            self.dependents.setdefault(r, set()).add(name)
+        for ref in new_refs:
+            self.dependents.setdefault(ref, set()).add(name)
         self.contents[name] = value
+        # then we recompute in topological order, so a diamond is recomputed once
         for cell in self._topological_order(affected):
             self._recompute_one(cell)
 
-    def get(self, name):
+    def get(self, name: str) -> int:
+        """O(1): returns the already-computed value of name."""
         _check_name(name)
         return self.cache.get(name, 0)
 
-    def _affected(self, name):
-        """name plus everything reachable from it by following `dependents` (who reads whom)."""
+    def _affected(self, name: str) -> set[str]:
+        """name plus everything reachable from it by following dependents (who reads whom)."""
         affected, stack = {name}, [name]
         while stack:
             cell = stack.pop()
@@ -253,24 +269,27 @@ class Spreadsheet:
                     stack.append(dep)
         return affected
 
-    def _topological_order(self, affected):
-        indegree = {c: sum(d in affected for d in self.dependencies.get(c, ())) for c in affected}
-        queue = deque(c for c in affected if not indegree[c])
+    def _topological_order(self, affected: set[str]) -> list[str]:
+        # Kahn's algorithm restricted to the affected cells
+        indegree = {cell: sum(dep in affected for dep in self.dependencies.get(cell, ())) for cell in affected}
+        queue = deque(cell for cell in affected if not indegree[cell])
         order = []
         while queue:
-            c = queue.popleft()
-            order.append(c)
-            for dep in self.dependents.get(c, ()):
+            cell = queue.popleft()
+            order.append(cell)
+            for dep in self.dependents.get(cell, ()):
                 if dep in affected:
                     indegree[dep] -= 1
                     if not indegree[dep]:
                         queue.append(dep)
         return order
 
-    def _recompute_one(self, cell):
+    def _recompute_one(self, cell: str) -> None:
         value = self.contents.get(cell)
-        self.cache[cell] = 0 if value is None else _eval_terms(
-            value, lambda c: self.cache.get(c, 0))
+        if value is None:
+            self.cache[cell] = 0  # a cell never set reads as 0
+            return
+        self.cache[cell] = _eval_terms(value, lambda ref: self.cache.get(ref, 0))  # its inputs are already computed
 ```
 
 `get` is a name check plus one dict lookup: a few hundred nanoseconds, the same on a sheet of two cells

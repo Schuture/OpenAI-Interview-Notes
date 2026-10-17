@@ -157,26 +157,29 @@ from collections import deque
 
 
 class RecentEventCounter:
-    def __init__(self, window):
+    # we keep one global FIFO of every event, plus one deque of timestamps per chat
+    # both are in timestamp order, so an event evicted from the global front is also at the front of its chat's deque
+    def __init__(self, window: int):
         self.window = window
-        self._max_ts = float('-inf')   # T: the largest timestamp recorded so far
-        self._order = deque()          # (timestamp, key), in arrival order == timestamp order here
-        self._per_key = {}             # key -> deque of timestamps, only while one is still in the window
+        self._max_ts = float('-inf')  # T: the largest timestamp recorded so far
+        self._order = deque()  # (timestamp, key), in arrival order == timestamp order here
+        self._per_key = {}  # key -> deque of timestamps, only while one is still in the window
 
-    def record_event(self, user_id, chat_id, timestamp):
-        key = (user_id, chat_id)
+    def record_event(self, user_id: str, chat_id: str, timestamp: int) -> None:
+        key = (user_id, chat_id)  # warning: chat_id is unique only within a user
         self._max_ts = max(self._max_ts, timestamp)
         self._order.append((timestamp, key))
         self._per_key.setdefault(key, deque()).append(timestamp)
+        # then we evict every event left of the window
         threshold = self._max_ts - self.window
-        while self._order and self._order[0][0] < threshold:      # NOTE: '<' -- the window's left edge is inclusive
-            ts, k = self._order.popleft()
-            bucket = self._per_key[k]
-            bucket.popleft()               # always the front of this key's own deque too -- both share one order
-            if not bucket:
-                del self._per_key[k]       # NOTE: this delete is the whole memory guarantee -- skip it and it leaks
+        while self._order and self._order[0][0] < threshold:  # warning: '<', the window's left edge is inclusive
+            _, old_key = self._order.popleft()
+            timestamps = self._per_key[old_key]
+            timestamps.popleft()  # always the front of this key's own deque too, both share one order
+            if not timestamps:
+                del self._per_key[old_key]  # warning: this delete is the whole memory guarantee, skip it and it leaks
 
-    def recent_count(self, user_id, chat_id):
+    def recent_count(self, user_id: str, chat_id: str) -> int:
         return len(self._per_key.get((user_id, chat_id), ()))
 ```
 
@@ -190,37 +193,43 @@ class RecentEventCounter:
 
 ```python
 class SessionActivityTracker:
-    def __init__(self, window):
+    # we schedule only pings for eviction, a close takes effect at once
+    # a chat is active iff its key is in _last_ping, and _active_count moves by one whenever that flips
+    def __init__(self, window: int):
         self.window = window
         self._max_ts = float('-inf')
-        self._last_ping = {}         # (user_id, chat_id) -> timestamp; present iff currently active
-        self._ping_queue = deque()   # (timestamp, user_id, chat_id), in arrival order
-        self._active_count = {}      # user_id -> number of active chats; absent means 0
+        self._last_ping = {}  # (user_id, chat_id) -> timestamp, present iff currently active
+        self._ping_queue = deque()  # (timestamp, user_id, chat_id), in arrival order
+        self._active_count = {}  # user_id -> number of active chats, absent means 0
 
-    def record(self, user_id, chat_id, event_type, timestamp):
+    def _deactivate(self, user_id):
+        self._active_count[user_id] -= 1
+        if self._active_count[user_id] == 0:
+            del self._active_count[user_id]  # warning: the invariant Part 2 asks for
+
+    def record(self, user_id: str, chat_id: str, event_type: str, timestamp: int) -> None:
         self._max_ts = max(self._max_ts, timestamp)
         key = (user_id, chat_id)
+        # first we apply the event itself
         if event_type == 'ping':
-            if key not in self._last_ping:                    # NOTE: only a *new* activation bumps the count
+            if key not in self._last_ping:  # warning: only a *new* activation bumps the count
                 self._active_count[user_id] = self._active_count.get(user_id, 0) + 1
             self._last_ping[key] = timestamp
             self._ping_queue.append((timestamp, user_id, chat_id))
         else:  # 'close'
-            if self._last_ping.pop(key, None) is not None:   # NOTE: in order, a close always supersedes
-                self._active_count[user_id] -= 1               # a ping already recorded for this key
-                if self._active_count[user_id] == 0:
-                    del self._active_count[user_id]           # NOTE: the invariant Part 2 asks for
+            # warning: in order, a close always supersedes a ping already recorded for this key
+            if self._last_ping.pop(key, None) is not None:
+                self._deactivate(user_id)
+        # then the pings left of the window expire
         threshold = self._max_ts - self.window
         while self._ping_queue and self._ping_queue[0][0] < threshold:
-            ts, uid, cid = self._ping_queue.popleft()
-            k = (uid, cid)
-            if self._last_ping.get(k) == ts:      # NOTE: else stale -- a later ping or close replaced it
-                del self._last_ping[k]
-                self._active_count[uid] -= 1
-                if self._active_count[uid] == 0:
-                    del self._active_count[uid]
+            ts, old_user, old_chat = self._ping_queue.popleft()
+            old_key = (old_user, old_chat)
+            if self._last_ping.get(old_key) == ts:  # warning: else stale, a later ping or close replaced it
+                del self._last_ping[old_key]
+                self._deactivate(old_user)
 
-    def active_sessions(self, user_id):
+    def active_sessions(self, user_id: str) -> int:
         return self._active_count.get(user_id, 0)
 ```
 
@@ -247,48 +256,56 @@ NEG_INF = float('-inf')
 
 
 class OutOfOrderSessionTracker:
-    def __init__(self, window):
+    # we keep two running maxima per chat, last_ping and last_close, so the arrival order does not matter
+    # active iff last_ping >= now - window and last_close <= last_ping
+    # a chat can be forgotten once max(last_ping, last_close) + window < C
+    # one min-heap keyed by that forget_at time evicts both: a counted chat is deactivated, any chat is dropped
+    def __init__(self, window: int):
         self.window = window
-        self._clock = NEG_INF   # C: the largest `now` or `timestamp` seen so far
-        self._chat = {}         # (user_id, chat_id) -> (last_ping, last_close, counted)
-        self._active_count = {}
-        self._heap = []         # (forget_at, user_id, chat_id, last_ping, last_close); may go stale
+        self._clock = NEG_INF  # C: the largest `now` or `timestamp` seen so far
+        self._chat = {}  # (user_id, chat_id) -> (last_ping, last_close, counted)
+        self._active_count = {}  # user_id -> number of active chats, absent means 0
+        self._heap = []  # (forget_at, user_id, chat_id, last_ping, last_close), may go stale
 
-    def record(self, user_id, chat_id, event_type, timestamp):
+    def _add_count(self, user_id, delta):
+        self._active_count[user_id] = self._active_count.get(user_id, 0) + delta
+        if self._active_count[user_id] == 0:
+            del self._active_count[user_id]
+
+    def record(self, user_id: str, chat_id: str, event_type: str, timestamp: int) -> None:
         if timestamp < self._clock - self.window:
-            return                    # NOTE: rule 3 -- drop it before it costs a heap push
+            return  # warning: rule 3, drop it before it costs a heap push
         key = (user_id, chat_id)
         last_ping, last_close, counted = self._chat.get(key, (NEG_INF, NEG_INF, False))
+        # first we update the running maxima
         if event_type == 'ping':
             last_ping = max(last_ping, timestamp)
         else:
             last_close = max(last_close, timestamp)
-        ping_dominant = last_close <= last_ping   # NOTE: ties go to ping, and unlike Part 2 on the two
-        if ping_dominant != counted:              # timestamps alone, never on the order they arrived in
+        # warning: ties go to ping, and unlike Part 2 on the two timestamps alone, never on the order they arrived in
+        ping_dominant = last_close <= last_ping
+        if ping_dominant != counted:
             counted = ping_dominant
-            self._active_count[user_id] = self._active_count.get(user_id, 0) + (1 if counted else -1)
-            if self._active_count[user_id] == 0:
-                del self._active_count[user_id]
+            self._add_count(user_id, 1 if counted else -1)
         self._chat[key] = (last_ping, last_close, counted)
+        # then we schedule when the chat can be forgotten
         forget_at = (last_ping if ping_dominant else last_close) + self.window
         heapq.heappush(self._heap, (forget_at, user_id, chat_id, last_ping, last_close))
-        self._advance(timestamp)      # NOTE: ingest evicts too -- without this a query-free stream leaks
+        self._advance(timestamp)  # warning: ingest evicts too, without this a query-free stream leaks
 
     def _advance(self, t):
         self._clock = max(self._clock, t)
         while self._heap and self._heap[0][0] < self._clock:
-            _, user_id, chat_id, ping_v, close_v = heapq.heappop(self._heap)
+            _, user_id, chat_id, last_ping, last_close = heapq.heappop(self._heap)
             key = (user_id, chat_id)
-            cur = self._chat.get(key)
-            if cur is None or cur[0] != ping_v or cur[1] != close_v:
-                continue                                 # stale: a later record() already replaced this
-            if cur[2]:                                   # was still counted -- its ping just aged out
-                self._active_count[user_id] -= 1
-                if self._active_count[user_id] == 0:
-                    del self._active_count[user_id]
-            del self._chat[key]                          # safe either way, per the derivation above
+            current = self._chat.get(key)
+            if current is None or current[:2] != (last_ping, last_close):
+                continue  # stale: a later record() already replaced this
+            if current[2]:  # was still counted, its ping just aged out
+                self._add_count(user_id, -1)
+            del self._chat[key]  # safe either way, per the derivation above
 
-    def active_sessions(self, user_id, now):
+    def active_sessions(self, user_id: str, now: int) -> int:
         self._advance(now)
         return self._active_count.get(user_id, 0)
 ```

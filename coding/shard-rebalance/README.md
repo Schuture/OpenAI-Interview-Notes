@@ -154,50 +154,55 @@ single shard raises its coverage from $0$ to $1$.
 ```python
 import heapq
 
-NEG_INF = float('-inf')
-
 
 class Shard:
-    def __init__(self, id, start, end):
+    def __init__(self, id: str, start: int, end: int):
         self.id, self.start, self.end = id, start, end
 
     def __repr__(self):
         return f"Shard({self.id!r}, {self.start}, {self.end})"
 
 
-def rebalance(limit, shards):
+def rebalance(limit: int, shards: list[Shard]) -> list[Shard]:
+    """limit >= 1. Returns the surviving shards. A surviving shard's start is >= its original
+    start and its end is >= its original end -- never the other way around."""
+    # we see the shift rule as the greedy that gives each job to the earliest free of `limit` machines
+    # a machine is busy on every key before its free key, so a shard starts at max(start, earliest free key)
+    # if that start is past the end, every key of the shard already has coverage `limit`: we drop it
     if not shards:
         return []
-    order = sorted(shards, key=lambda sh: (sh.start, sh.end, sh.id))
+    ordered_shards = sorted(shards, key=lambda sh: (sh.start, sh.end, sh.id))
 
-    free_times = []    # min-heap of "next free key" for machines in use; size <= limit
+    # first we shift or drop each shard
+    free_keys = []  # min-heap of "next free key" for the machines in use; size <= limit
     kept = []
-    for sh in order:
-        if len(free_times) < limit:
-            t_min = NEG_INF                       # an unused machine: always free
+    for sh in ordered_shards:
+        if len(free_keys) < limit:
+            earliest_free = sh.start  # an unused machine is always free
         else:
-            t_min = heapq.heappop(free_times)
-        new_start = sh.start if t_min <= sh.start else t_min
+            earliest_free = heapq.heappop(free_keys)
+        new_start = max(sh.start, earliest_free)
         if new_start > sh.end:
-            if t_min != NEG_INF:
-                heapq.heappush(free_times, t_min)  # NOTE: hand the machine back unused, don't drop it
+            heapq.heappush(free_keys, earliest_free)  # warning: hand the machine back unused, don't drop it
             continue
-        kept.append(Shard(sh.id, new_start, sh.end))
-        heapq.heappush(free_times, sh.end + 1)
+        kept.append(Shard(sh.id, new_start, sh.end))  # warning: a new Shard, the input is not mutated
+        heapq.heappush(free_keys, sh.end + 1)
 
     if not kept:
         return []
 
-    # Gap fill: scan the kept shards in (start, end, id) order of their step-4 ranges.
+    # then we fill the gaps: scan the kept shards in (start, end, id) order of their step-4 ranges
     kept.sort(key=lambda sh: (sh.start, sh.end, sh.id))
-    frontier = kept[0].start - 1        # NOTE: the very first PROCESSED shard is never shifted (the
-    frontier_owner = None               #       heap starts empty), so kept[0].start == min(all starts)
+    # warning: the very first processed shard is never shifted (the heap starts empty),
+    # so kept[0].start == min(all starts) and the first iteration never sees a hole
+    frontier = kept[0].start - 1  # the largest key covered so far
+    frontier_owner = None  # the kept shard that reaches the frontier
     for sh in kept:
         if sh.start > frontier + 1:
-            frontier_owner.end = sh.start - 1     # NOTE: only stretches over keys with coverage 0
-        if sh.end > frontier:           # NOTE: strict '>': ties go to the smallest (start, id)
+            frontier_owner.end = sh.start - 1  # warning: only stretches over keys with coverage 0
+        if sh.end > frontier:  # warning: strict '>', ties go to the smallest (start, id)
             frontier, frontier_owner = sh.end, sh
-    # NOTE: no hole after the last kept shard -- the largest input end is always covered
+    # warning: no hole after the last kept shard, the largest input end is always covered
 
     kept.sort(key=lambda sh: (sh.start, sh.end, sh.id))
     return kept
@@ -234,43 +239,44 @@ import bisect
 import hashlib
 
 
-def _ring_hash(text):
-    return int(hashlib.md5(text.encode()).hexdigest(), 16)
+def ring_hash(text: str) -> int:
+    return int(hashlib.md5(text.encode()).hexdigest(), 16)  # warning: not hash(), PYTHONHASHSEED changes it
 
 
 class ShardRouter:
-    def __init__(self, num_vnodes=150):
+    def __init__(self, num_vnodes: int = 150):
         self.num_vnodes = num_vnodes
-        self._ring_hashes = []     # sorted
-        self._ring_owner = []      # _ring_owner[i] owns _ring_hashes[i]
-        self._shards = set()
+        self.ring_hashes = []  # sorted
+        self.ring_owners = []  # ring_owners[i] owns ring_hashes[i]
+        self.shards = set()
 
-    def add_shard(self, shard_id):
-        if shard_id in self._shards:
+    def add_shard(self, shard_id: str) -> None:
+        if shard_id in self.shards:
             raise ValueError(f"shard already present: {shard_id}")
-        self._shards.add(shard_id)
+        self.shards.add(shard_id)
         for v in range(self.num_vnodes):
-            h = _ring_hash(f"{shard_id}#{v}")
-            i = bisect.bisect_left(self._ring_hashes, h)
-            self._ring_hashes.insert(i, h)          # NOTE: O(T) per insertion -- a plain sorted list
-            self._ring_owner.insert(i, shard_id)
+            h = ring_hash(f"{shard_id}#{v}")
+            i = bisect.bisect_left(self.ring_hashes, h)
+            self.ring_hashes.insert(i, h)  # warning: O(T) per insertion, a plain sorted list
+            self.ring_owners.insert(i, shard_id)
 
-    def remove_shard(self, shard_id):
-        if shard_id not in self._shards:
+    def remove_shard(self, shard_id: str) -> None:
+        if shard_id not in self.shards:
             raise ValueError(f"no such shard: {shard_id}")
-        self._shards.discard(shard_id)
-        keep = [(h, o) for h, o in zip(self._ring_hashes, self._ring_owner) if o != shard_id]
-        self._ring_hashes = [h for h, _ in keep]
-        self._ring_owner = [o for _, o in keep]
+        self.shards.discard(shard_id)
+        # we rebuild both lists in one linear pass
+        kept_vnodes = [(h, owner) for h, owner in zip(self.ring_hashes, self.ring_owners) if owner != shard_id]
+        self.ring_hashes = [h for h, _ in kept_vnodes]
+        self.ring_owners = [owner for _, owner in kept_vnodes]
 
-    def locate(self, key):
-        if not self._ring_hashes:
+    def locate(self, key: int) -> str:
+        if not self.ring_hashes:
             raise LookupError("locate() called with no shards")
-        h = _ring_hash(str(key))
-        i = bisect.bisect_left(self._ring_hashes, h)
-        if i == len(self._ring_hashes):
-            i = 0                                   # wrap past the largest hash
-        return self._ring_owner[i]
+        # the owner is the first vnode at or after the key's hash, clockwise
+        i = bisect.bisect_left(self.ring_hashes, ring_hash(str(key)))
+        if i == len(self.ring_hashes):
+            i = 0  # wrap past the largest hash
+        return self.ring_owners[i]
 ```
 
 `locate` is $O(\log T)$ for a ring of $T$ vnodes total. `add_shard` does `num_vnodes` separate
@@ -343,7 +349,7 @@ def check_properties(limit, shards, out):
     by_id = {s.id: s for s in shards}
     for sh in out:
         orig = by_id[sh.id]
-        assert sh.start >= orig.start and sh.end >= orig.end, (sh, orig)   # NOTE: truncate then extend only
+        assert sh.start >= orig.start and sh.end >= orig.end, (sh, orig)   # warning: truncate then extend only
     lo, hi = min(s.start for s in shards), max(s.end for s in shards)
     for k in range(lo, hi + 1):
         cov = sum(1 for sh in out if sh.start <= k <= sh.end)

@@ -259,7 +259,7 @@ n, reps = 2_000, 400
 scaled_ks = np.array([math.sqrt(n) * stats.kstest(flashes(n), cdf).statistic for _ in range(reps)])
 assert abs(scaled_ks.mean() - math.sqrt(math.pi / 2) * math.log(2)) < 0.05     # the Kolmogorov limit law
 assert abs(np.mean(scaled_ks > stats.kstwobign.ppf(0.95)) - 0.05) < 0.03
-big = 50_000                                                                   # NOTE: negative control
+big = 50_000                                                                   # warning: negative control
 wrong = math.sqrt(big) * stats.kstest(flashes(big), lambda x: cdf(x, scale=1.3 * D)).statistic
 assert math.isclose(wrong / math.sqrt(big), 2 * math.atan(math.sqrt(1.3)) / math.pi - 0.5, rel_tol=0.2)
 assert wrong > 3 * scaled_ks.max()
@@ -310,7 +310,7 @@ def newton_mle(sample, theta, steps=12):
         score = (2 * r / u).sum(axis=1) / D                                   # l'(theta)
         curvature = (2 * (1 - r * r) / (u * u)).sum(axis=1) / D ** 2          # -l''(theta)
         step = np.where(curvature > 0, score / np.maximum(curvature, 1e-12), np.sign(score) * D)
-        theta = theta + np.clip(step, -4 * D, 4 * D)       # NOTE: -l'' turns negative far from the root
+        theta = theta + np.clip(step, -4 * D, 4 * D)       # warning: -l'' turns negative far from the root
     return theta
 
 

@@ -409,7 +409,7 @@ assert cross_entropy_smoothed(logits_ex, targets_ex, mask_ex, eps4) > H_p     # 
 
 
 def numerical_grad(f, x, eps_fd=1e-6):
-    # NOTE: eps_fd is tuned for float64; the same eps_fd in float32 loses ~4 orders of magnitude to
+    # warning: eps_fd is tuned for float64; the same eps_fd in float32 loses ~4 orders of magnitude to
     # cancellation (checked below), so finite differences must run in float64 even if logits are float32
     g = np.zeros_like(x)
     it = np.nditer(x, flags=['multi_index'])

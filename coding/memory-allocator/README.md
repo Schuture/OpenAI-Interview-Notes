@@ -94,37 +94,43 @@ with value `size`, which is the three rejected conditions in one check.
 
 ```python
 class MemoryAllocator:
-    def __init__(self, capacity):
+    def __init__(self, capacity: int) -> None:
         if capacity <= 0:
             raise ValueError("capacity must be positive")
-        self.gaps = [[0, capacity]]        # NOTE: not self.free -- would shadow the free() method below
-        self.allocated = {}                # address -> size, for validating free()
+        self.gaps = [[0, capacity]]  # [start, size] of each free block, sorted by start
+        # warning: not self.free, it would shadow the free() method below
+        self.allocated = {}  # address -> size, for validating free()
 
-    def allocate(self, size):
+    def allocate(self, size: int) -> int:
         if size <= 0:
             raise ValueError("size must be positive")
-        for gap in self.gaps:              # NOTE: linear scan; the first block with enough room wins
+        # we scan from the left, so the first block with enough room wins (first fit)
+        for gap in self.gaps:
             if gap[1] >= size:
                 start = gap[0]
                 if gap[1] == size:
                     self.gaps.remove(gap)
-                else:
+                else:  # the rest of the block stays free
                     gap[0] += size
                     gap[1] -= size
                 self.allocated[start] = size
                 return start
         raise MemoryError(f"no free block of size >= {size}")
 
-    def free(self, address, size):
+    def free(self, address: int, size: int) -> None:
+        # one check covers an unknown address, a double free and a wrong size
         if size <= 0 or self.allocated.get(address) != size:
             raise ValueError(f"invalid free({address}, {size})")
         del self.allocated[address]
+        # first we find i, the first gap starting after address
+        # so gaps[i - 1] is the only possible left neighbour and gaps[i] the only possible right one
         i = 0
         while i < len(self.gaps) and self.gaps[i][0] < address:
             i += 1
-        # NOTE: read both flags first -- merging into gaps[i - 1] must not disturb index i below
+        # warning: read both flags first, merging into gaps[i - 1] must not disturb index i below
         merge_left = i > 0 and self.gaps[i - 1][0] + self.gaps[i - 1][1] == address
         merge_right = i < len(self.gaps) and address + size == self.gaps[i][0]
+        # then the four merge cases
         if merge_left and merge_right:
             self.gaps[i - 1][1] += size + self.gaps[i][1]
             del self.gaps[i]
@@ -166,20 +172,28 @@ max-size augmentation are all $O(\log n)$ in expectation too.
 ```python
 import random
 
+# we keep the free blocks in a treap keyed by start address, so merging in free() is O(log n)
+# every node also stores max_size, the largest block size in its subtree
+# so first fit walks down: left subtree if its max_size is enough (smaller addresses), else this node, else right
+
 
 class _Node:
     __slots__ = ("start", "size", "priority", "left", "right", "max_size")
 
     def __init__(self, start, size):
         self.start, self.size, self.max_size = start, size, size
-        self.priority = random.random()        # NOTE: random priorities -> balanced in expectation
+        self.priority = random.random()  # warning: random priorities, so the tree is balanced in expectation
         self.left = self.right = None
 
-def _pull(node):                                # recompute the augmentation from the two children
-    node.max_size = max(node.size, node.left.max_size if node.left else 0,
-                         node.right.max_size if node.right else 0)
 
-def _merge(a, b):                               # every key in a is < every key in b; max-heap on priority
+def _pull(node):
+    # we recompute the augmentation from the two children
+    node.max_size = max(node.size, node.left.max_size if node.left else 0,
+                        node.right.max_size if node.right else 0)
+
+
+def _merge(a, b):
+    # every key in a is < every key in b; we keep a max-heap on priority
     if a is None or b is None:
         return a or b
     if a.priority > b.priority:
@@ -190,7 +204,9 @@ def _merge(a, b):                               # every key in a is < every key 
     _pull(b)
     return b
 
-def _split(node, key):                          # -> (start <= key, start > key), same relative order
+
+def _split(node, key):
+    # => (start <= key, start > key), each in the same relative order
     if node is None:
         return None, None
     if node.start <= key:
@@ -203,23 +219,29 @@ def _split(node, key):                          # -> (start <= key, start > key)
     _pull(node)
     return lo, node
 
+
 def _insert(root, start, size):
     lo, hi = _split(root, start)
     return _merge(_merge(lo, _Node(start, size)), hi)
 
+
 def _delete(root, start):
-    lo, hi = _split(root, start)                # lo: start <= key, hi: start > key
-    lo2, _mid = _split(lo, start - 1)           # NOTE: unique keys -> isolates exactly one node
+    lo, hi = _split(root, start)  # lo: start <= key, hi: start > key
+    lo2, _mid = _split(lo, start - 1)  # warning: keys are unique, so this isolates exactly one node
     return _merge(lo2, hi)
 
-def _first_fit(node, size):                     # leftmost node with size >= `size`, else None
+
+def _first_fit(node, size):
+    # the leftmost node with size >= `size`, else None
     if node is None or node.max_size < size:
         return None
-    if node.left and node.left.max_size >= size:    # NOTE: left subtree only has smaller addresses
+    if node.left and node.left.max_size >= size:  # warning: the left subtree only has smaller addresses
         return _first_fit(node.left, size)
     return node if node.size >= size else _first_fit(node.right, size)
 
-def _neighbours(node, key):                     # (predecessor, successor) of `key`, one walk down
+
+def _neighbours(node, key):
+    # (predecessor, successor) of `key`, in one walk down
     pred = succ = None
     while node:
         if node.start < key:
@@ -230,13 +252,13 @@ def _neighbours(node, key):                     # (predecessor, successor) of `k
 
 
 class MemoryAllocatorLog:
-    def __init__(self, capacity):
+    def __init__(self, capacity: int) -> None:
         if capacity <= 0:
             raise ValueError("capacity must be positive")
-        self._free = _Node(0, capacity)         # treap root; None once memory is exhausted
-        self.allocated = {}                     # address -> size, for validating free()
+        self._free = _Node(0, capacity)  # treap root, None once memory is exhausted
+        self.allocated = {}  # address -> size, for validating free()
 
-    def allocate(self, size):
+    def allocate(self, size: int) -> int:
         if size <= 0:
             raise ValueError("size must be positive")
         node = _first_fit(self._free, size)
@@ -244,15 +266,16 @@ class MemoryAllocatorLog:
             raise MemoryError(f"no free block of size >= {size}")
         start = node.start
         self._free = _delete(self._free, start)
-        if node.size > size:
+        if node.size > size:  # the rest of the block stays free
             self._free = _insert(self._free, start + size, node.size - size)
         self.allocated[start] = size
         return start
 
-    def free(self, address, size):
+    def free(self, address: int, size: int) -> None:
         if size <= 0 or self.allocated.get(address) != size:
             raise ValueError(f"invalid free({address}, {size})")
         del self.allocated[address]
+        # Part 1's four merge cases are one predecessor and one successor lookup
         pred, succ = _neighbours(self._free, address)
         start, total = address, size
         if pred is not None and pred.start + pred.size == address:
@@ -450,7 +473,7 @@ print("random cross-check against the byte-array oracle: OK (400 trials x 60 ops
 
 import time
 
-# NOTE: capacity this large rules out the byte-array oracle above (it would need a ~1GB bytearray);
+# warning: capacity this large rules out the byte-array oracle above (it would need a ~1GB bytearray);
 # check conservation of space and elapsed time instead, since n (the free-block count) is what O(log n) is measured in
 capacity = 10 ** 9
 big = MemoryAllocatorLog(capacity)

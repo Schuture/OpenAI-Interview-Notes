@@ -171,13 +171,13 @@ $O(E)$——加起来就是 $O((N + E) \log N)$ 的时间，以及给堆和依�
 
 ```python
 import heapq
-from typing import List, Tuple, NamedTuple, Sequence
+from typing import List, NamedTuple, Sequence, Tuple
 
 
 class ToolCall(NamedTuple):
     tool_id: int
-    duration: int
-    deps: Sequence[int] = ()
+    duration: int              # 1 .. 10**9
+    deps: Sequence[int] = ()   # other tool_id's belonging to the SAME agent, all required first
 
 
 class CycleError(Exception):
@@ -187,39 +187,45 @@ class CycleError(Exception):
 def _event_driven_schedule(tasks, capacity):
     """tasks: list of (agent_id, ToolCall); every dependency of a call is another tool_id sharing
     that same agent_id. `capacity` slots are shared by everything in `tasks`."""
-    n = len(tasks)
-    pos = {(agent_id, call.tool_id): i for i, (agent_id, call) in enumerate(tasks)}
-    indegree = [0] * n
-    dependents: List[List[int]] = [[] for _ in range(n)]
+    # we keep a ready heap of (agent_id, tool_id, i) and a running heap of (finish, agent_id, tool_id, i)
+    # we fill free slots from ready, otherwise jump to the next finish time and release every call finishing there
+    # so the number of steps is bounded by N, not by the durations (up to 10**9)
+    # a cycle shows up as both heaps empty while calls remain unscheduled (Kahn's algorithm)
+    n_tasks = len(tasks)
+    position = {(agent_id, call.tool_id): i for i, (agent_id, call) in enumerate(tasks)}
+    indegree = [0] * n_tasks
+    dependents: List[List[int]] = [[] for _ in range(n_tasks)]
     for i, (agent_id, call) in enumerate(tasks):
         for dep in call.deps:
-            j = pos[(agent_id, dep)]        # NOTE: KeyError here means a dep id outside this agent
+            j = position[(agent_id, dep)]  # warning: a KeyError here means a dep id outside this agent
             dependents[j].append(i)
             indegree[i] += 1
 
-    ready = [(agent_id, call.tool_id, i)
-             for i, (agent_id, call) in enumerate(tasks) if indegree[i] == 0]
+    ready = [(agent_id, call.tool_id, i) for i, (agent_id, call) in enumerate(tasks) if indegree[i] == 0]
     heapq.heapify(ready)
     running: List[Tuple[int, int, int, int]] = []
     starts: List[Tuple[int, int, int]] = []
-    free, scheduled, now, makespan = capacity, 0, 0, 0
+    n_free, n_scheduled, now, makespan = capacity, 0, 0, 0
 
-    while scheduled < n:
-        while free > 0 and ready:                       # NOTE: drain before ever advancing `now`
+    while n_scheduled < n_tasks:
+        # first we start ready calls, warning: drain before ever advancing `now`
+        while n_free > 0 and ready:
             agent_id, tool_id, i = heapq.heappop(ready)
             starts.append((now, agent_id, tool_id))
-            free, scheduled = free - 1, scheduled + 1
+            n_free, n_scheduled = n_free - 1, n_scheduled + 1
             finish = now + tasks[i][1].duration
             makespan = max(makespan, finish)
             heapq.heappush(running, (finish, agent_id, tool_id, i))
-        if scheduled == n:
+        if n_scheduled == n_tasks:
             break
         if not running:
             raise CycleError("some tool calls can never become ready")
+
+        # then we jump to the next finish time, warning: release EVERY call finishing at `now`
         now = running[0][0]
-        while running and running[0][0] == now:          # release EVERY call finishing at `now`
+        while running and running[0][0] == now:
             _, agent_id, tool_id, i = heapq.heappop(running)
-            free += 1
+            n_free += 1
             for j in dependents[i]:
                 indegree[j] -= 1
                 if indegree[j] == 0:
@@ -228,8 +234,9 @@ def _event_driven_schedule(tasks, capacity):
     return starts, makespan
 
 
-def schedule_agent(calls: List[ToolCall], capacity: int):
-    return _event_driven_schedule([(0, c) for c in calls], capacity)
+def schedule_agent(calls: List[ToolCall], capacity: int) -> Tuple[List[Tuple[int, int, int]], int]:
+    """Every triple in the returned list has agent_id == 0. Returns ([], 0) for an empty `calls`."""
+    return _event_driven_schedule([(0, call) for call in calls], capacity)
 ```
 
 ### Part 2
@@ -241,14 +248,19 @@ def schedule_agent(calls: List[ToolCall], capacity: int):
 `start_time` 交织在一起，不是任何一次调用自己会做的事。
 
 ```python
-def schedule_agents_independently(agents: List[List[ToolCall]], capacities: List[int]):
+def schedule_agents_independently(
+    agents: List[List[ToolCall]], capacities: List[int]
+) -> Tuple[List[Tuple[int, int, int]], int]:
+    """agents[a] is agent a's own calls, scheduled exactly as schedule_agent would schedule them on
+    their own under capacities[a]. Returns every started call across every agent, and the largest of
+    the per-agent makespans."""
     all_starts: List[Tuple[int, int, int]] = []
     makespan = 0
     for agent_id, (calls, capacity) in enumerate(zip(agents, capacities)):
-        starts, agent_makespan = _event_driven_schedule([(agent_id, c) for c in calls], capacity)
+        starts, agent_makespan = _event_driven_schedule([(agent_id, call) for call in calls], capacity)
         all_starts.extend(starts)
         makespan = max(makespan, agent_makespan)
-    all_starts.sort()                  # NOTE: needed here; each agent's own starts were already sorted
+    all_starts.sort()  # warning: needed here, each agent's own starts were sorted but not the merged timelines
     return all_starts, makespan
 ```
 
@@ -261,7 +273,12 @@ def schedule_agents_independently(agents: List[List[ToolCall]], capacities: List
 记录交织好了。
 
 ```python
-def schedule_agents_global(agents: List[List[ToolCall]], capacity: int):
+def schedule_agents_global(
+    agents: List[List[ToolCall]], capacity: int
+) -> Tuple[List[Tuple[int, int, int]], int]:
+    """Same `agents` shape as schedule_agents_independently, but one `capacity` shared by all of
+    them."""
+    # the engine with every agent's calls in one list under one shared capacity; no merge is needed
     tasks = [(agent_id, call) for agent_id, calls in enumerate(agents) for call in calls]
     return _event_driven_schedule(tasks, capacity)
 ```
@@ -325,7 +342,7 @@ def brute_force_schedule(agents, capacity, max_ticks=5000):
         ready_now = sorted(
             (i for i in range(n)
              if not started[i] and all(d in finished_ids[flat[i][0]] for d in flat[i][1].deps)),
-            key=lambda i: (flat[i][0], flat[i][1].tool_id),   # NOTE: by id, never by list position
+            key=lambda i: (flat[i][0], flat[i][1].tool_id),   # warning: by id, never by list position
         )
         for i in ready_now:
             if free == 0:
@@ -373,12 +390,12 @@ def assert_work_conserving(agents, capacity, starts, makespan):
     contested = False
     for tt in range(makespan + 1):
         running = sum(1 for k, st in start_of.items() if st <= tt < finish_of[k])
-        free_now = capacity - running          # NOTE: `running` already counts whatever started at tt
+        free_now = capacity - running          # warning: `running` already counts whatever started at tt
         eligible_waiting = sum(
             1 for k in start_of
             if start_of[k] > tt and all(finish_of[(k[0], d)] <= tt for d in deps[k])
         )
-        # NOTE: "some call started at tt" is far too weak -- with two free slots and three ready calls,
+        # warning: "some call started at tt" is far too weak -- with two free slots and three ready calls,
         # starting exactly one of them would pass that and still idle a slot.
         assert free_now == 0 or eligible_waiting == 0, (tt, free_now, eligible_waiting)
         contested |= eligible_waiting > 0

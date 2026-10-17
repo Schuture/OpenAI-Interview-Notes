@@ -348,7 +348,7 @@ def moves(w, bug, timing):
         out.append(("", w._replace(ups=at("dead", g, spool, 0))))                 # the call dies for good
         if retries:
             out.append(("", w._replace(ups=at("hash", 0, None, retries - 1))))  # dies; the client retries
-        if step == "hash":                             # NOTE: one read of staging both hashes and spools
+        if step == "hash":                             # warning: one read of staging both hashes and spools
             data = w.staging if u == 0 else GOOD
             out.append(("", w._replace(ups=at("claim" if data == GOOD else "other", 0, data, retries))))
         elif step == "claim" and u in w.done:          # a retry finds Upload.image_id already set
@@ -357,7 +357,7 @@ def moves(w, bug, timing):
                                   or (state == "deleted" and bug == "revive_deleted_in_place")):
             out.append(("revive" if state != "committed" else "",
                         w._replace(row=("committed", gen, refs + 1), ups=at("done", gen, spool, retries), **link)))
-        elif step == "claim" and state in ("absent", "deleted"):   # NOTE: never reuse a tombstoned generation
+        elif step == "claim" and state in ("absent", "deleted"):   # warning: never reuse a tombstoned generation
             out.append(("new generation",
                         w._replace(row=("pending", gen + 1, 0), ups=at("write", gen + 1, spool, retries))))
         elif step == "claim":                          # pending: write and commit that same generation
@@ -374,7 +374,7 @@ def moves(w, bug, timing):
 
     for d, img in (("C1", "C"), ("C2", "C"), ("A", "A")):
         if d not in w.dels:
-            hit = img in w.images or bug == "blind_decrement"  # NOTE: decrement only if a row was deleted
+            hit = img in w.images or bug == "blind_decrement"  # warning: decrement only if a row was deleted
             row = ("deleting" if refs == 1 else state, gen, refs - 1) if hit else w.row
             out.append(("" if hit else "no-op delete",
                         w._replace(row=row, images=w.images - {img}, dels=w.dels | {d})))
@@ -389,7 +389,7 @@ def moves(w, bug, timing):
         if ripe and bug in ("stale_tombstone", "delete_before_tombstone"):    # split into two steps
             early = drop(w.objects, key(gen, bug)) if bug == "delete_before_tombstone" else w.objects
             out.append(("", sw("tombstone", gen, crashes, objects=early)))
-        elif ripe:                                     # NOTE: conditional tombstone + enqueue, one transaction
+        elif ripe:                                     # warning: conditional tombstone + enqueue, one transaction
             out.append(("", sw("idle", 0, crashes, row=("deleted", gen, 0), gc=w.gc | {gen},
                                budget=w.budget - 1)))
         for q in w.gc:
@@ -400,7 +400,7 @@ def moves(w, bug, timing):
                                budget=w.budget - 1)))
         else:
             out.append(("", sw("idle", 0, crashes)))
-    elif step == "purge":                              # NOTE: delete the object first, its queue row after
+    elif step == "purge":                              # warning: delete the object first, its queue row after
         gone = not any(k == key(g, bug) for k, _ in w.objects)
         label = "repeat purge" if gone else "late purge" if gen > g and state == "committed" else ""
         if bug == "dequeue_first":

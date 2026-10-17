@@ -126,18 +126,36 @@ $k = 0$ 时返回 `[]`，在 $k > t$ 时返回 `None`；只要有一个维度不
 唯一性成立；而经过这 $k$ 轮，每个标注员也恰好拿到了 $k$ 个任务。
 
 ```python
-def build_basic_schedule(t, m, h, k):
+from typing import Callable, List, Optional, Tuple
+
+Assignment = Tuple[int, int, int]  # (task, model, human)
+
+
+def build_schedule(t: int, m: int, h: int, k: int,
+                   pick_model: Callable[[int, int], int]) -> Optional[List[Assignment]]:
+    """The engine of all three parts: pick_model(task, human) chooses the model of each assignment."""
+    # we need k <= t, since uniqueness allows a human at most one assignment per task
     if t <= 0 or m <= 0 or h <= 0:
         return None
     if k == 0:
         return []
     if k > t:
         return None
+    # round r gives human u the task (u + r) % t: k <= t consecutive residues, so the k tasks of a human differ
+    # every human gets exactly k assignments, h * k in total, which is minimal
     schedule = []
     for r in range(k):
         for u in range(h):
-            schedule.append(((u + r) % t, 0, u))   # NOTE: model is unconstrained in Part 1; 0 is simplest
+            task = (u + r) % t
+            schedule.append((task, pick_model(task, u), u))
     return schedule
+
+
+def build_basic_schedule(t: int, m: int, h: int, k: int) -> Optional[List[Assignment]]:
+    """Returns None if t <= 0, m <= 0, or h <= 0 (invalid dimensions, regardless of k). Otherwise
+    returns [] if k == 0, or None if k > t (infeasible). Otherwise
+    returns a schedule of exactly h * k assignments satisfying coverage and uniqueness."""
+    return build_schedule(t, m, h, k, lambda task, u: 0)  # warning: model is unconstrained in Part 1; 0 is simplest
 ```
 
 ### Part 2
@@ -148,22 +166,19 @@ $0 \le s < m$，模型 $0, \dots, s-1$ 各被用过 $q + 1$ 次，模型 $s, \do
 所以计数之差不超过 1——对每一个 $c$ 都成立，也就是在每个前缀都成立，不只是 $c$ 是 $m$ 的倍数的时候。
 
 ```python
-def build_balanced_schedule(t, m, h, k):
-    if t <= 0 or m <= 0 or h <= 0:
-        return None
-    if k == 0:
-        return []
-    if k > t:
-        return None
+def build_balanced_schedule(t: int, m: int, h: int, k: int) -> Optional[List[Assignment]]:
+    """Same feasibility contract as build_basic_schedule. The returned schedule is also balanced
+    by task at every prefix, with exactly h * k assignments."""
+    # we give the c-th occurrence of a task the model c % m (round-robin)
+    # with c = q*m + s, models 0..s-1 were used q + 1 times and models s..m-1 q times, at every prefix
     task_seen = [0] * t
-    schedule = []
-    for r in range(k):
-        for u in range(h):
-            task = (u + r) % t
-            model = task_seen[task] % m          # NOTE: task_seen[task] is x's occurrence count so far
-            task_seen[task] += 1
-            schedule.append((task, model, u))
-    return schedule
+
+    def pick_model(task: int, u: int) -> int:
+        model = task_seen[task] % m  # warning: task_seen[task] is the task's occurrence count so far
+        task_seen[task] += 1
+        return model
+
+    return build_schedule(t, m, h, k, pick_model)
 ```
 
 ### Part 3
@@ -183,26 +198,22 @@ $L$ 或 $L + 1$，差值维持在 1 以内。
 某一种固定的轮转顺序。
 
 ```python
-def build_doubly_balanced_schedule(t, m, h, k):
-    if t <= 0 or m <= 0 or h <= 0:
-        return None
-    if k == 0:
-        return []
-    if k > t:
-        return None
+def build_doubly_balanced_schedule(t: int, m: int, h: int, k: int) -> Optional[List[Assignment]]:
+    """Same feasibility contract and minimal length h * k as build_balanced_schedule, and always
+    balanced by task. Attempts, via a greedy rule, to also be balanced by human."""
+    # we always increment one of the task's minimum counters, so by the lemma the task axis stays balanced
     task_count = [[0] * m for _ in range(t)]
     human_count = [[0] * m for _ in range(h)]
-    schedule = []
-    for r in range(k):
-        for u in range(h):
-            task = (u + r) % t
-            # NOTE: argmin over the task's own counts first; the human's counts only break ties,
-            # so they can lose every tie and the human axis stays unprotected (see the text above).
-            model = min(range(m), key=lambda i: (task_count[task][i], human_count[u][i], i))
-            task_count[task][model] += 1
-            human_count[u][model] += 1
-            schedule.append((task, model, u))
-    return schedule
+
+    def pick_model(task: int, u: int) -> int:
+        # warning: argmin over the task's own counts first; the human's counts only break ties,
+        # so they can lose every tie and the human axis stays unprotected (see the text above)
+        model = min(range(m), key=lambda i: (task_count[task][i], human_count[u][i], i))
+        task_count[task][model] += 1
+        human_count[u][model] += 1
+        return model
+
+    return build_schedule(t, m, h, k, pick_model)
 ```
 
 按标注员均衡并不成立，而且不只是打破并列的方式不好。取 $t = 2$、$`m = 3`$、$`h = 6`$、$`k = 2`$，标注员 4 的

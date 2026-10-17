@@ -133,23 +133,26 @@ PRIMITIVES = {"int", "float", "str", "bool", "char"}
 
 class Node:
     def __init__(self, value: Union[str, List["Node"]]) -> None:
+        """An atomic node: value is its name. A tuple node: value is the list of its element
+        types, possibly empty."""
+        # we store exactly one of name and children, the other one is None
         if isinstance(value, str):
             self.name, self.children = value, None
         else:
-            self.name, self.children = None, list(value)   # NOTE: [] is a legal empty tuple, distinct from None
+            self.name, self.children = None, list(value)  # warning: [] is a legal empty tuple, distinct from None
 
     def __str__(self) -> str:
         if self.children is None:
             return self.name
-        return "[" + ",".join(str(c) for c in self.children) + "]"
+        return "[" + ",".join(str(child) for child in self.children) + "]"
 
     def __eq__(self, other) -> bool:
-        return isinstance(other, Node) and str(self) == str(other)   # structural equality, via the string form
+        return isinstance(other, Node) and str(self) == str(other)  # structural equality, via the string form
 
     def clone(self) -> "Node":
         if self.children is None:
             return Node(self.name)
-        return Node([c.clone() for c in self.children])
+        return Node([child.clone() for child in self.children])
 
 
 class Function:
@@ -196,34 +199,39 @@ def is_tuple(node: Node) -> bool:
 
 
 def is_generic_base(node: Node) -> bool:
-    # NOTE: asks about `node` itself, never about a generic somewhere inside it -- see contains_generic below.
+    # warning: asks about `node` itself, never about a generic somewhere inside it, see contains_generic below
     return not is_tuple(node) and node.name not in PRIMITIVES
 
 
 def contains_generic(node: Node) -> bool:
     if is_tuple(node):
-        return any(contains_generic(c) for c in node.children)
+        return any(contains_generic(child) for child in node.children)
     return is_generic_base(node)
 
 
 def bind_generics(expected: Node, actual: Node, bindings: dict) -> None:
-    if is_generic_base(expected):                                    # 1. a generic: bind it, or check the old binding
-        if expected.name in bindings:
-            if bindings[expected.name] != actual:
-                raise GenericConflictError(
-                    f"{expected.name} is bound to two different types: {bindings[expected.name]} and {actual}")
-        else:
-            bindings[expected.name] = actual.clone()                  # NOTE: clone so `bindings` never aliases `actual`
+    # first a generic: we bind it, or check the old binding
+    # warning: before anything else, [T1,int] is not a generic and falls through to the tuple case
+    if is_generic_base(expected):
+        if expected.name not in bindings:
+            bindings[expected.name] = actual.clone()  # warning: clone so `bindings` never aliases `actual`
+            return
+        if bindings[expected.name] != actual:
+            raise GenericConflictError(
+                f"{expected.name} is bound to two different types: {bindings[expected.name]} and {actual}")
         return
-    if expected == actual:                                           # 2. both concrete, and already identical
+    # then both concrete, and already identical
+    if expected == actual:
         return
-    if is_tuple(expected) and is_tuple(actual):                      # 3. neither is a generic: recurse into tuples
+    # then neither is a generic: we recurse into tuples
+    if is_tuple(expected) and is_tuple(actual):
         if len(expected.children) != len(actual.children):
             raise TypeMismatchError(f"expected {expected} but received {actual}")
-        for e, a in zip(expected.children, actual.children):
-            bind_generics(e, a, bindings)
+        for expected_child, actual_child in zip(expected.children, actual.children):
+            bind_generics(expected_child, actual_child, bindings)
         return
-    raise TypeMismatchError(f"expected {expected} but received {actual}")   # 4. concrete and different
+    # anything left over is concrete and different
+    raise TypeMismatchError(f"expected {expected} but received {actual}")
 ```
 
 Substitution walks the return type once. A subtree with no generic in it at all is copied as is; a
@@ -236,17 +244,19 @@ one copy would silently mutate the other.
 
 ```python
 def substitute_generics(node: Node, bindings: dict) -> Node:
+    # warning: every branch returns a clone, never a node of function.return_type or of bindings
     if not contains_generic(node):
         return node.clone()
     if is_generic_base(node):
-        return bindings[node.name].clone()
-    return Node([substitute_generics(c, bindings) for c in node.children])
+        return bindings[node.name].clone()  # a binding may itself be a tuple
+    return Node([substitute_generics(child, bindings) for child in node.children])
 
 
 def get_return_type(parameters: List[Node], function: Function) -> Node:
     if len(parameters) != len(function.parameters):
         raise ArityError(f"expected {len(function.parameters)} arguments, got {len(parameters)}")
-    bindings: dict = {}
+    # first we match the parameters and bind the generics, then we substitute them into the return type
+    bindings = {}  # generic name -> concrete Node
     for expected, actual in zip(function.parameters, parameters):
         bind_generics(expected, actual, bindings)
     return substitute_generics(function.return_type, bindings)
@@ -327,9 +337,9 @@ def random_node(rng, generics, depth):
 
 def random_function(rng, generics=("T1", "T2")):
     parameters = [random_node(rng, generics, 2) for _ in range(3)]
-    parameters[0] = random_node(rng, (), 2)              # NOTE: a purely concrete slot, for mismatch tests below
+    parameters[0] = random_node(rng, (), 2)              # warning: a purely concrete slot, for mismatch tests below
     g = rng.choice(generics)
-    parameters[1] = parameters[2] = Node(g)              # NOTE: one generic reused, for conflict tests below
+    parameters[1] = parameters[2] = Node(g)              # warning: one generic reused, for conflict tests below
     used = sorted({name for p in parameters for name in generic_names_in(p)})
     return_type = random_node(rng, used, 2) if used else random_node(rng, (), 2)
     return Function(parameters, return_type)

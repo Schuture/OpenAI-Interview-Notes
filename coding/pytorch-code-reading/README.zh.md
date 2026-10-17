@@ -234,15 +234,20 @@ def nll_vectorized(p: torch.Tensor, M: torch.Tensor, Y: torch.Tensor) -> torch.T
 它答对类别 $c$ 的概率，对对角线取平均就得到每个标注者的一个可靠度数字，而且全程没有用到 `y`。
 
 ```python
-def reliability(self):
-    return self.forward().diagonal(dim1=-2, dim2=-1).mean(-1)
+def reliability(self) -> torch.Tensor:
+    """Attached as CrowdLayer.reliability. Returns r of shape (A,), r[a] in [0, 1]: the estimated
+    reliability of annotator a, computed from self.forward(), the learned confusion matrices."""
+    # M[a, c, c] is the probability that annotator a reports the true class c, so we average the diagonal
+    M = self.forward()  # (A, C, C)
+    return M.diagonal(dim1=-2, dim2=-1).mean(-1)  # (A, C, C) => (A, C) => (A,)
 
 
-CrowdLayer.reliability = reliability          # attach to the CrowdLayer class given in the problem
+CrowdLayer.reliability = reliability  # attach to the CrowdLayer class given in the problem
 
 
-def least_reliable(r):
-    return int(r.argmin().item())
+def least_reliable(r: torch.Tensor) -> int:
+    """r: (A,). Returns the index of the annotator with the lowest estimated reliability."""
+    return int(r.argmin().item())  # warning: the contract asks for an int, not a 0-dim tensor
 ```
 
 在题目里训练好的 `crowd` 上，`crowd.reliability()` 约为 `[0.94, 0.82, 0.58, 0.31, 0.26]`，而真实值
@@ -257,14 +262,19 @@ def least_reliable(r):
 `M` 对应的矩阵，把这 $P$ 次向量-矩阵乘当成一次批量矩阵乘算出来。
 
 ```python
-def nll_vectorized(p, M, Y):
-    idx_i, idx_a = (Y >= 0).nonzero(as_tuple=True)                    # P pairs, P = (Y >= 0).sum()
-    lab = Y[idx_i, idx_a]
-    q = torch.bmm(p[idx_i].unsqueeze(1), M[idx_a]).squeeze(1)         # (P, 1, C) @ (P, C, C) -> (P, C)
-    return -torch.log(q.gather(1, lab.unsqueeze(1)).squeeze(1) + 1e-8).sum()
+def nll_vectorized(p: torch.Tensor, M: torch.Tensor, Y: torch.Tensor) -> torch.Tensor:
+    """p: (N, C) class probabilities. M: (A, C, C) confusion matrices. Y: (N, A) observed labels,
+    -1 for missing. Returns the same scalar as nll_loop(p, M, Y)."""
+    # we take the P valid (sample, annotator) pairs first, so no (N, A, C) tensor is ever built
+    # then all P products p[i] @ M[a] run as one batched matmul
+    sample_idx, annotator_idx = (Y >= 0).nonzero(as_tuple=True)  # (P,), (P,), P = (Y >= 0).sum()
+    lab = Y[sample_idx, annotator_idx]  # (P,)
+    q = torch.bmm(p[sample_idx].unsqueeze(1), M[annotator_idx]).squeeze(1)  # (P, 1, C) @ (P, C, C) => (P, C)
+    chosen = q.gather(1, lab.unsqueeze(1)).squeeze(1)  # (P, C) => (P,), prob of the label actually reported
+    return -torch.log(chosen + 1e-8).sum()  # warning: the same 1e-8 floor as nll_loop, else the values differ
 ```
 
-`p[idx_i]` 和 `M[idx_a]` 是高级索引，产生形状 `(P, C)` 和 `(P, C, C)` 的新张量；`torch.bmm` 把最前面
+`p[sample_idx]` 和 `M[annotator_idx]` 是高级索引，产生形状 `(P, C)` 和 `(P, C, C)` 的新张量；`torch.bmm` 把最前面
 的维度当成 $P$ 个互相独立的 `(1, C) @ (C, C)` 乘积一起算；`gather` 从 `q` 的这 $P$ 行里，各自取出标注者
 实际上报的那个类别对应的概率。渐进时间与 `nll_loop` 紧的上界一样，都是 $O(PC^2)$——乘加次数没有变——中间
 张量占用 $O(PC)$，而不是 Part 1 问题 6 里的 $O(NAC)$，因为 `nonzero` 在做任何算术之前就先选出了这 $P$

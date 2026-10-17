@@ -146,25 +146,39 @@ The answer is $dp[0][p][K]$. There are $N \cdot M \cdot (K+1)$ states and each d
 is $O(N M K)$ time and space.
 
 ```python
-def _best_scores(board, K):
-    """dp[i][j][k]: max base score of a path from (i, j) to row N - 1, using at
+directions = [(1, -1), (1, 0), (1, 1)]  # the three steps, by increasing column
+
+
+def _next_states(r: int, c: int, k: int, rows: int, cols: int) -> list[tuple[int, int, int]]:
+    """The states (row, column, special moves left) one move away from (r, c, k), in ascending (row, column) order."""
+    moves = [(r+dr, c+dc, k) for dr, dc in directions if 0 <= c+dc < cols]
+    # warning: r+2 <= rows-1 excludes r == rows-2, where r+2 == rows is outside the grid
+    if k > 0 and r+2 <= rows-1:
+        moves.append((r+2, c, k-1))  # the special move always has the larger row, so it goes last
+    return moves
+
+
+def _best_scores(board: list[list[int]], K: int) -> list[list[list[int]]]:
+    """dp[r][c][k]: max base score of a path from (r, c) to row N - 1, using at
     most k more special moves."""
-    N, M = len(board), len(board[0])
-    dp = [[[0] * (K + 1) for _ in range(M)] for _ in range(N)]
-    for j in range(M):
+    # we fill the table from the last row up:
+    # dp[N-1][c][k] = board[N-1][c], nothing left to do
+    # dp[r][c][k] = board[r][c] + max(dp of the next states), the first move fixes the rest
+    rows, cols = len(board), len(board[0])
+    dp = [[[0] * (K + 1) for _ in range(cols)] for _ in range(rows)]
+    for c in range(cols):
         for k in range(K + 1):
-            dp[N - 1][j][k] = board[N - 1][j]
-    for i in range(N - 2, -1, -1):
-        for j in range(M):
+            dp[rows-1][c][k] = board[rows-1][c]
+    for r in range(rows - 2, -1, -1):
+        for c in range(cols):
             for k in range(K + 1):
-                candidates = [dp[i + 1][j + dj][k] for dj in (-1, 0, 1) if 0 <= j + dj < M]
-                if k > 0 and i + 2 <= N - 1:              # NOTE: excludes i == N-2, where i+2 == N is outside the grid
-                    candidates.append(dp[i + 2][j][k - 1])
-                dp[i][j][k] = board[i][j] + max(candidates)   # NOTE: dj = 0 is always in range, candidates is never empty
+                # warning: dc = 0 is always in range, so max() never sees an empty list
+                dp[r][c][k] = board[r][c] + max(dp[nr][nc][nk] for nr, nc, nk in _next_states(r, c, k, rows, cols))
     return dp
 
 
-def max_score(board, p, K):
+def max_score(board: list[list[int]], p: int, K: int) -> int:
+    """1 <= N, M <= 200, |board[i][j]| <= 10**9, 0 <= p < M, 0 <= K <= N. Returns the largest base score."""
     return _best_scores(board, K)[0][p][K]
 ```
 
@@ -183,22 +197,22 @@ because the rest of an optimal path is optimal from that state; and the greedy r
 qualifying cell, so the greedy path is the smaller of the two.
 
 ```python
-def optimal_path(board, p, K):
+def optimal_path(board: list[list[int]], p: int, K: int) -> list[tuple[int, int]]:
+    """Same input as max_score. Returns the lexicographically smallest cell list among the
+    paths that attain the maximum base score."""
+    # we walk forward from (0, p, K) and take the smallest next state that keeps the score optimal
     dp = _best_scores(board, K)
-    N, M = len(board), len(board[0])
-    i, j, k = 0, p, K
+    rows, cols = len(board), len(board[0])
+    r, c, k = 0, p, K
     path = [(0, p)]
-    while i != N - 1:
-        moves = [(i + 1, j + dj, k) for dj in (-1, 0, 1) if 0 <= j + dj < M]
-        if k > 0 and i + 2 <= N - 1:
-            moves.append((i + 2, j, k - 1))
-        # NOTE: `moves` is already in ascending (row, column) order, so the first
+    while r != rows - 1:
+        # warning: the moves are in ascending (row, column) order, so the first
         # one that keeps the score optimal is the lexicographically smallest choice
-        for (ni, nj, nk) in moves:
-            if board[i][j] + dp[ni][nj][nk] == dp[i][j][k]:
-                i, j, k = ni, nj, nk
+        for nr, nc, nk in _next_states(r, c, k, rows, cols):
+            if board[r][c] + dp[nr][nc][nk] == dp[r][c][k]:
+                r, c, k = nr, nc, nk
                 break
-        path.append((i, j))
+        path.append((r, c))
     return path
 ```
 
@@ -216,29 +230,33 @@ never the scores, are ever taken modulo $10^9+7$.
 MOD = 10 ** 9 + 7
 
 
-def count_optimal_paths(board, p, K):
-    N, M = len(board), len(board[0])
-    dp = [[[0] * (K + 1) for _ in range(M)] for _ in range(N)]
-    cnt = [[[0] * (K + 1) for _ in range(M)] for _ in range(N)]
-    for j in range(M):
+def count_optimal_paths(board: list[list[int]], p: int, K: int) -> int:
+    """Same input as max_score. Returns the number of distinct maximum-base-score paths,
+    modulo 10**9 + 7."""
+    # we run Part 1's recurrence with a parallel table cnt:
+    # cnt[N-1][c][k] = 1
+    # cnt[r][c][k] = sum of cnt over the next states that attain the max
+    rows, cols = len(board), len(board[0])
+    dp = [[[0] * (K + 1) for _ in range(cols)] for _ in range(rows)]
+    cnt = [[[0] * (K + 1) for _ in range(cols)] for _ in range(rows)]
+    for c in range(cols):
         for k in range(K + 1):
-            dp[N - 1][j][k] = board[N - 1][j]
-            cnt[N - 1][j][k] = 1
-    for i in range(N - 2, -1, -1):
-        for j in range(M):
+            dp[rows-1][c][k] = board[rows-1][c]
+            cnt[rows-1][c][k] = 1
+    for r in range(rows - 2, -1, -1):
+        for c in range(cols):
             for k in range(K + 1):
-                moves = [(i + 1, j + dj, k) for dj in (-1, 0, 1) if 0 <= j + dj < M]
-                if k > 0 and i + 2 <= N - 1:
-                    moves.append((i + 2, j, k - 1))
-                best, total = None, 0
-                for (ni, nj, nk) in moves:
-                    val = dp[ni][nj][nk]
-                    if best is None or val > best:       # NOTE: strict '>' — a new best discards the old tie count
-                        best, total = val, cnt[ni][nj][nk]
-                    elif val == best:                     # NOTE: compare the real (possibly negative) scores, never
-                        total = (total + cnt[ni][nj][nk]) % MOD  #      `% MOD`-reduced ones; only `total` is reduced
-                dp[i][j][k] = board[i][j] + best
-                cnt[i][j][k] = total
+                ans, n_paths = None, 0
+                for nr, nc, nk in _next_states(r, c, k, rows, cols):
+                    score = dp[nr][nc][nk]
+                    if ans is None or score > ans:  # warning: strict '>', a new best discards the old tie count
+                        ans, n_paths = score, cnt[nr][nc][nk]
+                    # warning: compare the real (possibly negative) scores, never `% MOD`-reduced ones;
+                    # only n_paths is reduced
+                    elif score == ans:
+                        n_paths = (n_paths + cnt[nr][nc][nk]) % MOD
+                dp[r][c][k] = board[r][c] + ans
+                cnt[r][c][k] = n_paths
     return cnt[0][p][K]
 ```
 
@@ -263,32 +281,34 @@ space. Keeping the previous value itself in the state instead of $u$ is also cor
 determines $u$; it only splits states that behave identically.
 
 ```python
-def max_score_with_bonuses(board, p, K, X, Y):
-    """g[i][j][k][u]: max base score plus bonuses of a path from (i, j) to row N - 1,
-    using at most k more special moves, where u = 1 iff the cell visited just before
-    (i, j) has a smaller value than (i, j)."""
-    N, M = len(board), len(board[0])
-    g = [[[[0, 0] for _ in range(K + 1)] for _ in range(M)] for _ in range(N)]
-    for j in range(M):
+def max_score_with_bonuses(board: list[list[int]], p: int, K: int, X: int, Y: int) -> int:
+    """Same input as max_score, plus bonus amounts 0 <= X, Y <= 10**9. Returns the largest
+    base score plus bonuses over all paths."""
+    # g[r][c][k][u]: max base score plus bonuses of a path from (r, c) to row N - 1,
+    # using at most k more special moves, where u = 1 iff the cell visited just before
+    # (r, c) has a smaller value than (r, c)
+    # the pair bonus of a move needs only board[r][c] and the next value,
+    # the triple bonus needs one more bit, u, so u is all the state has to remember
+    rows, cols = len(board), len(board[0])
+    g = [[[[0, 0] for _ in range(K + 1)] for _ in range(cols)] for _ in range(rows)]
+    for c in range(cols):
         for k in range(K + 1):
-            g[N - 1][j][k] = [board[N - 1][j], board[N - 1][j]]
-    for i in range(N - 2, -1, -1):
-        for j in range(M):
-            cur = board[i][j]
+            g[rows-1][c][k] = [board[rows-1][c], board[rows-1][c]]
+    for r in range(rows - 2, -1, -1):
+        for c in range(cols):
+            cur = board[r][c]
             for k in range(K + 1):
-                moves = [(i + 1, j + dj, k) for dj in (-1, 0, 1) if 0 <= j + dj < M]
-                if k > 0 and i + 2 <= N - 1:
-                    moves.append((i + 2, j, k - 1))
+                moves = _next_states(r, c, k, rows, cols)
                 for u in (0, 1):
-                    best = None
-                    for (ni, nj, nk) in moves:
-                        nxt = board[ni][nj]
-                        up = 1 if cur < nxt else 0     # NOTE: this is the next cell's u
-                        cand = g[ni][nj][nk][up] + (X if cur == nxt else 0) + (Y if u and up else 0)
-                        if best is None or cand > best:
-                            best = cand
-                    g[i][j][k][u] = cur + best
-    return g[0][p][K][0]   # NOTE: u = 0 at the start: no earlier cell, so no triple can end at t = 1
+                    ans = None
+                    for nr, nc, nk in moves:
+                        nxt = board[nr][nc]
+                        next_u = 1 if cur < nxt else 0  # warning: this is the next cell's u
+                        cand = g[nr][nc][nk][next_u] + (X if cur == nxt else 0) + (Y if u and next_u else 0)
+                        if ans is None or cand > ans:
+                            ans = cand
+                    g[r][c][k][u] = cur + ans
+    return g[0][p][K][0]  # warning: u = 0 at the start, no earlier cell, so no triple can end at t = 1
 ```
 
 ### Follow-ups

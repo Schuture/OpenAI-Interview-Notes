@@ -125,11 +125,13 @@ opposite order moves every transpose below to the other side.
 import torch
 
 
-def prefix_products_inplace(W):
-    P = torch.empty_like(W)
+def prefix_products_inplace(W: torch.Tensor) -> torch.Tensor:
+    """W: float tensor of shape (N, D, D). Returns P of shape (N, D, D) with P[i] = W[0] @ ... @ W[i]."""
+    P = torch.empty_like(W)  # (N, D, D)
     P[0] = W[0]
     for i in range(1, W.shape[0]):
-        P[i] = P[i - 1] @ W[i]      # NOTE: P[i - 1] is a view of P, and this line writes into P
+        # warning: P[i - 1] is a view of P, and this line writes into P
+        P[i] = P[i - 1] @ W[i]  # (D, D) @ (D, D) => (D, D)
     return P
 ```
 
@@ -149,11 +151,12 @@ backward pass needs would really be lost.
 ### Part 2
 
 ```python
-def prefix_products(W):
+def prefix_products(W: torch.Tensor) -> torch.Tensor:
+    """W: float tensor of shape (N, D, D). Returns P with P[i] = W[0] @ ... @ W[i], without any in-place operation."""
     products = [W[0]]
     for i in range(1, W.shape[0]):
-        products.append(products[-1] @ W[i])    # every product is a new tensor; nothing is overwritten
-    return torch.stack(products)                # stack allocates a new (N, D, D) tensor and is differentiable
+        products.append(products[-1] @ W[i])  # (D, D), every product is a new tensor; nothing is overwritten
+    return torch.stack(products)  # N x (D, D) => (N, D, D), stack allocates a new tensor and is differentiable
 ```
 
 ### Part 3
@@ -176,13 +179,18 @@ $$\frac{\partial L}{\partial W_i} = P\_{i-1}^\top A_i \quad (i \ge 1), \qquad \f
 One loop from $i = N - 1$ down to $0$ computes everything in $O(N D^3)$, the cost of the forward pass.
 
 ```python
-def prefix_products_backward(W, P, G):
-    dW = torch.empty_like(W)
-    carry = torch.zeros_like(W[0])                          # holds A_i
+def prefix_products_backward(W: torch.Tensor, P: torch.Tensor, G: torch.Tensor) -> torch.Tensor:
+    """W, P, G: shape (N, D, D). P is the forward output and G[i] = dL/dP[i].
+    Returns dW of shape (N, D, D) with dW[i] = dL/dW[i]."""
+    # for Y = A @ B we have dA = dY @ B.T and dB = A.T @ dY
+    # P[i] feeds the loss and P[i+1] = P[i] @ W[i+1], so A_i = G[i] + A_{i+1} @ W[i+1].T
+    # W[i] is the right factor of P[i] = P[i-1] @ W[i], so dW[i] = P[i-1].T @ A_i, and dW[0] = A_0
+    dW = torch.empty_like(W)  # (N, D, D)
+    carry = torch.zeros_like(W[0])  # (D, D), holds A_i
     for i in reversed(range(W.shape[0])):
-        carry = carry + G[i]                                # NOTE: a sum, because P[i] feeds the loss AND P[i+1]
-        dW[i] = carry if i == 0 else P[i - 1].T @ carry     # NOTE: i == 0 has no left factor
-        carry = carry @ W[i].T                              # the part of A_i that flows on to P[i-1]
+        carry = carry + G[i]  # (D, D), warning: a sum, because P[i] feeds the loss AND P[i+1]
+        dW[i] = carry if i == 0 else P[i - 1].T @ carry  # (D, D), warning: i == 0 has no left factor
+        carry = carry @ W[i].T  # (D, D), the part of A_i that flows on to P[i-1]
     return dW
 ```
 
@@ -194,13 +202,16 @@ the adjacent block of $s$ matrices ending at $i$, and their product joins the tw
 $2s \ge N$, so entry $i$ holds $P_i$.
 
 ```python
-def scan_forward(W):
+def scan_forward(W: torch.Tensor) -> tuple[torch.Tensor, list]:
     """Returns (P, tape). tape[k] = (stride, input of round k), kept for the backward pass."""
-    X, tape, stride = W, [], 1
+    # after the round with stride s, entry i holds the product of the last min(i + 1, 2s) matrices ending at i
+    X, tape, stride = W, [], 1  # (N, D, D)
     while stride < W.shape[0]:
-        Y = X.clone()                               # NOTE: read from X, write to Y; never update X in place
-        Y[stride:] = X[:-stride] @ X[stride:]       # NOTE: lower indices on the LEFT, matmul does not commute
-        tape.append((stride, X))                    #       (diagonal test matrices would hide a swapped order)
+        Y = X.clone()  # (N, D, D), warning: read from X, write to Y; never update X in place
+        # warning: lower indices on the LEFT, matmul does not commute
+        # (diagonal test matrices would hide a swapped order)
+        Y[stride:] = X[:-stride] @ X[stride:]  # (N - s, D, D) @ (N - s, D, D) => (N - s, D, D)
+        tape.append((stride, X))
         X, stride = Y, 2 * stride
     return X, tape
 ```
@@ -212,15 +223,19 @@ each place where it is used, by the rule for a single product:
 $$\bar{X}\_j = \underbrace{H_j}\_{j \< s} + \underbrace{X\_{j-s}^\top H_j}\_{j \ge s} + \underbrace{H\_{j+s} X\_{j+s}^\top}\_{j + s \< N} .$$
 
 ```python
-def scan_backward(tape, G):
-    H = G
+def scan_backward(tape: list, G: torch.Tensor) -> torch.Tensor:
+    """Given the tape of scan_forward and G = dL/dP of shape (N, D, D), returns dL/dW of shape (N, D, D)."""
+    # we undo the rounds from last to first; one round is Y_j = X_j for j < s and Y_j = X_{j-s} @ X_j for j >= s
+    # so X_j gets H_j (j < s), X_{j-s}.T @ H_j (j >= s) and H_{j+s} @ X_{j+s}.T (j + s < N)
+    H = G  # (N, D, D)
     for stride, X in reversed(tape):
-        dX = torch.zeros_like(H)
-        dX[:stride] += H[:stride]                                   # copied entries
-        dX[stride:] += X[:-stride].transpose(1, 2) @ H[stride:]     # X_j as the right factor of Y_j
-        dX[:-stride] += H[stride:] @ X[stride:].transpose(1, 2)     # X_j as the left factor of Y_{j+s}
-        H = dX                                                      # NOTE: all three lines are +=, most entries
-    return H                                                        #       are used twice in one round
+        # warning: all three lines are +=, most entries are used twice in one round
+        dX = torch.zeros_like(H)  # (N, D, D)
+        dX[:stride] += H[:stride]  # (s, D, D), copied entries
+        dX[stride:] += X[:-stride].transpose(1, 2) @ H[stride:]  # (N - s, D, D), X_j as the right factor of Y_j
+        dX[:-stride] += H[stride:] @ X[stride:].transpose(1, 2)  # (N - s, D, D), X_j as the left factor of Y_{j+s}
+        H = dX
+    return H
 ```
 
 The scan does $O(N \log N \cdot D^3)$ work instead of $O(N D^3)$, in $\lceil \log_2 N \rceil$ dependent
@@ -273,7 +288,7 @@ assert torch.equal(prefix_products(W_example)[2], torch.tensor([[5., 1.], [3., 1
 
 torch.manual_seed(0)
 for N in (1, 2, 5, 8, 11):                                      # includes lengths that are not powers of two
-    W = torch.randn(N, 3, 3, dtype=torch.float64, requires_grad=True)   # NOTE: float64; float32 is too coarse
+    W = torch.randn(N, 3, 3, dtype=torch.float64, requires_grad=True)   # warning: float64; float32 is too coarse
     G = torch.randn(N, 3, 3, dtype=torch.float64)                       #       for finite differences / gradcheck
     loss = lambda W: (prefix_products(W) * G).sum()             # a loss whose upstream gradient is exactly G
 

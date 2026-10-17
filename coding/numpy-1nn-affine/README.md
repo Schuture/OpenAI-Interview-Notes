@@ -250,7 +250,7 @@ def nearest_indices_loops(X_train, X_query):                # the definition, wi
         best, best_dist = 0, np.inf
         for i, x in enumerate(X_train):
             dist = np.sum((q - x) ** 2)
-            if dist < best_dist:                            # NOTE: strict <, so the first minimum is kept
+            if dist < best_dist:                            # warning: strict <, so the first minimum is kept
                 best, best_dist = i, dist
         nearest.append(best)
     return np.array(nearest)
@@ -296,7 +296,7 @@ rng = np.random.default_rng(0)
 ties = 0
 for trial in range(300):
     n, d, m = rng.integers(1, 9), rng.integers(1, 5), rng.integers(1, 8)
-    if trial % 2:                   # NOTE: small integer coordinates produce exact ties and duplicate points
+    if trial % 2:                   # warning: small integer coordinates produce exact ties and duplicate points
         X_train = rng.integers(0, 3, (n, d)).astype(float)
         X_query = rng.integers(0, 3, (m, d)).astype(float)
     else:

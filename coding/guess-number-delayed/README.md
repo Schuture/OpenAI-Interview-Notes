@@ -138,57 +138,89 @@ untouched ends of `[1, n]`, where the answer is already known. Either way the lo
 whatever comes back and needs no special case.
 
 ```python
-def find_secret(n, check):
+def delayed_search(n: int, check_batch, n_points: int) -> int:
+    """The engine of Parts 1 and 2. check_batch has Part 2's contract; a real round submits up to
+    n_points guesses (1 bisects [lo, hi], 2 cuts it into thirds)."""
+    # we never know the comparison of the guess we just made, only of the one before it
+    # so the calls alternate two roles: a real round that probes [lo, hi],
+    # and a filler whose only job is to make the next call happen, so the real round's comparison comes back
+    # a filler goes to the untouched ends of [1, n], where the answer is already known
     if n == 1:
-        return 1                        # only one candidate: nothing to compare
+        return 1  # only one candidate: nothing to compare
     lo, hi = 1, n
     used = set()
-    right_scan, left_scan = n, 1        # frontiers for filler values outside [lo, hi]
+    right_scan, left_scan = n, 1  # frontiers for filler values outside [lo, hi]
 
-    def real_probe():
-        mid = (lo + hi) // 2
-        for delta in range(hi - lo + 1):           # NOTE: nudge off mid if a stray filler already used it
-            for cand in (mid - delta, mid + delta):
-                if lo <= cand <= hi and cand not in used:
+    def nudge(target, avoid):
+        # warning: we nudge off the target if a stray filler already used it
+        for delta in range(hi - lo + 1):
+            for cand in (target - delta, target + delta):
+                if lo <= cand <= hi and cand not in used and cand not in avoid:
                     return cand
+        return None
+
+    def real_points():
+        if n_points == 1 or hi - lo + 1 <= 2:
+            # warning: one point already settles two candidates, and for tiny n it leaves the filler a value to use
+            mid = nudge((lo + hi) // 2, set())
+            return [mid] if mid is not None else []
+        third = nudge(lo + (hi - lo) // 3, set())
+        two_thirds = nudge(lo + 2 * (hi - lo) // 3, {third})
+        return [p for p in (third, two_thirds) if p is not None]
 
     def filler():
         nonlocal right_scan, left_scan
-        while right_scan > hi:                       # values above hi are provably irrelevant
+        while right_scan > hi:  # first values above hi, they are provably irrelevant
             cand, right_scan = right_scan, right_scan - 1
             if cand not in used:
                 return cand
-        while left_scan < lo:                        # then values below lo
+        while left_scan < lo:  # then values below lo
             cand, left_scan = left_scan, left_scan + 1
             if cand not in used:
                 return cand
-        for x in range(lo, hi + 1):      # NOTE: the first filler always lands here (nothing is
-            if x not in used:            # outside [lo, hi] yet), and so do fillers once [1, n] runs dry
+        # warning: the first filler always lands here (nothing is outside [lo, hi] yet),
+        # and so do fillers once [1, n] runs dry
+        for x in range(lo, hi + 1):
+            if x not in used:
                 return x
 
-    pending = real_probe()
-    used.add(pending)
-    check(pending)
-    is_real = True                      # role of `pending`: was it this round's bisection probe?
+    def narrow(guesses, results):
+        # warning: we narrow on ANY revealed comparison, real or filler;
+        # a filler forced inside [lo, hi] (only for tiny n) is still honest information about secret
+        nonlocal lo, hi
+        found = None
+        for x, r in zip(guesses, results):
+            if r == -1:
+                lo = max(lo, x + 1)
+            elif r == 1:
+                hi = min(hi, x - 1)
+            else:
+                found = x
+        return found
 
-    while True:
-        if lo == hi:
-            return lo
-        nxt = filler() if is_real else real_probe()
-        used.add(nxt)
-        r = check(nxt)
-        # NOTE: narrow on ANY revealed comparison, real or filler -- a filler forced inside
-        # [lo, hi] (only for tiny n) is still honest information about secret.
-        if r == 0:
-            return pending
-        elif r == -1:
-            lo = max(lo, pending + 1)
-        elif r == 1:
-            hi = min(hi, pending - 1)
-        pending = nxt
-        is_real = not is_real
-        if lo == hi:
-            return lo
+    # first a real round; its comparisons come back with the next call
+    pending = real_points()
+    used.update(pending)
+    check_batch(pending)
+    is_real = True  # role of pending: was it a real round?
+
+    while lo != hi:
+        nxt = [filler()] if is_real else real_points()
+        used.update(nxt)
+        found = narrow(pending, check_batch(nxt))
+        if found is not None:
+            return found
+        pending, is_real = nxt, not is_real
+    return lo
+
+
+def find_secret(n: int, check) -> int:
+    """Returns secret, calling check at most 2 * ceil(log2(n)) + 1 times."""
+    def check_batch(guesses):
+        r = check(guesses[0])  # a Part 1 round always holds exactly one guess
+        return None if r is None else [r]
+
+    return delayed_search(n, check_batch, n_points=1)
 ```
 
 Real probes land on calls $1, 3, 5, \dots$ and each is revealed by the filler right after it, on
@@ -210,70 +242,9 @@ point — exactly Part 1's bisection — which is also what keeps a value free f
 when `n` itself is as small as 2.
 
 ```python
-def find_secret_batched(n, check_batch):
-    if n == 1:
-        return 1
-    lo, hi = 1, n
-    used = set()
-    right_scan, left_scan = n, 1
-
-    def nudge(target, avoid):
-        for delta in range(hi - lo + 1):
-            for cand in (target - delta, target + delta):
-                if lo <= cand <= hi and cand not in used and cand not in avoid:
-                    return cand
-        return None
-
-    def real_points():
-        if hi - lo + 1 <= 2:                  # NOTE: one point already settles two candidates,
-            p = nudge((lo + hi) // 2, set())  # and for tiny n it leaves the filler a value to use
-            return [p] if p is not None else []
-        t1, t2 = lo + (hi - lo) // 3, lo + 2 * (hi - lo) // 3
-        p1 = nudge(t1, set())
-        p2 = nudge(t2, {p1} if p1 is not None else set())
-        return [p for p in (p1, p2) if p is not None]
-
-    def filler():
-        nonlocal right_scan, left_scan
-        while right_scan > hi:
-            cand, right_scan = right_scan, right_scan - 1
-            if cand not in used:
-                return cand
-        while left_scan < lo:
-            cand, left_scan = left_scan, left_scan + 1
-            if cand not in used:
-                return cand
-        for x in range(lo, hi + 1):
-            if x not in used:
-                return x
-
-    def apply(xs, rs):
-        nonlocal lo, hi
-        found = None
-        for x, r in zip(xs, rs):
-            if r == -1: lo = max(lo, x + 1)
-            elif r == 1: hi = min(hi, x - 1)
-            else: found = x
-        return found
-
-    pending = real_points()
-    used.update(pending)
-    check_batch(pending)
-    is_real = True
-
-    while True:
-        if lo == hi:
-            return lo
-        nxt = [filler()] if is_real else real_points()
-        used.update(nxt)
-        rs = check_batch(nxt)
-        found = apply(pending, rs)
-        if found is not None:
-            return found
-        pending = nxt
-        is_real = not is_real
-        if lo == hi:
-            return lo
+def find_secret_batched(n: int, check_batch) -> int:
+    """Returns secret, calling check_batch at most 2 * ceil(log(n, 3)) + 1 times."""
+    return delayed_search(n, check_batch, n_points=2)  # Part 2 is the engine with two points per real round
 ```
 
 The same accounting applies with 3 in place of 2: $k = \lceil \log_3 n \rceil$ revealed real
@@ -292,27 +263,34 @@ of rounds is fixed only by whichever game needs the most halvings -- exactly Par
 applied to the largest `n[g]`; every smaller game finishes for free along the way.
 
 ```python
-def solve_games(bounds, check_round):
+def solve_games(bounds: dict[str, int], check_round) -> dict[str, int]:
+    """Returns every game's secret. Calls check_round at most
+    2 * ceil(log2(max(bounds.values()))) + 1 times, regardless of how many games there are."""
+    # we need no filler value: a real round submits every unsolved game's midpoint,
+    # and the round after submits an empty dict, only to let those comparisons come back
     lo = {g: 1 for g in bounds}
     hi = dict(bounds)
-    solved = {g: lo[g] == hi[g] for g in bounds}     # n[g] == 1: nothing to ask
+    solved = {g: lo[g] == hi[g] for g in bounds}  # n[g] == 1: nothing to ask
 
-    def apply(batch, results):
+    def narrow(guesses, results):
         if not results:
             return
         for g, r in results.items():
-            x = batch[g]
-            if r == -1: lo[g] = max(lo[g], x + 1)
-            elif r == 1: hi[g] = min(hi[g], x - 1)
-            else: lo[g] = hi[g] = x
+            x = guesses[g]
+            if r == -1:
+                lo[g] = max(lo[g], x + 1)
+            elif r == 1:
+                hi[g] = min(hi[g], x - 1)
+            else:
+                lo[g] = hi[g] = x
             solved[g] = lo[g] == hi[g]
 
     pending, is_real = {}, True
     while not all(solved.values()):
-        # NOTE: recomputed fresh every real round, so a game that just finished simply drops out
+        # warning: recomputed fresh every real round, so a game that just finished simply drops out
         guesses = {g: (lo[g] + hi[g]) // 2 for g in bounds if not solved[g]} if is_real else {}
         results = check_round(guesses)
-        apply(pending, results)
+        narrow(pending, results)
         pending, is_real = guesses, not is_real
     return {g: lo[g] for g in bounds}
 ```

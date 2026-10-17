@@ -271,7 +271,7 @@ def cdc(data, avg_bits=12, lo=1024, hi=16384):
     for i, b in enumerate(data):
         h = ((h << 1) + GEAR[b]) & 0xFFFFFFFF
         n = i - start + 1
-        if (n >= lo and (h & mask) == 0) or n >= hi:   # NOTE: lo > 32 so a cut never depends on the reset state
+        if (n >= lo and (h & mask) == 0) or n >= hi:   # warning: lo > 32 so a cut never depends on the reset state
             out.append(data[start:i + 1]); start, h = i + 1, 0
     if start < len(data):
         out.append(data[start:])
@@ -291,7 +291,7 @@ def patch_bytes(old, new, chunker):
     need = {}
     for c in chunker(new):
         if h(c) not in local:
-            need[h(c)] = c                            # NOTE: a chunk repeated in the target is fetched once
+            need[h(c)] = c                            # warning: a chunk repeated in the target is fetched once
     return need, local
 
 
@@ -308,7 +308,7 @@ assert all(k not in local for k in need)                # nothing already presen
 cdc_frac = sum(map(len, need.values())) / len(new)
 fixed_need, _ = patch_bytes(old, new, fixed)
 fixed_frac = sum(map(len, fixed_need.values())) / len(new)
-assert cdc_frac < 0.10 and fixed_frac > 0.95            # NOTE: fixed-size chunks re-download everything after an insertion
+assert cdc_frac < 0.10 and fixed_frac > 0.95            # warning: fixed-size chunks re-download everything after an insertion
 # content-keyed identifiers: same plaintext and title key give the same id, another title's key does not
 cid = lambda key, plain: hmac.new(key, hashlib.sha256(plain).digest(), "sha256").hexdigest()
 assert cid(b"k1", old[:100]) == cid(b"k1", old[:100]) != cid(b"k2", old[:100])
@@ -341,7 +341,7 @@ assert all(resolve("B1", roll, "app", u, "DE") == "B1" for u in list(users)[:100
 
 
 # --- licence token: online check, offline check, revocation ---
-SECRET = b"licence-signing-key"                       # NOTE: stand-in; production signs with an asymmetric key (Ed25519)
+SECRET = b"licence-signing-key"                       # warning: stand-in; production signs with an asymmetric key (Ed25519)
 
 
 def issue(user, app, dev, version, now, ttl=14 * 86_400):
@@ -354,7 +354,7 @@ def offline_ok(token, app, dev, now, last_seen):
     c = json.loads(body)
     return (hmac.compare_digest(sig, hmac.new(SECRET, body.encode(), "sha256").hexdigest())
             and c["a"] == app and c["d"] == dev and c["nbf"] <= now < c["exp"]
-            and now >= last_seen)                       # NOTE: last_seen is the latest clock reading the client has stored
+            and now >= last_seen)                       # warning: last_seen is the latest clock reading the client has stored
 
 
 licences = {("u1", "g"): {"state": "active", "version": 1}}

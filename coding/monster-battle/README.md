@@ -170,58 +170,66 @@ default ignores it; that is what lets Part 3 plug in a defender-aware strategy l
 
 ```python
 class Monster:
-    def __init__(self, name, hp, attack):
+    def __init__(self, name: str, hp: int, attack: int):
+        """hp and attack are positive integers."""
         self.name = name
         self.hp = hp
         self.attack = attack
 
-    def is_alive(self):
+    def is_alive(self) -> bool:
         return self.hp > 0
 
-    def take_damage(self, damage):
+    def take_damage(self, damage: int) -> None:
         self.hp -= damage
 
-    def calculate_damage(self, defender):
-        return self.attack
+    def calculate_damage(self, defender: "Monster") -> int:
+        return self.attack  # no elements yet, Part 2 replaces this
 
 
 class Team:
-    def __init__(self, name, monsters):
+    def __init__(self, name: str, monsters: list[Monster]):
+        """monsters is the attack/defense order; it is non-empty."""
         self.name = name
         self.monsters = monsters
 
-    def first_alive(self):
-        return next((m for m in self.monsters if m.is_alive()), None)
+    def first_alive(self) -> "Monster | None":
+        return next((monster for monster in self.monsters if monster.is_alive()), None)
 
-    def is_defeated(self):
+    def is_defeated(self) -> bool:
         return self.first_alive() is None
 
 
-def default_choose_attacker(attacking_team, defender):
-    return attacking_team.first_alive()      # NOTE: `defender` is unused here, only in Part 3's strategy
+# we make "who attacks" and "what the hit line adds" two hooks, so run_battle never changes in Parts 2-3
+def default_choose_attacker(attacking_team: Team, defender: Monster) -> Monster:
+    return attacking_team.first_alive()  # warning: `defender` is unused here, only in Part 3's strategy
 
 
-def default_describe_hit(attacker, defender):
-    return ""
+def default_describe_hit(attacker: Monster, defender: Monster) -> str:
+    return ""  # no multiplier tag in Part 1
 
 
-def run_battle(team_a, team_b, choose_attacker=default_choose_attacker, describe_hit=default_describe_hit):
+def run_battle(team_a: Team, team_b: Team, choose_attacker=default_choose_attacker,
+               describe_hit=default_describe_hit) -> list[str]:
+    """Simulates the battle and returns the event log, one string per line."""
     log = [f"Match start: {team_a.name} takes on {team_b.name}"]
     attacking, defending = team_a, team_b
-    while attacking.first_alive() is not None and defending.first_alive() is not None:
+    while not attacking.is_defeated() and not defending.is_defeated():
+        # first we pick the two monsters
         defender = defending.first_alive()
         attacker = choose_attacker(attacking, defender)
+        # then the hit
         damage = attacker.calculate_damage(defender)
         tag = describe_hit(attacker, defender)
-        defender.take_damage(damage)              # NOTE: apply damage before reading is_alive()/hp below
+        defender.take_damage(damage)  # warning: apply damage before reading is_alive()/hp below
         if defender.is_alive():
             log.append(f"{attacker.name} hits {defender.name} for {damage} damage{tag}. "
-                        f"{defender.name} has {defender.hp} HP left.")
+                       f"{defender.name} has {defender.hp} HP left.")
         else:
             log.append(f"{attacker.name} hits {defender.name} for {damage} damage{tag}. "
-                        f"{defender.name} is defeated!")
+                       f"{defender.name} is defeated!")
+        # then the teams swap roles after every single attack
         attacking, defending = defending, attacking
-    winner = team_a if team_a.first_alive() is not None else team_b
+    winner = team_b if team_a.is_defeated() else team_a
     log.append(f"Match over: {winner.name} wins!")
     return log
 ```
@@ -246,6 +254,7 @@ class ElementType(Enum):
     SPARK = "Spark"
 
 
+# we store only the four "strong against" pairs and their reverses, every other pair is 1x
 TYPE_CHART = {
     (ElementType.EMBER, ElementType.BRAMBLE): 2.0,
     (ElementType.BRAMBLE, ElementType.EMBER): 0.5,
@@ -258,32 +267,35 @@ TYPE_CHART = {
 }
 
 
-def type_multiplier(attacker_element, defender_element):
+def type_multiplier(attacker_element: ElementType, defender_element: ElementType) -> float:
     return TYPE_CHART.get((attacker_element, defender_element), 1.0)
 
 
-def format_multiplier(multiplier):
+def format_multiplier(multiplier: float) -> str:
+    # warning: no trailing ".0", so 2.0 is written "2x" but 0.5 stays "0.5x"
     return f"{int(multiplier)}x" if multiplier == int(multiplier) else f"{multiplier}x"
 
 
-def type_effect_tag(attacker, defender):
+def type_effect_tag(attacker: "Monster", defender: "Monster") -> str:
     return f" ({format_multiplier(type_multiplier(attacker.element, defender.element))})"
 
 
-def _init_with_element(self, name, hp, attack, element):
+def _init_with_element(self, name: str, hp: int, attack: int, element: ElementType):
     self.name = name
     self.hp = hp
     self.attack = attack
     self.element = element
 
 
-def calculate_damage_by_type(self, defender):
+def calculate_damage_by_type(self, defender: "Monster") -> int:
+    """Damage this monster deals to defender, after the type chart and the rounding rule above."""
     multiplier = type_multiplier(self.element, defender.element)
-    return max(1, math.floor(self.attack * multiplier))   # NOTE: floor(1 * 0.5) is 0; the rules say a hit
-                                                            #       always deals at least 1
+    # warning: floor(1 * 0.5) is 0, but the rules say a hit always deals at least 1
+    return max(1, math.floor(self.attack * multiplier))
 
 
-Monster.__init__ = _init_with_element          # attach to the Monster class of Part 1
+# we attach to the Monster class of Part 1, so is_alive and take_damage are kept
+Monster.__init__ = _init_with_element
 Monster.calculate_damage = calculate_damage_by_type
 ```
 
@@ -295,16 +307,18 @@ Calling `run_battle(wildfire, thicket, describe_hit=type_effect_tag)` reproduces
 element that reaches the maximum key when several tie, which is exactly the required tie-break.
 
 ```python
-def best_attacker_against(self, defender):
-    living = [m for m in self.monsters if m.is_alive()]
-    # NOTE: max() keeps the FIRST element on a tie (checked: max(['a', 'b'], key={'a': 5, 'b': 5}.get) == 'a')
-    return max(living, key=lambda m: m.calculate_damage(defender), default=None)
+def best_attacker_against(self, defender: Monster) -> "Monster | None":
+    """The living monster on this team with the highest calculate_damage(defender);
+    ties go to whichever of them appears first in the list."""
+    living = [monster for monster in self.monsters if monster.is_alive()]
+    # warning: max() keeps the first element on a tie (checked: max(['a', 'b'], key={'a': 5, 'b': 5}.get) == 'a')
+    return max(living, key=lambda monster: monster.calculate_damage(defender), default=None)
 
 
-Team.best_attacker_against = best_attacker_against   # attach to the Team class of Part 1
+Team.best_attacker_against = best_attacker_against  # we attach to the Team class of Part 1
 
 
-def smart_choose_attacker(attacking_team, defender):
+def smart_choose_attacker(attacking_team: Team, defender: Monster) -> Monster:
     return attacking_team.best_attacker_against(defender)
 ```
 
@@ -345,7 +359,7 @@ expected1 = [
     "Talonis hits Thornback for 14 damage. Thornback is defeated!",
     "Match over: Vanguard wins!",
 ]
-same = ElementType.EMBER  # NOTE: Monster requires an element by this point (Part 2 patched __init__);
+same = ElementType.EMBER  # warning: Monster requires an element by this point (Part 2 patched __init__);
                           #       giving everyone the same one makes every multiplier 1.0, i.e. Part 1
 vanguard = Team("Vanguard", [Monster("Talonis", hp=25, attack=14, element=same)])
 marsh = Team("Marsh", [Monster("Sable", hp=10, attack=5, element=same),
@@ -424,7 +438,7 @@ def naive_battle(team_a, team_b, part):
 def random_team(rng, name, size, fixed_element):
     monsters = []
     for i in range(size):
-        hp, attack = rng.randint(1, 20), rng.randint(1, 6)   # NOTE: attack down to 1 exercises the clamp
+        hp, attack = rng.randint(1, 20), rng.randint(1, 6)   # warning: attack down to 1 exercises the clamp
         element = fixed_element if fixed_element is not None else rng.choice(list(ElementType))
         monsters.append(Monster(f"M{i}", hp, attack, element))
     return Team(name, monsters)
@@ -490,7 +504,7 @@ def game_value(team_a, team_b, searching):
             new[d] -= attacker.calculate_damage(defender)
             nxt = (hp_a, tuple(new)) if side == 0 else (tuple(new), hp_b)
             results.append(value(*nxt, 1 - side))
-        return max(results) if side == 0 else min(results)   # NOTE: team_a maximises, team_b minimises
+        return max(results) if side == 0 else min(results)   # warning: team_a maximises, team_b minimises
 
     return value(tuple(m.hp for m in team_a.monsters), tuple(m.hp for m in team_b.monsters), 0)
 

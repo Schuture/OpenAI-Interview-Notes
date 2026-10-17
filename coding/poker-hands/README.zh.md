@@ -163,39 +163,49 @@ Winner: Player 2
 ### Part 1
 
 ```python
-RANKS = "23456789TJQKA"  # index doubles as the rank's numeric value
+RANKS = "23456789TJQKA"  # the index of a rank is its value
 TYPE_NAMES = ["High Card", "Pair", "Three of a Kind"]  # indexed by the priority inside a hand key
 
 
-def _rank_value(card):
+def _rank_value(card: str) -> int:
     return RANKS.index(card[0])
 
 
-def _hand_key(cards):
-    ranks = sorted((_rank_value(c) for c in cards), reverse=True)
+def _hand_key(cards: list[str]) -> tuple[int, tuple[int, ...]]:
+    # we map a hand to (type priority, tie-break), the tie-break has one shape per type
+    # so comparing two hands is comparing two tuples
+    ranks = sorted((_rank_value(card) for card in cards), reverse=True)
     if ranks[0] == ranks[1] == ranks[2]:
         return (2, (ranks[0],))
-    if ranks[0] == ranks[1]:                # NOTE: after a descending sort the pair is always adjacent,
-        return (1, (ranks[0], ranks[2]))    #       at [0]/[1] or at [1]/[2] -- it can never be split
+    # warning: after a descending sort the pair is always adjacent, at [0]/[1] or at [1]/[2], never split
+    if ranks[0] == ranks[1]:
+        return (1, (ranks[0], ranks[2]))
     if ranks[1] == ranks[2]:
         return (1, (ranks[1], ranks[0]))
     return (0, tuple(ranks))
 
 
-def hand_type(cards):
+def hand_type(cards: list[str]) -> str:
+    """cards has exactly 3 elements, each formatted <rank><suit>, e.g. "9H" or "TC". Returns one of
+    "Three of a Kind", "Pair", "High Card"."""
     return TYPE_NAMES[_hand_key(cards)[0]]
 
 
-def compare_hands(cards_a, cards_b):
-    ka, kb = _hand_key(cards_a), _hand_key(cards_b)
-    return 0 if ka == kb else (1 if ka > kb else -1)  # NOTE: tuples compare lexicographically, so the
-                                                      #       priority always dominates the tie-break
+def compare_hands(cards_a: list[str], cards_b: list[str]) -> int:
+    """Compares two 3-card hands under the rules above. Returns 1 if cards_a ranks strictly above
+    cards_b, -1 if strictly below, 0 if the two hands tie."""
+    key_a, key_b = _hand_key(cards_a), _hand_key(cards_b)
+    # warning: tuples compare lexicographically, so the priority always dominates the tie-break
+    return 0 if key_a == key_b else (1 if key_a > key_b else -1)
 
 
-def rank_players(hands):
-    keys = [_hand_key(h) for h in hands]
+def rank_players(hands: list[list[str]]) -> list[int]:
+    """hands[i] is player i's three cards. Returns, in increasing order, the 0-indexed players whose hand
+    does not rank below any other player's hand -- more than one index means those players tie for the
+    win."""
+    keys = [_hand_key(hand) for hand in hands]
     best = max(keys)
-    return [i for i, k in enumerate(keys) if k == best]
+    return [i for i, key in enumerate(keys) if key == best]
 ```
 
 对 Part 1 的例子调用 `rank_players` 得到的正是 `[0, 1]`。
@@ -208,16 +218,17 @@ def rank_players(hands):
 名字去查 `TYPE_NAMES` 和 `_hand_key`，所以这三个函数一行都不用改。
 
 ```python
-_ranks_only_key = _hand_key                                     # Part 1's key, suits ignored
+_ranks_only_key = _hand_key  # Part 1's key, suits ignored
 TYPE_NAMES = ["High Card", "Pair", "Flush", "Three of a Kind"]  # flush slots in above pair
 
 
-def _hand_key(cards):  # supersedes Part 1's version
+def _hand_key(cards: list[str]) -> tuple[int, tuple[int, ...]]:  # supersedes Part 1's version
+    # we keep the rank rules of Part 1 and only patch the priority
     priority, tie_break = _ranks_only_key(cards)
-    if priority == 2:                                 # NOTE: three of a kind is settled before the suits
-        return (3, tie_break)                         #       are looked at, so it never reads as a flush
-    if len({c[1] for c in cards}) == 1:
-        return (2, tuple(sorted((_rank_value(c) for c in cards), reverse=True)))
+    if priority == 2:  # warning: three of a kind is settled before the suits are looked at, so it is never a flush
+        return (3, tie_break)
+    if len({card[1] for card in cards}) == 1:
+        return (2, tuple(sorted((_rank_value(card) for card in cards), reverse=True)))  # compared like High Card
     return (priority, tie_break)
 ```
 
@@ -231,34 +242,38 @@ def _hand_key(cards):  # supersedes Part 1's version
 发出的牌。
 
 ```python
-def never_fold(first_two):
+def never_fold(first_two: list[str]) -> bool:
     return False
 
 
-def fold_unless_pair(first_two):
+def fold_unless_pair(first_two: list[str]) -> bool:
     return first_two[0][0] != first_two[1][0]
 
 
-def fold_unless_flush_draw(first_two):
+def fold_unless_flush_draw(first_two: list[str]) -> bool:
     return first_two[0][1] != first_two[1][1]
 
 
 class PokerRound:
-    def __init__(self, num_players, deck, strategies):
+    def __init__(self, num_players: int, deck: list[str], strategies: list):
+        """strategies[i] is player i's fold rule, one of the three functions above."""
         assert len(deck) >= 3 * num_players and len(set(deck)) == len(deck)
         self.num_players = num_players
         self.deck = deck
         self.strategies = strategies
         self.hands = [[] for _ in range(num_players)]
         self.folded = [False] * num_players
-        self.next_card = 0        # NOTE: one running pointer -- a fold never advances it
+        self.next_card = 0  # warning: one running pointer into the deck, a fold never advances it
         self.calls_made = 0
 
-    def is_over(self):
+    def is_over(self) -> bool:
         return self.calls_made >= 3 * self.num_players
 
-    def deal_card(self):
-        pass_no, player = divmod(self.calls_made, self.num_players)  # NOTE: pass_no is 0, 1 or 2
+    def deal_card(self) -> str:
+        """Called only while is_over() is False. Advances the round by exactly one deal-or-fold and
+        returns a line describing it: either "Player {i} is dealt {card}." or "Player {i} folds."."""
+        # we read both the pass and the player off one counter
+        pass_no, player = divmod(self.calls_made, self.num_players)  # warning: pass_no is 0, 1 or 2
         self.calls_made += 1
         if pass_no == 2 and self.strategies[player](self.hands[player]):
             self.folded[player] = True
@@ -268,12 +283,17 @@ class PokerRound:
         self.hands[player].append(card)
         return f"Player {player} is dealt {card}."
 
-    def check_result(self):
+    def check_result(self) -> str:
+        """Valid once is_over() is True. Returns "Winner: Player {i}", or
+        "Winner: Tie (Players {i}, {j}, ...)" with the indices in increasing order, or
+        "No winner: all players folded."."""
         active = [i for i in range(self.num_players) if not self.folded[i]]
         if not active:
             return "No winner: all players folded."
         if len(active) == 1:
             return f"Winner: Player {active[0]}"
+
+        # the showdown reuses the hand key of Part 2
         keys = {i: _hand_key(self.hands[i]) for i in active}
         best = max(keys.values())
         winners = [i for i in active if keys[i] == best]
@@ -282,7 +302,7 @@ class PokerRound:
         return "Winner: Tie (Players " + ", ".join(str(i) for i in winners) + ")"
 
 
-def play_round(num_players, deck, strategies):
+def play_round(num_players: int, deck: list[str], strategies: list) -> list[str]:
     game = PokerRound(num_players, deck, strategies)
     log = []
     while not game.is_over():

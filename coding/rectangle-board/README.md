@@ -179,9 +179,11 @@ rectangle, so `add` and `get` are $O(1)$ and `ids` is $O(n \log n)$ for $n$ rect
 from typing import NamedTuple
 
 
+# every operation takes some rectangles off the board and puts some others on: a Change
+# its inverse swaps the two tuples, so undo is "apply the inverse of the last change"
 class Change(NamedTuple):
-    added: tuple     # ((id, rect), ...) inserted by this change
-    removed: tuple   # ((id, rect), ...) deleted by this change
+    added: tuple  # ((id, rect), ...) inserted by this change
+    removed: tuple  # ((id, rect), ...) deleted by this change
 
     def inverse(self) -> "Change":
         return Change(added=self.removed, removed=self.added)
@@ -189,14 +191,16 @@ class Change(NamedTuple):
 
 class Board:
     def __init__(self, width: int, height: int) -> None:
+        """An empty board. Requires width >= 1 and height >= 1; raises ValueError otherwise."""
         if width < 1 or height < 1:
             raise ValueError("board must have at least one cell")
         self.width, self.height = width, height
-        self._rects: dict[int, tuple] = {}
+        self._rects: dict[int, tuple] = {}  # id -> (x1, y1, x2, y2)
         self._next_id = 1
-        self._history: list[Change] = []     # unused until Part 3
+        self._history: list[Change] = []  # unused until Part 3
 
     def _apply(self, change: Change) -> None:
+        # the only place that mutates the board
         for rect_id, _ in change.removed:
             del self._rects[rect_id]
         for rect_id, rect in change.added:
@@ -206,18 +210,23 @@ class Board:
         self._apply(change)
 
     def add(self, x1: int, y1: int, x2: int, y2: int) -> int:
+        """Places a rectangle on top of all others and returns its new id.
+        Raises ValueError if the rectangle is not valid; the board is unchanged then."""
         if not (0 <= x1 < x2 <= self.width and 0 <= y1 < y2 <= self.height):
             raise ValueError(f"invalid rectangle {(x1, y1, x2, y2)}")
         rect_id = self._next_id
-        self._next_id += 1      # NOTE: only ever incremented, so an undo of this add cannot hand the id out again
+        # warning: only ever incremented, so an undo of this add cannot hand the id out again
+        self._next_id += 1
         self._commit(Change(added=((rect_id, (x1, y1, x2, y2)),), removed=()))
         return rect_id
 
-    def get(self, rect_id: int):
+    def get(self, rect_id: int) -> tuple[int, int, int, int] | None:
+        """The rectangle (x1, y1, x2, y2) with this id, or None if the board holds none."""
         return self._rects.get(rect_id)
 
     def ids(self) -> list[int]:
-        return sorted(self._rects)   # NOTE: z-order is id order; dict order is not, once a removal is undone
+        """Ids of all rectangles on the board, in z-order from bottom to top."""
+        return sorted(self._rects)  # warning: z-order is id order; dict order is not, once a removal is undone
 ```
 
 ### Part 2
@@ -227,6 +236,8 @@ $O(1)$.
 
 ```python
 def remove(self, rect_id: int) -> None:
+    """Removes the rectangle with this id. Raises KeyError if the board holds none;
+    the board is unchanged then. The remaining rectangles keep their relative z-order."""
     if rect_id not in self._rects:
         raise KeyError(rect_id)
     self._commit(Change(added=(), removed=((rect_id, self._rects[rect_id]),)))
@@ -245,13 +256,16 @@ proportional to the size of the change.
 ```python
 def _commit(self, change: Change) -> None:
     self._apply(change)
-    self._history.append(change)    # NOTE: callers validate first, so a change is only recorded once it has happened
+    # warning: callers validate first, so a change is only recorded once it has happened
+    self._history.append(change)
 
 
 def undo(self) -> bool:
+    """Reverts the most recent operation not yet reverted and returns True,
+    or returns False and does nothing if there is no such operation."""
     if not self._history:
         return False
-    self._apply(self._history.pop().inverse())   # NOTE: _apply, not _commit: an undo is not an operation
+    self._apply(self._history.pop().inverse())  # warning: _apply, not _commit: an undo is not an operation
     return True
 
 
@@ -269,16 +283,20 @@ $O(n)$ per call. The `ValueError` check comes first, so an out-of-board cell is 
 an uncovered cell.
 
 ```python
-def remove_at(self, x: int, y: int):
+def remove_at(self, x: int, y: int) -> int | None:
+    """Removes the topmost rectangle covering cell (x, y) and returns its id, or returns None
+    (board unchanged) if no rectangle covers the cell. Raises ValueError if (x, y) is not a
+    cell of the board."""
     if not (0 <= x < self.width and 0 <= y < self.height):
         raise ValueError(f"cell {(x, y)} is outside the board")
-    best = None
+    # we keep the largest id among the rectangles covering the cell
+    ans = None
     for rect_id, (x1, y1, x2, y2) in self._rects.items():
-        if x1 <= x < x2 and y1 <= y < y2 and (best is None or rect_id > best):
-            best = rect_id           # NOTE: compare ids, do not rely on the iteration order of the dict
-    if best is not None:
-        self.remove(best)            # NOTE: reuse remove, so this is recorded as exactly one operation
-    return best
+        if x1 <= x < x2 and y1 <= y < y2 and (ans is None or rect_id > ans):
+            ans = rect_id  # warning: compare ids, do not rely on the iteration order of the dict
+    if ans is not None:
+        self.remove(ans)  # warning: reuse remove, so this is recorded as exactly one operation
+    return ans
 
 
 Board.remove_at = remove_at
@@ -300,15 +318,19 @@ modified before validation ends, which makes the call atomic; the change is reco
 
 ```python
 def remove_many(self, rect_ids: list[int]) -> None:
-    rect_ids = list(rect_ids)
+    """Removes all the listed rectangles as one operation. Raises ValueError if the list contains
+    the same id twice, and KeyError if any id is not on the board; in both cases nothing is removed.
+    An empty list does nothing and is not an operation."""
+    # first we validate the whole list, so nothing is removed on an error
     if len(set(rect_ids)) != len(rect_ids):
         raise ValueError("duplicate id in batch")
     for rect_id in rect_ids:
         if rect_id not in self._rects:
             raise KeyError(rect_id)
     if not rect_ids:
-        return                       # NOTE: an empty batch must not push an empty change onto the history
-    self._commit(Change(added=(), removed=tuple((i, self._rects[i]) for i in rect_ids)))
+        return  # warning: an empty batch must not push an empty change onto the history
+    # then one change for the whole batch, so one undo reverts it
+    self._commit(Change(added=(), removed=tuple((rect_id, self._rects[rect_id]) for rect_id in rect_ids)))
 
 
 Board.remove_many = remove_many

@@ -86,7 +86,7 @@ below `1e-8` for every one of $Y$, `dW1`, `dW2`, `dX`, for any random seed.
 ```python
 import numpy as np
 
-B, D_IN, D_HIDDEN, D_OUT, N = 5, 4, 7, 3, 3   # NOTE: D_HIDDEN is not divisible by N
+B, D_IN, D_HIDDEN, D_OUT, N = 5, 4, 7, 3, 3   # warning: D_HIDDEN is not divisible by N
 
 
 def all_gather(shards, axis):
@@ -226,38 +226,51 @@ combining.
 import numpy as np
 
 
-def all_gather(shards, axis):
+def all_gather(shards: list, axis: int) -> list:
     """shards[k]: device k's piece of the full array along `axis`. Returns, for every device, the
     same fully assembled array."""
-    full = np.concatenate(shards, axis=axis)
+    full = np.concatenate(shards, axis=axis)  # n x (..., d_k, ...) => (..., sum(d_k), ...)
     return [full for _ in shards]
 
 
-def all_reduce(shards):
+def all_reduce(shards: list) -> list:
     """shards[k]: device k's partial sum, all the same shape. Returns, for every device, the same
     elementwise sum across all the shards."""
-    total = sum(shards)        # NOTE: given only a gather, this is a gather on a fresh axis plus a local sum
+    total = sum(shards)  # n x (...) => (...), given only a gather, this is a gather on a fresh axis plus a local sum
     return [total for _ in shards]
 
 
-def column_parallel_forward(X, W_shards):
-    return [X @ Wk for Wk in W_shards]              # NOTE: X is replicated; no communication here
+def column_parallel_forward(X, W_shards: list) -> list:
+    """X: (B, d_in), a full copy on every device. W_shards[k]: (d_in, d_out_k).
+    Returns Y_shards[k]: (B, d_out_k), device k's own shard of Y (not gathered)."""
+    # we compute Y_k = X @ W_k on each device
+    # warning: X is replicated, so there is no communication here
+    return [X @ W_k for W_k in W_shards]  # (B, d_in) @ (d_in, d_out_k) => (B, d_out_k)
 
 
-def column_parallel_backward(X, W_shards, dY_shards):
-    dW_shards = [X.T @ dYk for dYk in dY_shards]                       # local
-    dX_partial = [dYk @ Wk.T for dYk, Wk in zip(dY_shards, W_shards)]
-    return dW_shards, all_reduce(dX_partial)                           # NOTE: sum over devices
+def column_parallel_backward(X, W_shards: list, dY_shards: list) -> tuple:
+    """dY_shards[k]: (B, d_out_k), dL/dY restricted to device k's columns.
+    Returns (dW_shards, dX_shards)."""
+    # Y_k = X @ W_k, so dW_k = X^T @ dY_k (local)
+    # and dX = sum_k dY_k @ W_k^T, because X feeds every device's product
+    dW_shards = [X.T @ dY_k for dY_k in dY_shards]  # (d_in, B) @ (B, d_out_k) => (d_in, d_out_k)
+    dX_partial = [dY_k @ W_k.T for dY_k, W_k in zip(dY_shards, W_shards)]  # (B, d_out_k) @ (d_out_k, d_in) => (B, d_in)
+    return dW_shards, all_reduce(dX_partial)  # warning: sum over devices
 
 
-def row_parallel_forward(X_shards, W_shards):
-    Y_partial = [Xk @ Wk for Xk, Wk in zip(X_shards, W_shards)]
-    return all_reduce(Y_partial)                     # NOTE: forward itself needs a reduction
+def row_parallel_forward(X_shards: list, W_shards: list) -> list:
+    """X_shards[k]: (B, d_in_k). W_shards[k]: (d_in_k, d_out).
+    Returns Y_shards[k]: (B, d_out), the full Y, identical on every device."""
+    # Y = X @ W = sum_k X_k @ W_k, each device holds one term of the sum
+    Y_partial = [X_k @ W_k for X_k, W_k in zip(X_shards, W_shards)]  # (B, d_in_k) @ (d_in_k, d_out) => (B, d_out)
+    return all_reduce(Y_partial)  # warning: the forward pass itself needs a reduction
 
 
-def row_parallel_backward(X_shards, W_shards, dY):
-    dW_shards = [Xk.T @ dY for Xk in X_shards]        # local
-    dX_shards = [dY @ Wk.T for Wk in W_shards]        # local
+def row_parallel_backward(X_shards: list, W_shards: list, dY) -> tuple:
+    """dY: (B, d_out), identical on every device. Returns (dW_shards, dX_shards)."""
+    # X_k and W_k are used by device k only, so both gradients are local
+    dW_shards = [X_k.T @ dY for X_k in X_shards]  # (d_in_k, B) @ (B, d_out) => (d_in_k, d_out)
+    dX_shards = [dY @ W_k.T for W_k in W_shards]  # (B, d_out) @ (d_out, d_in_k) => (B, d_in_k)
     return dW_shards, dX_shards
 ```
 
@@ -555,15 +568,15 @@ def run_with_one_bug(bug, seed=0):
     }
 
 
-e = run_with_one_bug("aggregation")                              # NOTE: shapes match, so nothing raises
+e = run_with_one_bug("aggregation")                              # warning: shapes match, so nothing raises
 assert e["Y"] > 0.5 and e["dW1"] > 0.1 and e["dX"] > 0.1, e
 print("aggregation bug alone:", e)
 
-e = run_with_one_bug("activation")                                # NOTE: Y and dW2 stay exact
+e = run_with_one_bug("activation")                                # warning: Y and dW2 stay exact
 assert e["Y"] < 1e-8 and e["dW2"] < 1e-8 and e["dW1"] > 0.5 and e["dX"] > 0.1, e
 print("activation bug alone:", e)
 
-e = run_with_one_bug("input-grad")                                # NOTE: only dX is wrong, and only by a sum
+e = run_with_one_bug("input-grad")                                # warning: only dX is wrong, and only by a sum
 assert e["Y"] < 1e-8 and e["dW1"] < 1e-8 and e["dW2"] < 1e-8 and e["dX"] > 0.1, e
 print("missing backward reduction alone:", e)
 

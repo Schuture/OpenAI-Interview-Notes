@@ -261,14 +261,14 @@ class Race:
             return "duplicate"          # retransmission: already processed, ignore it
         if seq != p.last_seq + 1:
             return "gap"                # the client must resend from last_seq + 1
-        p.last_seq = seq                # NOTE: advance last_seq for every keystroke, including discarded ones
+        p.last_seq = seq                # warning: advance last_seq for every keystroke, including discarded ones
         if p.finished_at is not None or s_ms < self.go_ms:
             return "ignored"            # already finished, or a false start
-        if s_ms < p.frozen_until:       # NOTE: strict <, so a keystroke exactly at frozen_until is accepted
-            return "cooldown"           # NOTE: a discarded keystroke must not extend frozen_until
+        if s_ms < p.frozen_until:       # warning: strict <, so a keystroke exactly at frozen_until is accepted
+            return "cooldown"           # warning: a discarded keystroke must not extend frozen_until
         if ch != self.passage[p.cursor]:
             p.errors += 1
-            p.frozen_until = s_ms + COOLDOWN_MS   # NOTE: counted from the keystroke's time, not from the reply
+            p.frozen_until = s_ms + COOLDOWN_MS   # warning: counted from the keystroke's time, not from the reply
             return "error"
         p.cursor += 1
         if p.cursor == len(self.passage):
@@ -335,7 +335,7 @@ class Pool:
         group = [seed] + cands[:MAX_PLAYERS - 1]
         if len(group) == MAX_PLAYERS or (now_ms - joined >= FILL_MS and len(group) >= 2):
             for e in group:
-                self.entries.remove(e)  # NOTE: O(n); a skip list or a Redis sorted set removes in O(log n)
+                self.entries.remove(e)  # warning: O(n); a skip list or a Redis sorted set removes in O(log n)
             return [e[1] for e in group]
         return None
 
@@ -343,7 +343,7 @@ class Pool:
         races, taken = [], set()
         for seed in sorted(self.entries, key=lambda e: (e[2], e[1])):   # oldest first
             if seed[1] in taken:
-                continue                # NOTE: a seed already placed in a race earlier in this tick
+                continue                # warning: a seed already placed in a race earlier in this tick
             group = self.try_form(seed, now_ms)
             if group:
                 taken.update(group)
@@ -391,7 +391,7 @@ def rating_deltas(ratings, order, k=32):
                 continue
             expected = 1 / (1 + 10 ** ((ratings[j] - ratings[i]) / 400))
             total += (1.0 if pos[i] < pos[j] else 0.0) - expected
-        out[i] = k * total / (n - 1)    # NOTE: dividing by n - 1 keeps an 8-player race as volatile as a duel
+        out[i] = k * total / (n - 1)    # warning: dividing by n - 1 keeps an 8-player race as volatile as a duel
     return out
 ```
 
@@ -447,7 +447,7 @@ def offset_from_ping(a_ms, b_ms, c_ms):
 def to_server_time(c_ms, offset, t_recv_ms, prev_stamp):
     s = c_ms + offset
     s = min(s, t_recv_ms)                 # cannot come from the future
-    s = max(s, t_recv_ms - MAX_LAG_MS)    # NOTE: the credit cap is the whole defence against a forged clock
+    s = max(s, t_recv_ms - MAX_LAG_MS)    # warning: the credit cap is the whole defence against a forged clock
     return max(s, prev_stamp)             # stamps never go backwards
 ```
 

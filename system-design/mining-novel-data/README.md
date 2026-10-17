@@ -395,7 +395,7 @@ def seconds_per_hash(reduced):
     for _ in range(50):
         x = Image.open(io.BytesIO(jpeg.getvalue()))
         if reduced:
-            x.draft("L", (64, 64))   # NOTE: DCT-domain downscaling while decoding; the hash needs 32x32
+            x.draft("L", (64, 64))   # warning: DCT-domain downscaling while decoding; the hash needs 32x32
         phash64(x)
     return (time.perf_counter() - t0) / 50
 
@@ -415,7 +415,7 @@ def novelty_experiment(seed):
     K = len(corpus) // 10
     order = np.argsort(-dist_to_train)
     dense = kth <= np.percentile(kth, 70)
-    filtered = [i for i in order if dense[i]][:K]          # NOTE: filter first, then rank
+    filtered = [i for i in order if dense[i]][:K]          # warning: filter first, then rank
     both_cutoffs = order[:K][dense[order[:K]]]              # two fixed cutoffs shrink the selection
     return labels, [Counter(labels[idx]) for idx in (order[:K], filtered, both_cutoffs)], labels[order[:15]]
 

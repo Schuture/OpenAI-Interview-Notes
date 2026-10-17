@@ -41,9 +41,9 @@ def make_dataset(seed):
     for i in range(N_TRAIN):
         k = rng.integers(2, 5)                                    # 2 to 4 annotators label this sample
         for j in rng.choice(N_ANNOTATORS, size=int(k), replace=False):
-            if j == 4:                                             # NOTE: ignores X_train and y_train entirely
+            if j == 4:                                             # warning: ignores X_train and y_train entirely
                 annotations[i, j] = rng.integers(0, N_CLASSES)
-            elif j == 5:                                           # NOTE: systematically biased, not noisy
+            elif j == 5:                                           # warning: systematically biased, not noisy
                 annotations[i, j] = 0
             elif rng.random() < 0.92:
                 annotations[i, j] = y_train[i]
@@ -147,16 +147,21 @@ def reliability_weights(r: np.ndarray, n_classes: int) -> np.ndarray:
 或者标注过它的标注者权重全是 `0`。
 
 ```python
-def aggregate_labels(annotations, n_classes, weights=None):
-    n, A = annotations.shape
+def aggregate_labels(annotations: np.ndarray, n_classes: int,
+                     weights: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
+    """annotations: (n, A) int, -1 for missing. weights: (A,) or None (all-ones).
+    Returns (labels, has_label): labels[i] is the predicted class (arbitrary if has_label[i] is False),
+    has_label[i] is False iff sample i got no label with positive total weight."""
+    n_samples, n_annotators = annotations.shape
     if weights is None:
-        weights = np.ones(A)
-    scores = np.zeros((n, n_classes))
-    for j in range(A):
-        labeled = annotations[:, j] != -1
+        weights = np.ones(n_annotators)  # (A,)
+    # we add the weight of every annotator to the class it chose
+    scores = np.zeros((n_samples, n_classes))  # (n, K)
+    for j in range(n_annotators):
+        labeled = annotations[:, j] != -1  # (n,), warning: -1 would index the last class
         scores[labeled, annotations[labeled, j]] += weights[j]
-    has_label = scores.sum(axis=1) > 0
-    labels = np.argmax(scores, axis=1)               # NOTE: argmax keeps the FIRST max -> ties go to class 0
+    has_label = scores.sum(axis=1) > 0  # (n, K) => (n,), nobody labeled it, or every voter has weight 0
+    labels = np.argmax(scores, axis=1)  # (n, K) => (n,), warning: argmax keeps the first max, ties go to class 0
     return labels, has_label
 ```
 
@@ -164,23 +169,29 @@ def aggregate_labels(annotations, n_classes, weights=None):
 如果把某个标注者自己的票也算进它的参照多数里，就等于让它“自己同意自己”，凭空抬高了分数。
 
 ```python
-def annotator_reliability(annotations, n_classes):
-    n, A = annotations.shape
-    r = np.zeros(A)
-    for j in range(A):
-        peers = np.delete(annotations, j, axis=1)
-        majority, has_majority = aggregate_labels(peers, n_classes)
-        labeled_by_j = annotations[:, j] != -1
-        mask = labeled_by_j & has_majority
-        r[j] = np.mean(annotations[mask, j] == majority[mask]) if mask.any() else 0.0
+def annotator_reliability(annotations: np.ndarray, n_classes: int) -> np.ndarray:
+    """Returns r of shape (A,), each entry in [0, 1]."""
+    # we compare annotator j with the majority of the other annotators only
+    # warning: with two voters on a sample, a majority that includes j's own vote lets j agree with itself
+    n_annotators = annotations.shape[1]
+    r = np.zeros(n_annotators)  # (A,)
+    for j in range(n_annotators):
+        peers = np.delete(annotations, j, axis=1)  # (n, A) => (n, A - 1)
+        majority, has_majority = aggregate_labels(peers, n_classes)  # (n,), (n,)
+        scored = (annotations[:, j] != -1) & has_majority  # (n,), labeled by j and by at least one peer
+        if not np.any(scored):
+            continue  # nothing to score j on, r[j] stays 0
+        r[j] = np.mean(annotations[scored, j] == majority[scored])
     return r
 ```
 
 **(c)** 固定阈值（比如 `0.5`）换一个类别数就要重新调；对照标注者群体自己的均值和离散程度则不用。
 
 ```python
-def flag_bad_annotators(r):
-    return r < r.mean() - r.std()
+def flag_bad_annotators(r: np.ndarray) -> np.ndarray:
+    """r: (A,). Returns a boolean array of shape (A,), True where the annotator is flagged."""
+    # we use the pool's own mean and spread, a fixed cutoff such as 0.5 would depend on n_classes
+    return r < r.mean() - r.std()  # (A,)
 ```
 
 在 `seed=7` 时，`annotator_reliability` 返回约 `[0.67, 0.66, 0.66, 0.67, 0.35, 0.40]`，`flag_bad_annotators`
@@ -189,9 +200,12 @@ def flag_bad_annotators(r):
 ### Part 2
 
 ```python
-def fit_and_score(X_train, labels, has_label, X_test, y_test):
+def fit_and_score(X_train: np.ndarray, labels: np.ndarray, has_label: np.ndarray,
+                  X_test: np.ndarray, y_test: np.ndarray) -> float:
+    """Fits LogisticRegression(max_iter=2000) on X_train[has_label], labels[has_label].
+    Returns its accuracy on (X_test, y_test)."""
     clf = LogisticRegression(max_iter=2000)
-    clf.fit(X_train[has_label], labels[has_label])
+    clf.fit(X_train[has_label], labels[has_label])  # warning: train only on the rows that kept a label
     return accuracy_score(y_test, clf.predict(X_test))
 ```
 
@@ -220,10 +234,15 @@ $$w_j = \log \frac{r_j (K - 1)}{1 - r_j} .$$
 而不是在混淆矩阵和软标签之间来回迭代。
 
 ```python
-def reliability_weights(r, n_classes):
-    r = np.clip(r, 1e-2, 1 - 1e-2)                    # NOTE: avoids log(0) at r == 0 or r == 1
-    w = np.log(r * (n_classes - 1) / (1 - r))
-    return np.clip(w, 0.0, None)                      # NOTE: chance-level or worse -> weight 0, not a negative vote
+def reliability_weights(r: np.ndarray, n_classes: int) -> np.ndarray:
+    """r: (A,), values in [0, 1]. Returns weights of shape (A,), each >= 0."""
+    # annotator j reports the true class with prob r_j, and each of the K - 1 others with prob (1 - r_j) / (K - 1)
+    # log P(votes | c) = sum_j log((1 - r_j) / (K - 1)) + sum_(j chose c) (log r_j - log((1 - r_j) / (K - 1)))
+    # the first sum is the same for every c, so the arg max is the weighted vote with
+    # w_j = log(r_j * (K - 1) / (1 - r_j))
+    r = np.clip(r, 1e-2, 1 - 1e-2)  # (A,), warning: avoids log(0) at r == 0 or r == 1
+    w = np.log(r * (n_classes - 1) / (1 - r))  # (A,)
+    return np.clip(w, 0.0, None)  # (A,), warning: chance level or worse gets weight 0, not a negative vote
 ```
 
 在 `seed=7` 时，权重约为 `[1.42, 1.34, 1.38, 1.42, 0.09, 0.28]`：标注者 4（均匀乱猜）几乎不值一提，

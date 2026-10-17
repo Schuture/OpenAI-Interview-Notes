@@ -140,26 +140,29 @@ class _LedgerState:
     """The ledger right after replaying some events in increasing order of timestamp."""
 
     def __init__(self):
-        self.active = []    # heap of [expire_at, remaining]; the earliest-expiring grant is on top
-        self.total = 0      # sum of remaining over self.active
+        self.active = []  # heap of [expire_at, remaining]; the earliest-expiring grant is on top
+        self.total = 0  # sum of remaining over self.active
         self.debt = 0
 
-    def _drop_expired(self, ts):
-        while self.active and self.active[0][0] < ts:     # NOTE: '<', not '<=' -- expiration is inclusive
+    def _drop_expired(self, ts: int) -> None:
+        while self.active and self.active[0][0] < ts:  # warning: '<', not '<=', expiration is inclusive
             self.total -= heapq.heappop(self.active)[1]
 
-    def apply(self, ts, event):
+    def apply(self, ts: int, event: tuple) -> None:
         """Applies one event as of its own timestamp ts."""
         if event[0] == "add":
-            _, _credit_id, amount, expire_at = event
-            paid = min(self.debt, amount)     # NOTE: a new grant repays outstanding debt before it can be spent
+            _, _, amount, expire_at = event
+            paid = min(self.debt, amount)  # warning: a new grant repays outstanding debt before it can be spent
             self.debt -= paid
             if amount > paid:
                 heapq.heappush(self.active, [expire_at, amount - paid])
                 self.total += amount - paid
             return
+
         _, amount = event
+        # first we discard the grants that have already expired
         self._drop_expired(ts)
+        # then we drain the soonest-expiring grant until the amount is covered
         while amount > 0 and self.active:
             grant = self.active[0]
             take = min(amount, grant[1])
@@ -168,25 +171,26 @@ class _LedgerState:
             amount -= take
             if grant[1] == 0:
                 heapq.heappop(self.active)
-        self.debt += amount           # NOTE: whatever no valid grant could cover becomes debt
+        self.debt += amount  # warning: whatever no valid grant could cover becomes debt
 
-    def balance(self, ts):
+    def balance(self, ts: int) -> int | None:
         self._drop_expired(ts)
-        net = self.total - self.debt      # NOTE: O(1); summing the heap here would cost O(k) on every query
-        return None if net < 0 else net
+        # debt only arises once the heap is empty, so a negative net balance means exactly debt > 0
+        net_balance = self.total - self.debt  # warning: O(1), summing the heap would cost O(k) on every query
+        return None if net_balance < 0 else net_balance
 
 
-class GPUCreditLedger:
+class GPUCreditLedger:  # Part 1 is a thin wrapper around the state
     def __init__(self):
         self._state = _LedgerState()
 
-    def add_credit(self, credit_id, amount, timestamp, expiration):
+    def add_credit(self, credit_id: str, amount: int, timestamp: int, expiration: int) -> None:
         self._state.apply(timestamp, ("add", credit_id, amount, timestamp + expiration))
 
-    def subtract(self, amount, timestamp):
+    def subtract(self, amount: int, timestamp: int) -> None:
         self._state.apply(timestamp, ("sub", amount))
 
-    def get_balance(self, timestamp):
+    def get_balance(self, timestamp: int) -> int | None:
         return self._state.balance(timestamp)
 ```
 
@@ -203,18 +207,19 @@ class GPUCreditLedger:
 ```python
 class GPUCreditLedgerAnyOrder:
     def __init__(self):
-        self._events = []   # append-only, call order -- NOT necessarily sorted by timestamp
+        self._events = []  # append-only, call order, warning: NOT necessarily sorted by timestamp
 
-    def add_credit(self, credit_id, amount, timestamp, expiration):
+    def add_credit(self, credit_id: str, amount: int, timestamp: int, expiration: int) -> None:
         self._events.append((timestamp, ("add", credit_id, amount, timestamp + expiration)))
 
-    def subtract(self, amount, timestamp):
+    def subtract(self, amount: int, timestamp: int) -> None:
         self._events.append((timestamp, ("sub", amount)))
 
-    def get_balance(self, timestamp):
+    def get_balance(self, timestamp: int) -> int | None:
+        # we rebuild the state from scratch: replay every event at or before the query
         state = _LedgerState()
-        for ts, event in sorted(e for e in self._events if e[0] <= timestamp):   # NOTE: sorted by
-            state.apply(ts, event)                                              # timestamp, not call order
+        for ts, event in sorted(e for e in self._events if e[0] <= timestamp):  # warning: by timestamp, not call order
+            state.apply(ts, event)
         return state.balance(timestamp)
 ```
 
@@ -242,35 +247,36 @@ import bisect
 
 class GPUCreditLedgerFast:
     def __init__(self):
-        self._log = []                        # (timestamp, event), kept sorted by timestamp
-        self._cursor_ts = float("-inf")       # highest timestamp queried since the last late event
-        self._cursor_idx = 0                  # index into self._log of the next event to apply
-        self._state = _LedgerState()          # every event at or before self._cursor_ts, applied
-        self._cache = {}                      # every key is <= self._cursor_ts
+        self._log = []  # (timestamp, event), kept sorted by timestamp
+        self._cursor_ts = float("-inf")  # highest timestamp queried since the last late event
+        self._cursor_idx = 0  # index into self._log of the next event to apply
+        self._state = _LedgerState()  # every event at or before self._cursor_ts, applied
+        self._cache = {}  # every key is <= self._cursor_ts
 
-    def _insert_event(self, timestamp, event):
+    def _insert_event(self, timestamp: int, event: tuple) -> None:
         bisect.insort(self._log, (timestamp, event))
-        if timestamp <= self._cursor_ts:      # NOTE: a late event -- drop the cursor and every cached answer
+        if timestamp <= self._cursor_ts:  # warning: a late event, we drop the cursor and every cached answer
             self._cursor_ts, self._cursor_idx = float("-inf"), 0
             self._state = _LedgerState()
             self._cache.clear()
 
-    def add_credit(self, credit_id, amount, timestamp, expiration):
+    def add_credit(self, credit_id: str, amount: int, timestamp: int, expiration: int) -> None:
         self._insert_event(timestamp, ("add", credit_id, amount, timestamp + expiration))
 
-    def subtract(self, amount, timestamp):
+    def subtract(self, amount: int, timestamp: int) -> None:
         self._insert_event(timestamp, ("sub", amount))
 
-    def get_balance(self, timestamp):
+    def get_balance(self, timestamp: int) -> int | None:
         if timestamp in self._cache:
             return self._cache[timestamp]
         if timestamp >= self._cursor_ts:
+            # we advance the cursor: only the events between the two timestamps are applied
             while self._cursor_idx < len(self._log) and self._log[self._cursor_idx][0] <= timestamp:
                 self._state.apply(*self._log[self._cursor_idx])
                 self._cursor_idx += 1
             self._cursor_ts = timestamp
             state = self._state
-        else:                                 # NOTE: a query behind the cursor -- one full replay, O(n log n)
+        else:  # warning: a query behind the cursor, one full replay, O(n log n)
             state = _LedgerState()
             for ts, event in self._log:
                 if ts > timestamp:
