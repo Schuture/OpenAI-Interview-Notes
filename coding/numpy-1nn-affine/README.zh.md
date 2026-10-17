@@ -122,20 +122,21 @@ $$D\_{ji} = \lVert q_j \rVert^2 + \lVert x_i \rVert^2 - 2 (Q X^\top)\_{ji} .$$
 import numpy as np
 
 
-def nearest_indices(X_train, X_query):
-    sq_train = (X_train ** 2).sum(axis=1)                           # (n,)    |x_i|^2
-    sq_query = (X_query ** 2).sum(axis=1, keepdims=True)            # (m, 1)  |q_j|^2
-    # NOTE: keepdims=True. With shape (m,) the sum below raises "operands could not be broadcast together"
-    #       if m != n, and if m == n it silently adds |q_j|^2 to COLUMN j, which changes the argmin.
-    inner = X_query @ X_train.T                                     # (m, d) @ (d, n) -> (m, n)
-    sqdist = sq_query + sq_train - 2.0 * inner                      # (m, 1) + (n,) - (m, n) -> (m, n)
-    # NOTE: rounding can leave entries such as -7e-15. Harmless for argmin; clip at 0 before any sqrt.
-    # NOTE: axis=1 runs over the training points, and argmin returns the FIRST minimum, which is the tie rule.
-    return np.argmin(sqdist, axis=1)                                # (m,)
+def predict_1nn(X_train: np.ndarray, y_train: np.ndarray, X_query: np.ndarray) -> np.ndarray:
+    """Shapes: X_train (n, d) float, y_train (n,) int, X_query (m, d) float.
+    Returns the predicted labels, shape (m,)."""
+    # dist_sq = (X_query - X_train)^2 = X_query^2 + X_train^2 - 2 * X_query * X_train
+    train_norm = np.sum(X_train**2, axis=1)  # (n,), warning: we sum up each matrix first to avoid O(mnd) space in dist_sq
+    query_norm = np.sum(X_query**2, axis=1)  # (m,)
 
+    dist_sq = query_norm[:, None] + train_norm[None, :] - 2 * X_query @ X_train.T  # (m, 1) + (1, n) - (m, n) => (m, n)
+    # warning: the matrix multiplication is @, not *
+    # warning: without [:, None] the sum fails if m != n, and if m == n it adds |q_j|^2 to column j
+    # rounding can leave entries such as -7e-15, harmless for argmin; clip at 0 before any sqrt
 
-def predict_1nn(X_train, y_train, X_query):
-    return y_train[nearest_indices(X_train, X_query)]               # integer-array indexing: (n,)[(m,)] -> (m,)
+    nearest_idx = np.argmin(dist_sq, axis=1)  # (m,), argmin returns the first minimum, which is the tie rule
+
+    return y_train[nearest_idx]  # (m,), warning: we need the label, not the index
 ```
 
 ### Part 2
@@ -169,30 +170,35 @@ $(cW_1, cb_1 + t\mathbf{1})$ 的 argmax 都相同，$`c`$ 的作用相当于温�
 `torch.nn.Linear(d, n)` 同时用到了这两种约定：它保存的权重形状是 `(n, d)`，也就是 $W_1$；计算时用的是 `x @ weight.T + bias`。
 
 ```python
-def affine_layer(X_train):
-    # NOTE: W is the TRANSPOSE of W_1, column i is 2 x_i. Without .T, X_query @ W raises a shape error
-    #       if d != n and is silently wrong if d == n.
-    W = 2.0 * X_train.T                                 # (d, n)
-    b = -(X_train ** 2).sum(axis=1)                     # (n,)
-    return W, b
+def affine_layer(X_train: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Builds the layer from X_train of shape (n, d). Returns W of shape (d, n) and b of shape (n,)."""
+    # in this case we use argmax to retrieve the index (softmax prob), the opposite of the direct prediction (argmin of distance)
+    # a natural way is to take -(X_query - X_train)^2 = -X_query^2 - X_train^2 + 2 * X_query * X_train
+    # we find that X_query @ W + b == 2 * X_query @ X_train.T + (-X_query^2 - X_train^2)
+    # so W is 2 * X_train.T, b is -X_train^2
+    # we discard -X_query^2 because it doesn't affect which X_train index an X_query would retrieve
+    return 2 * X_train.T, -np.sum(X_train**2, axis=1)  # (d, n), (n,), warning: W is the transpose of W_1
 
 
-def softmax(Z):
-    # NOTE: the logits grow like |x|^2. np.exp(1000.0) is inf and inf / inf is nan, so shift every row to max 0.
-    E = np.exp(Z - Z.max(axis=1, keepdims=True))        # (m, n) - (m, 1) -> (m, n)
-    # NOTE: axis=1, one distribution per query. axis=0 runs without an error and changes the argmax.
-    return E / E.sum(axis=1, keepdims=True)             # (m, n) / (m, 1) -> (m, n)
+def softmax(logits: np.ndarray) -> np.ndarray:
+    """logits (m, n)"""
+    logits = logits - logits.max(axis=1, keepdims=True)  # (m, n), warning: the logits grow like |x|^2, exp(1000) is inf
+    exp_logits = np.exp(logits)  # (m, n)
+    return exp_logits / exp_logits.sum(axis=1, keepdims=True)  # (m, n), warning: axis=1, one distribution per query
 
 
-def predict_1nn_affine(X_train, y_train, X_query):
+def predict_1nn_affine(X_train: np.ndarray, y_train: np.ndarray,
+                       X_query: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Forward pass. Returns (probs, labels): probs[j] = softmax(logits[j]), shape (m, n),
+    and labels[j] = y_train[argmax(probs[j])], shape (m,)."""
     W, b = affine_layer(X_train)
-    logits = X_query @ W + b                            # (m, d) @ (d, n) + (n,) -> (m, n)
-    # NOTE: b of shape (n,) lines up with the LAST axis of (m, n), so it is added to every row.
-    probs = softmax(logits)                             # (m, n), every row sums to 1
-    nearest = np.argmax(probs, axis=1)                  # (m,)
-    # NOTE: in floating point the softmax can turn two distinct logits into a tie: softmax([[-1e-17, 0.]])
-    #       is [[0.5, 0.5]], and the argmax moves from 1 to 0. np.argmax(logits, axis=1) avoids this.
-    return probs, y_train[nearest]
+    logits = X_query @ W + b  # (m, d) @ (d, n) + (n,) => (m, n)
+    probs = softmax(logits)  # (m, n)
+    indices = np.argmax(probs, axis=1)  # (m,)
+    # warning: softmax can turn two distinct logits into a tie: softmax([[-1e-17, 0.]]) is [[0.5, 0.5]],
+    # and the argmax moves from 1 to 0; np.argmax(logits, axis=1) avoids this
+
+    return probs, y_train[indices]
 ```
 
 这一层给每个训练点配一个输出单元，共 $nd + n$ 个参数，全都不需要训练：网络把训练集原样存进了权重。
@@ -251,7 +257,7 @@ def predict_1nn_l1_network(X_train, y_train, X_query):
 X_train = np.array([[0., 0.], [2., 0.], [0., 2.], [3., 3.]])
 y_train = np.array([2, 0, 0, 1])
 X_query = np.array([[1., 0.], [2., 1.], [2., 3.]])
-assert nearest_indices(X_train, X_query).tolist() == [0, 1, 3]              # q_0 is a tie between 0 and 1
+assert predict_1nn(X_train, np.arange(4), X_query).tolist() == [0, 1, 3]  # labels 0..n-1 give the index              # q_0 is a tie between 0 and 1
 assert predict_1nn(X_train, y_train, X_query).tolist() == [2, 0, 1]
 W, b = affine_layer(X_train)
 assert W.T.tolist() == [[0, 0], [4, 0], [0, 4], [6, 6]] and b.tolist() == [0, -4, -4, -18]
@@ -275,7 +281,7 @@ for trial in range(300):
     dist = np.sum((X_query[:, None, :] - X_train[None, :, :]) ** 2, axis=2)
     ties += np.sum(np.sum(dist == dist.min(axis=1, keepdims=True), axis=1) > 1)
 
-    assert np.array_equal(nearest_indices(X_train, X_query), expected)
+    assert np.array_equal(predict_1nn(X_train, np.arange(n), X_query), expected)
     assert np.array_equal(nearest_indices_broadcast(X_train, X_query), expected)
     W, b = affine_layer(X_train)
     probs, labels = predict_1nn_affine(X_train, y_train, X_query)

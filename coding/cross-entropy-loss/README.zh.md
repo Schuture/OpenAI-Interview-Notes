@@ -146,15 +146,22 @@ $$\log \sum_v e^{z_v} = m + \log \sum_v e^{z_v - m}.$$
 import numpy as np
 
 
-def cross_entropy(logits, targets):
-    x = np.asarray(logits, dtype=np.float64)
-    y = np.asarray(targets)
-    m = x.max(axis=-1, keepdims=True)                        # NOTE: keepdims=True, else `x - m` below
-    shifted = x - m                                           #       broadcasts along the wrong axis when T == V
-    log_z = np.log(np.exp(shifted).sum(axis=-1)) + m[..., 0]  # (B, T), always finite: shifted <= 0 everywhere
-    picked = np.take_along_axis(x, y[..., None], axis=-1)[..., 0]   # (B, T), logits at the target class
-    nll = log_z - picked   # NOTE: this is (z_y - m) - log sum_v exp(z_v - m); never softmax(x) followed by log(.)
-    return float(nll.mean())
+def cross_entropy(logits: np.ndarray, targets: np.ndarray) -> float:
+    """logits: shape (B, T, V) float array of per-position class scores. targets: shape (B, T) int
+    array, each entry a class id in [0, V). Returns the mean of -log softmax(logits)[b, t, targets[b, t]]
+    over all B * T positions. Must stay finite and correct for logits as large as 1000."""
+    # we use the log-sum-exp trick: log softmax is logp = log(exp(z) / sum(exp(z))) = z - log(sum(exp(z)))
+    # we replace the logits z by z - max(z), which leaves the softmax unchanged
+    # therefore exp(z) is in [0, 1] (at least one item is 1)
+    # and sum(exp(z)) is in [1, V] (safe for log)
+    logits = logits.astype(np.float64)  # (B, T, V), for precision
+    logits = logits - logits.max(axis=-1, keepdims=True)  # (B, T, V), warning: keepdims=True, else it broadcasts along the wrong axis when T == V
+
+    log_prob = logits - np.log(np.sum(np.exp(logits), axis=-1, keepdims=True))  # (B, T, V)
+
+    chosen = np.take_along_axis(log_prob, targets[..., None], axis=-1)  # (B, T, 1)
+
+    return -np.mean(chosen)  # warning: never softmax first and log afterwards, log(0) gives -inf
 ```
 
 ### Part 2
@@ -164,22 +171,23 @@ def cross_entropy(logits, targets):
 一个无害的占位类别，之后统一把这些位置的损失乘以 `0`。
 
 ```python
-def cross_entropy_masked(logits, targets, mask):
-    x = np.asarray(logits, dtype=np.float64)
-    keep = np.asarray(mask).astype(bool)          # NOTE: mask may arrive as 0/1 ints; x[mask] would then do
-                                                    #       FANCY indexing, not boolean masking
-    safe_targets = np.where(keep, targets, 0)      # NOTE: dummy class 0 at masked slots, so the gather below
-                                                     #       never reads an out-of-range target
-    m = x.max(axis=-1, keepdims=True)
-    shifted = x - m
-    log_z = np.log(np.exp(shifted).sum(axis=-1)) + m[..., 0]
-    picked = np.take_along_axis(x, safe_targets[..., None], axis=-1)[..., 0]
-    nll = (log_z - picked) * keep                   # zero out masked positions before summing
-    count = keep.sum()
-    if count == 0:
+def cross_entropy_masked(logits: np.ndarray, targets: np.ndarray, mask: np.ndarray) -> float:
+    """Same contract as cross_entropy, except positions with mask == 0 (shape (B, T), 0/1 or bool) are
+    excluded from both the sum and the count in the mean. targets at a masked position may be any
+    integer, including a value outside [0, V). Returns 0.0 when every position is masked."""
+    if not np.any(mask):
         return 0.0
-    return float(nll.sum() / count)                 # NOTE: "/" not "//" -- floor division would silently
-                                                       #       truncate the loss to an integer
+    logits = logits.astype(np.float64)  # (B, T, V), don't need to mask at this step
+    logits = logits - logits.max(axis=-1, keepdims=True)  # (B, T, V)
+
+    safe_targets = targets * mask  # (B, T), we set the invalid targets to 0, a meaningful index, to avoid a gathering error
+
+    log_prob = logits - np.log(np.sum(np.exp(logits), axis=-1, keepdims=True))  # (B, T, V)
+
+    chosen = np.take_along_axis(log_prob, safe_targets[..., None], axis=-1).squeeze(-1)  # (B, T), squeeze to make it the same shape as mask
+    loss = -chosen  # (B, T), loss for each token
+
+    return np.sum(loss * mask) / np.sum(mask)  # exclude the invalid positions from the denominator, warning: "/" not "//"
 ```
 
 ### Part 3
@@ -190,29 +198,34 @@ def cross_entropy_masked(logits, targets, mask):
 $$-\sum_v p_v \log q_v = -(1 - \varepsilon) \log q_y - \frac{\varepsilon}{V} \sum_v \log q_v = -(1 - \varepsilon) \log q_y - \varepsilon \cdot \overline{\log q},$$
 
 其中 $\overline{\log q} = \frac{1}{V}\sum_v \log q_v$ 是 $\log q_v$ 在整个词表上的均值。
-两项都能从 Part 1 已经算出的量得到（$`\log q_y`$ 就是 `nll` 取负），再加一次对
-`shifted - log_sum_exp` 沿最后一个轴求均值；全程没有构造任何 $(B, T, V)$ 的目标张量。
+两项都来自 Part 1 已经算出的 `log_prob`：$`\log q_y`$ 就是 `chosen`，$`\overline{\log q}`$ 是沿最后一个轴
+再求一次均值；全程没有构造任何 $(B, T, V)$ 的目标张量。
 
 ```python
-def cross_entropy_smoothed(logits, targets, mask, label_smoothing):
-    x = np.asarray(logits, dtype=np.float64)
-    V = x.shape[-1]
-    keep = np.asarray(mask).astype(bool)
-    safe_targets = np.where(keep, targets, 0)
-
-    m = x.max(axis=-1, keepdims=True)
-    shifted = x - m
-    log_sum_exp = np.log(np.exp(shifted).sum(axis=-1))         # (B, T)
-    log_z = log_sum_exp + m[..., 0]
-    log_q_y = np.take_along_axis(x, safe_targets[..., None], axis=-1)[..., 0] - log_z   # log q at the target
-    mean_log_q = shifted.mean(axis=-1) - log_sum_exp           # mean over v of log q_v; no (B, T, V) target tensor built
-    eps = label_smoothing
-    nll = -(1.0 - eps) * log_q_y - eps * mean_log_q
-    nll = nll * keep
-    count = keep.sum()
-    if count == 0:
+def cross_entropy_smoothed(logits: np.ndarray, targets: np.ndarray, mask: np.ndarray,
+                            label_smoothing: float) -> float:
+    """Same contract as cross_entropy_masked, plus label smoothing with parameter label_smoothing = eps:
+    the target distribution at an unmasked position is (1 - eps) * one_hot(targets[b, t]) + eps / V."""
+    # the previous loss: -logp(target), because only the target class is involved for a one-hot target
+    # the new loss: -sum(q(class) * logp(class)) over all classes
+    # = -sum(((1 - eps) * one_hot(targets[b, t]) + eps / V) * logp(class))
+    # = -(1 - eps) * logp(target) - sum(eps / V * logp(class))
+    # = (1 - eps) * L_CE - eps * mean_log_prob over all classes (the whole vocabulary)
+    if not np.any(mask):
         return 0.0
-    return float(nll.sum() / count)
+    logits = logits.astype(np.float64)  # (B, T, V)
+    logits = logits - logits.max(axis=-1, keepdims=True)  # (B, T, V)
+
+    safe_targets = targets * mask  # (B, T)
+
+    log_prob = logits - np.log(np.sum(np.exp(logits), axis=-1, keepdims=True))  # (B, T, V)
+
+    chosen = np.take_along_axis(log_prob, safe_targets[..., None], axis=-1).squeeze(-1)  # (B, T)
+    mean_log_prob = np.mean(log_prob, axis=-1)  # (B, T, V) => (B, T), no (B, T, V) target tensor is built
+
+    loss = (label_smoothing - 1) * chosen - label_smoothing * mean_log_prob  # (B, T)
+
+    return np.sum(loss * mask) / np.sum(mask)
 ```
 
 在随机批次上，结果与 `torch.nn.functional.cross_entropy(..., ignore_index=-100, label_smoothing=eps, reduction='mean')`
@@ -243,28 +256,42 @@ $\mathrm{KL}(p \Vert q) \ge 0$，等号当且仅当 $q = p$，而这是可以达
 $$\frac{\partial H(p, q)}{\partial z_i} = -\sum_j p_j \frac{\partial \log q_j}{\partial z_i} = -\sum_j p_j(\delta\_{ij} - q_i) = -p_i + q_i \sum_j p_j = q_i - p_i,$$
 
 这里用到 $\sum_j p_j = 1$。对 $N$ 个未被 mask 的位置取平均，会把每个位置的梯度都缩放 $1/N$；
-被 mask 的位置贡献的是零向量。
+被 mask 的位置贡献的是零向量。下面的代码把两个字母对调了，代码上方的注释写明了这一点：代码里
+`p` 是 softmax，`q` 是目标分布，所以梯度写成 `p - q`。
 
 ```python
-def cross_entropy_grad(logits, targets, mask, label_smoothing):
-    x = np.asarray(logits, dtype=np.float64)
-    V = x.shape[-1]
-    keep = np.asarray(mask).astype(bool)
-    safe_targets = np.where(keep, targets, 0)
-    count = keep.sum()
-    if count == 0:
-        return np.zeros_like(x)
+# p = softmax(z) is the predicted distribution, q is the target distribution
+# per-token loss: L = -sum(q(class) * log(p(class))) over all classes
+# since log(p) = z - log(sum(exp(z))), where z is a logit:
+# L = -sum(q * z) + log(sum(exp(z))), because sum(q) = 1
+# per-token gradient: dL/dz = p - q
+#
+# with masking and the mean over valid tokens:
+# L_mean = sum(mask * L) / N, where N = sum(mask)
+# gradient: dL_mean/dz = mask * (p - q) / N
+# masked positions have zero gradient; if N == 0, return all zeros
+def cross_entropy_grad(logits: np.ndarray, targets: np.ndarray, mask: np.ndarray,
+                        label_smoothing: float) -> np.ndarray:
+    """Gradient of cross_entropy_smoothed(logits, targets, mask, label_smoothing) with respect to
+    logits, shape (B, T, V). The gradient row at a masked position is all zero."""
+    B, T, V = logits.shape
+    if not np.any(mask):
+        return np.zeros_like(logits, dtype=np.float64)  # warning: this should be the same shape as the logits
 
-    m = x.max(axis=-1, keepdims=True)
-    q = np.exp(x - m)
-    q /= q.sum(axis=-1, keepdims=True)                          # q = softmax(x), shape (B, T, V)
+    # get softmax prob
+    logits = logits.astype(np.float64)  # (B, T, V)
+    logits = logits - logits.max(axis=-1, keepdims=True)  # (B, T, V)
+    exp_logits = np.exp(logits)  # (B, T, V)
+    p = exp_logits / exp_logits.sum(axis=-1, keepdims=True)  # (B, T, V)
 
-    eps = label_smoothing
-    p = np.full_like(x, eps / V)                                # p = target distribution
-    np.put_along_axis(p, safe_targets[..., None], (1.0 - eps) + eps / V, axis=-1)
-    grad = (q - p) / count                                      # NOTE: divide by count, matching the mean reduction
-    grad *= keep[..., None]                                     # zero the gradient row of every masked position
-    return grad
+    # get gt prob
+    safe_targets = targets * mask  # (B, T)
+    q = np.full_like(p, label_smoothing / V)  # (B, T, V)
+    np.put_along_axis(q, safe_targets[..., None], 1 - label_smoothing * (1 - 1 / V), axis=-1)
+
+    grad = p - q  # (B, T, V), gradient for each position for the logits, not considering masking
+
+    return grad * mask[..., None] / np.sum(mask)  # (B, T, V), mean over all valid tokens
 ```
 
 ### 追问
