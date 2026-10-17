@@ -36,10 +36,36 @@
 
 1. 开头写出值得向面试官确认的一两个点。
 2. 然后按部分写：思路、推导（有的话要推导，不要直接断言）、代码。
-3. 技术性的易错点写成代码里的 `# NOTE:` 注释，放在相关的那一行，不单独列清单。
+3. 技术性的易错点写成代码里的 `# warning:` 注释，放在相关的那一行，不单独列清单。
 4. 最后用几条一行的追问收尾。不要总结，不要清单。
 5. 检查代码放进末尾嵌套的第二个 `<details>` 块：针对示例的断言；能写暴力解的，再加一个只依据题面写出的暴力解
    （不能调用解法里的辅助函数）做对拍。系统设计题要把正文引用的每个估算都用代码重算一遍。
+
+### 解答代码怎么写
+
+参考解答的代码统一用一种风格，让每一页读起来都像同一个人写的。
+
+1. **先抄签名。** 把题目一节里的函数签名连同类型标注和 docstring 抄过来，按题面实现。
+2. **先在注释里推导，再写代码。** 在代码上方或函数开头，用几行 `#` 注释把公式或思路推出来，一行一步
+   （`# = ...`、`# so W is ...`），用 “we” 的口吻：`# we subtract max(z), so exp(z) is in [0, 1]`。
+3. **形状写在行尾。** 每一行产生数组的代码，行尾注明形状 `# (B, T, V)`，或者形状的变化
+   `# (B, T, V) => (B, T)`、`# (m, d) @ (d, n) + (n,) => (m, n)`。
+4. **易错点写成 `# warning:`。** 写在相关的那一行，小写开头：`# warning: we need the label, not the index`。
+5. **步骤注释。** 循环或函数的各个阶段用一句简短的小写注释标出：`# first some cells recover or die`、
+   `# then some cells are infected`、`# get softmax prob`。
+6. **变量名说明它装的是什么。** 状态和编码用大写常量（`HEALTHY, INFECTED = 0, 1`），网格移动用模块级的
+   `directions` 列表。计数写成 `n_<thing>`（`n_healthy`）；其他名字描述内容（`safe_targets`、`dist_sq`、
+   `log_prob`、`chosen`、`nearest_idx`、`train_norm`、`infected_day`、`exp_logits`）。在若干选项里取最优时，
+   当前最优叫 `ans`。网格用 `rows, cols`、`r, c`、`dr, dc`，邻居直接写成 `r+dr, c+dc`。
+7. **先处理边界情况。** 空输入或退化输入在函数开头提前返回（`if not grid or not grid[0]: return 0`、
+   `if not np.any(mask): return 0.0`）。
+8. **一个引擎，外面套薄包装。** 后面的部分推广了前面的部分时，只写一个通用函数，较简单的部分写成对它的
+   一行调用；`softmax` 这类小工具单独提出来。
+9. **修改输入之前先复制**：`state = [row[:] for row in grid]  # we copy the grid`。
+10. **NumPy 惯用法。** 用 `.astype(np.float64)` 保证精度，用 `axis=-1` 和 `keepdims=True`，取值用
+    `np.take_along_axis` / `np.put_along_axis`，加轴用 `x[..., None]`，矩阵乘法用 `@`，mask 用乘法
+    施加（`np.sum(loss * mask) / np.sum(mask)`）。
+11. **代码直截了当。** 契约不要求就不做防御性转换（`np.asarray`、`float(...)`），也不写只是复述代码的注释。
 
 代码围栏：标记为 `python` 的代码块会被执行，必须能跑通；标记为 `py` 的代码块只作示意（只有签名的函数、故意报错的代码）。
 一页里所有 `python` 代码块在同一个命名空间里按顺序运行，在笔记本 CPU 上合计应远低于 30 秒。

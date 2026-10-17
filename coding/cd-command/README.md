@@ -133,24 +133,26 @@ walking them with a stack.
 
 ```python
 def _split(path: str) -> list[str]:
-    return [tok for tok in path.split("/") if tok != ""]     # NOTE: drops "" from //, a leading /, or a trailing /
+    # warning: this drops the "" of //, a leading / or a trailing /
+    return [tok for tok in path.split("/") if tok != ""]
 
 
 def _apply(stack: list[str], token: str) -> None:
     if token in ("", "."):
         return
     if token == "..":
-        if stack:                # NOTE: popping an empty stack is the root clamp, not an error
+        if stack:  # warning: ".." on an empty stack is the root clamp, not an error
             stack.pop()
         return
     stack.append(token)
 
 
 def cd_relative(cwd: str, destination: str) -> str:
+    # we keep the directories of the path in a stack: a name pushes, ".." pops, "" and "." do nothing
     stack = _split(cwd)
-    for token in destination.split("/"):        # NOTE: split, not _split -- "" tokens must reach _apply
+    for token in destination.split("/"):  # warning: split, not _split, the "" tokens must reach _apply
         _apply(stack, token)
-    return "/" + "/".join(stack)                 # NOTE: build the leading "/" here; join([]) is "", not "/"
+    return "/" + "/".join(stack)  # warning: we add the leading "/" here, "/".join([]) is "", not "/"
 ```
 
 ### Part 2
@@ -160,21 +162,18 @@ def cd_relative(cwd: str, destination: str) -> str:
 
 ```python
 def _start(cwd: str, destination: str, home: str) -> tuple[str, str]:
+    """Splits destination into the directory we start from and the relative tail we still follow."""
     if destination == "~" or destination.startswith("~/"):
-        return home, destination[2:]      # NOTE: "~"[2:] is "", so a bare "~" lands exactly on home
+        return home, destination[2:]  # warning: "~"[2:] is "", so a bare "~" lands exactly on home
     if destination.startswith("~"):
         raise ValueError(f"unsupported destination: {destination!r} (~user is out of scope)")
     if destination.startswith("/"):
-        return "/", destination           # NOTE: destination's own leading "/" becomes an "" token, dropped by _apply
-    return cwd, destination               # NOTE: only a leading "~" is special; "a/~b" falls through to here
+        return "/", destination  # the leading "/" of destination becomes a "" token, which _apply drops
+    return cwd, destination  # warning: only a leading "~" is special, "a/~b" falls through to here
 
 
 def cd_absolute(cwd: str, destination: str, home: str) -> str:
-    base, rest = _start(cwd, destination, home)
-    stack = _split(base)
-    for token in rest.split("/"):
-        _apply(stack, token)
-    return "/" + "/".join(stack)
+    return cd_relative(*_start(cwd, destination, home))  # Part 2 is the walk of Part 1 from a new start
 ```
 
 ### Part 3
@@ -200,29 +199,33 @@ class SymlinkLoopError(Exception):
     pass
 
 
-MAX_SYMLINK_HOPS = 20   # NOTE: a choice of this problem; Linux (kernel lookup and glibc realpath) fails with ELOOP after 40
+# warning: 20 is a choice of this problem; Linux (kernel lookup and glibc realpath) fails with ELOOP after 40
+MAX_SYMLINK_HOPS = 20
 
 
 def cd(cwd: str, destination: str, home: str, symlinks: dict[str, str]) -> str:
+    # we check for a link right after each name is pushed, before a later ".." can remove it lexically
+    # a link puts the components of its target at the front of the queue, so they get the same check
     base, rest = _start(cwd, destination, home)
-    stack = _split(base)                  # physical already: cwd and home never lie under a link
+    stack = _split(base)  # physical already: cwd and home never lie under a link
     pending = deque(rest.split("/"))
-    hops = 0
+    n_hops = 0
     while pending:
         token = pending.popleft()
         if token in ("", ".", ".."):
-            _apply(stack, token)          # NOTE: ".." pops the PHYSICAL stack -- already past any earlier link
+            _apply(stack, token)  # warning: ".." pops the physical stack, which is already past any earlier link
             continue
-        target = symlinks.get("/" + "/".join(stack + [token]))   # the path this token would create
+        target = symlinks.get("/" + "/".join(stack + [token]))  # the path this token would create
         if target is None:
             stack.append(token)
             continue
-        hops += 1
-        if hops > MAX_SYMLINK_HOPS:
+
+        n_hops += 1
+        if n_hops > MAX_SYMLINK_HOPS:
             raise SymlinkLoopError(f"more than {MAX_SYMLINK_HOPS} symlink expansions resolving {destination!r}")
         if target.startswith("/"):
             stack = []
-        # NOTE: otherwise `stack` is still the directory that contains the link -- the base of a relative target
+        # warning: otherwise the stack is still the directory that contains the link, the base of a relative target
         pending.extendleft(reversed(target.split("/")))
     return "/" + "/".join(stack)
 ```
@@ -311,7 +314,7 @@ symlinks_ex = {"/srv/www/current": "/srv/archive/2025-09"}
 assert cd("/srv/www", "current/gallery/../notes", home, symlinks_ex) == "/srv/archive/2025-09/notes"
 
 physical = cd("/srv/www", "current/../snapshot", home, symlinks_ex)
-lexical_first = cd_relative("/srv/www", "current/../snapshot")     # NOTE: wrong on purpose, for contrast
+lexical_first = cd_relative("/srv/www", "current/../snapshot")     # warning: wrong on purpose, for contrast
 assert physical == "/srv/archive/snapshot"
 assert lexical_first == "/srv/www/snapshot"
 
@@ -411,7 +414,7 @@ def spec_cd(cwd, destination, home, symlinks):
 
 
 with tempfile.TemporaryDirectory() as tmp:
-    root = os.path.realpath(tmp)       # NOTE: the temp directory itself may sit behind a link (macOS: /tmp)
+    root = os.path.realpath(tmp)       # warning: the temp directory itself may sit behind a link (macOS: /tmp)
     dirs = ["/"] + ["/" + "/".join(p) for n in (1, 2, 3) for p in itertools.product("pq", repeat=n)]
     for d in dirs:
         os.makedirs(root + d, exist_ok=True)

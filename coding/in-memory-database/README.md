@@ -165,13 +165,14 @@ from typing import Any
 
 class Database:
     def __init__(self):
-        self._schemas: dict[str, list[str]] = {}
-        self._rows: dict[str, list[dict[str, Any]]] = {}
+        self._schemas: dict[str, list[str]] = {}  # table -> column names, in schema order
+        self._rows: dict[str, list[dict[str, Any]]] = {}  # table -> rows, in insertion order
 
     def create_table(self, table: str, columns: list[str]) -> None:
+        """Creates an empty table with these columns, in this order."""
         if table in self._schemas:
             raise KeyError(f"table already exists: {table!r}")
-        self._schemas[table] = list(columns)
+        self._schemas[table] = list(columns)  # we copy the column list
         self._rows[table] = []
 
     def _schema(self, table: str) -> list[str]:
@@ -179,24 +180,28 @@ class Database:
             raise KeyError(f"no such table: {table!r}")
         return self._schemas[table]
 
-    def insert(self, table: str, row: dict[str, Any]) -> None:
+    def insert(self, table: str, row: dict[str, int | str | None]) -> None:
+        """Appends a copy of row to table."""
         schema = self._schema(table)
+        # warning: unknown columns are checked first, so a row with both problems raises KeyError
         extra = set(row) - set(schema)
         if extra:
             raise KeyError(f"no such column(s) in {table!r}: {sorted(extra)}")
         missing = set(schema) - set(row)
         if missing:
             raise ValueError(f"row is missing column(s) for {table!r}: {sorted(missing)}")
-        self._rows[table].append(dict(row))     # NOTE: a copy, so mutating the caller's dict is safe
+        self._rows[table].append(dict(row))  # warning: a copy, so mutating the caller's dict is safe
 
-    def select(self, table: str, columns: list[str] | None = None) -> list[dict[str, Any]]:
+    def select(self, table: str, columns: list[str] | None = None) -> list[dict[str, int | str | None]]:
+        """Returns every row of table, projected to columns (all of the table's columns, in schema
+        order, if columns is None), as a list of dicts, in the order the rows were inserted."""
         schema = self._schema(table)
         columns = list(columns) if columns is not None else list(schema)
         _check_names(schema, table, columns)
         return [{col: row[col] for col in columns} for row in self._rows[table]]
 
 
-def _check_names(schema, table, names):
+def _check_names(schema: list[str], table: str, names: list[str]) -> None:
     for col in names:
         if col not in schema:
             raise KeyError(f"no such column in {table!r}: {col!r}")
@@ -216,40 +221,49 @@ insertion order.
 ```python
 import operator
 
-_OPERATORS = {
+OPERATORS = {
     "=": operator.eq, "!=": operator.ne,
     "<": operator.lt, "<=": operator.le, ">": operator.gt, ">=": operator.ge,
 }
 
 
-def _sort_key(value):
-    return (0,) if value is None else (1, isinstance(value, str), value)   # NOTE: never compares int with str
+def _sort_key(value: int | str | None) -> tuple:
+    # we encode the whole order in a tuple: None first, then every int, then every str
+    return (0,) if value is None else (1, isinstance(value, str), value)  # warning: never compares int with str
 
 
-def _matches(actual, op, target):
-    if actual is None or target is None:       # NOTE: None fails every operator, "!=" included
+def _matches(actual: int | str | None, op: str, target: int | str | None) -> bool:
+    if actual is None or target is None:  # warning: None fails every operator, "!=" included
         return False
-    return _OPERATORS[op](_sort_key(actual), _sort_key(target))
+    return OPERATORS[op](_sort_key(actual), _sort_key(target))
 
 
-def _filtered_rows(self, table, where):     # NOTE: overridden by Part 4
+def _filtered_rows(self, table: str, where: list[tuple[str, str, Any]]) -> list[dict[str, Any]]:
+    # warning: overridden by Part 4
     return [row for row in self._rows[table]
             if all(_matches(row[col], op, value) for col, op, value in where)]
 
 
-def select(self, table, columns=None, where=None, order_by=None):
+def select(self, table: str, columns: list[str] | None = None,
+           where: list[tuple[str, str, int | str | None]] | None = None,
+           order_by: list[tuple[str, bool]] | None = None) -> list[dict[str, int | str | None]]:
+    """Same as Part 2, but sorts the returned rows by order_by; order_by=None (or []) keeps
+    insertion order."""
     schema = self._schema(table)
     columns = list(columns) if columns is not None else list(schema)
     where, order_by = list(where or []), list(order_by or [])
-    _check_names(schema, table, columns + [c for c, _, _ in where] + [c for c, _ in order_by])
-    for _, op, _ in where:                      # NOTE: validated up front, even for an empty table
-        if op not in _OPERATORS:
+    _check_names(schema, table, columns + [col for col, _, _ in where] + [col for col, _ in order_by])
+    for _, op, _ in where:  # warning: validated up front, even for an empty table
+        if op not in OPERATORS:
             raise ValueError(f"unknown operator: {op!r}")
 
+    # first filter
     rows = self._filtered_rows(table, where)
-    for col, ascending in reversed(order_by):    # NOTE: least-significant column first
-        rows = sorted(rows, key=lambda row: _sort_key(row[col]), reverse=not ascending)  # NOTE: str has no -x
-    return [{col: row[col] for col in columns} for row in rows]   # NOTE: project after filter/sort
+    # then one stable sort per column, from the least significant column to the most significant one
+    for col, ascending in reversed(order_by):
+        # warning: reverse=, not a negated key, since a str has no -x
+        rows = sorted(rows, key=lambda row: _sort_key(row[col]), reverse=not ascending)
+    return [{col: row[col] for col in columns} for row in rows]  # warning: project after filter and sort
 
 
 Database._filtered_rows = _filtered_rows
@@ -275,29 +289,31 @@ slice of the sorted index is ordered by value), and checks the other conditions 
 ```python
 import bisect
 
-_insert_without_indexes = Database.insert   # Part 1's insert, unchanged
+RANGE_OPS = ("<", "<=", ">", ">=")
+_insert_without_indexes = Database.insert  # Part 1's insert, unchanged
 
 
-def _add_to_index(index, kind, value, pos):
+def _add_to_index(index: dict | list, kind: str, value: int | str | None, pos: int) -> None:
     if kind == "hash":
-        index.setdefault(value, []).append(pos)
-    elif value is not None:                 # NOTE: sorted index never holds None
-        bisect.insort(index, (_sort_key(value), pos))
+        index.setdefault(value, []).append(pos)  # value -> row positions, in insertion order
+    elif value is not None:  # warning: a sorted index never holds None
+        bisect.insort(index, (_sort_key(value), pos))  # warning: O(n) per insert, it shifts every later entry
 
 
-def insert(self, table, row):
+def insert(self, table: str, row: dict[str, int | str | None]) -> None:
     _insert_without_indexes(self, table, row)
     pos = len(self._rows[table]) - 1
     for (col, kind), index in getattr(self, "_indexes", {}).get(table, {}).items():
         _add_to_index(index, kind, self._rows[table][pos][col], pos)
 
 
-def create_index(self, table, column, kind):
+def create_index(self, table: str, column: str, kind: str) -> None:
+    """kind is "hash" or "sorted". Rebuilds the index if one already exists for this (column, kind)."""
     schema = self._schema(table)
     _check_names(schema, table, [column])
     if kind not in ("hash", "sorted"):
         raise ValueError(f"unknown index kind: {kind!r}")
-    if not hasattr(self, "_indexes"):        # NOTE: lazy init -- predates __init__
+    if not hasattr(self, "_indexes"):  # warning: lazy init, Database.__init__ predates indexes
         self._indexes = {}
     index = {} if kind == "hash" else []
     for pos, row in enumerate(self._rows[table]):
@@ -305,24 +321,25 @@ def create_index(self, table, column, kind):
     self._indexes.setdefault(table, {})[(column, kind)] = index
 
 
-def _filtered_rows(self, table, where):
+def _filtered_rows(self, table: str, where: list[tuple[str, str, Any]]) -> list[dict[str, Any]]:
+    # we take the first condition an index can serve, then check the other conditions on its rows only
     if any(value is None for _, _, value in where):
-        return []                                # NOTE: that condition is false on every row
+        return []  # that condition is false on every row
     indexes = getattr(self, "_indexes", {}).get(table, {})
     candidates, remaining = self._rows[table], where
     for i, (col, op, value) in enumerate(where):
         if op == "=" and (col, "hash") in indexes:
             positions = indexes[(col, "hash")].get(value, [])
-        elif op in ("<", "<=", ">", ">=") and (col, "sorted") in indexes:
+        elif op in RANGE_OPS and (col, "sorted") in indexes:
             entries = indexes[(col, "sorted")]
             search = bisect.bisect_right if op in ("<=", ">") else bisect.bisect_left
-            cut = search(entries, _sort_key(value), key=lambda e: e[0])
+            cut = search(entries, _sort_key(value), key=lambda entry: entry[0])
             lo, hi = (0, cut) if op in ("<", "<=") else (cut, len(entries))
-            positions = sorted(p for _, p in entries[lo:hi])   # NOTE: restores row-insertion order
+            positions = sorted(pos for _, pos in entries[lo:hi])  # warning: restores insertion order
         else:
             continue
-        candidates = [self._rows[table][p] for p in positions]
-        remaining = where[:i] + where[i + 1:]
+        candidates = [self._rows[table][pos] for pos in positions]
+        remaining = where[:i] + where[i+1:]
         break
     return [row for row in candidates
             if all(_matches(row[col], op, value) for col, op, value in remaining)]
@@ -468,7 +485,7 @@ def to_sql(where, order_by, columns):
     sql = f"SELECT {', '.join(columns)} FROM t"
     if where:
         sql += " WHERE " + " AND ".join(f"{col} {op} ?" for col, op, _ in where)
-    keys = [f"{col} {'ASC' if asc else 'DESC'}" for col, asc in order_by] + ["rowid"]  # NOTE: rowid ==
+    keys = [f"{col} {'ASC' if asc else 'DESC'}" for col, asc in order_by] + ["rowid"]  # warning: rowid ==
     return sql + " ORDER BY " + ", ".join(keys), [value for _, _, value in where]      # insertion order
 
 
@@ -478,7 +495,7 @@ def run_trial(seed, nrows=24, nqueries=15):
     types = {c: rng.choice(["int", "str", "mixed"]) for c in cols}
     rows = [{c: random_value(rng, types[c]) for c in cols} for _ in range(nrows)]
     con = sqlite3.connect(":memory:")
-    con.execute("CREATE TABLE t (c0, c1, c2)")          # NOTE: no declared types, so no affinity
+    con.execute("CREATE TABLE t (c0, c1, c2)")          # warning: no declared types, so no affinity
     con.executemany("INSERT INTO t VALUES (?, ?, ?)", [[r[c] for c in cols] for r in rows])
 
     db = Database()
@@ -555,7 +572,7 @@ t_range_scan = per_call(lambda: plain.select("t", ["k"], where=[("v", "<", 5)]),
 t_range_idx = per_call(lambda: indexed.select("t", ["k"], where=[("v", "<", 5)]), 50)
 t_ins_plain = per_call(lambda: plain.insert("t", {"k": -1, "v": 1}), 200)
 t_ins_indexed = per_call(lambda: indexed.insert("t", {"k": -1, "v": 1}), 200)
-# NOTE: bounds far below the measured ratios, so a slow or busy machine does not fail them
+# warning: bounds far below the measured ratios, so a slow or busy machine does not fail them
 assert t_scan > 10 * t_hash and t_range_scan > 5 * t_range_idx and t_ins_indexed > t_ins_plain
 print(f"n={N}: '=' {t_scan / t_hash:.0f}x faster with a hash index, range "
       f"{t_range_scan / t_range_idx:.0f}x faster with a sorted index; insert "

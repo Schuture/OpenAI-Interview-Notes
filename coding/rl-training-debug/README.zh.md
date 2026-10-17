@@ -283,20 +283,21 @@ import torch
 import torch.nn as nn
 from torch.distributions import Categorical
 
-GRID, START, GOAL = 5, 0, 24                # states 0..24 of a 5x5 grid, row-major; 0 is top-left
+GRID, START, GOAL = 5, 0, 24  # states 0..24 of a 5x5 grid, row-major; 0 is top-left
 HORIZON, STEP_COST, GAMMA = 20, 0.02, 0.97
 VALUE_COEF, ENT_COEF = 0.5, 0.02
+UP, DOWN, LEFT, RIGHT = 0, 1, 2, 3
 
 
-def env_step(pos, action):                  # pos, action: (B,) long
+def env_step(pos, action):
     """One step in every environment. Returns the next position, the reward and the done flag."""
-    row, col = pos // GRID, pos % GRID
-    row = (row + (action == 1).long() - (action == 0).long()).clamp(0, GRID - 1)   # 0 = up, 1 = down
-    col = (col + (action == 3).long() - (action == 2).long()).clamp(0, GRID - 1)   # 2 = left, 3 = right
-    moved = row * GRID + col
-    done = moved == GOAL
-    reward = torch.where(done, 1.0, -STEP_COST)
-    return torch.where(done, torch.full_like(moved, START), moved), reward, done
+    row, col = pos // GRID, pos % GRID  # (B,), (B,)
+    row = (row + (action == DOWN).long() - (action == UP).long()).clamp(0, GRID - 1)  # (B,)
+    col = (col + (action == RIGHT).long() - (action == LEFT).long()).clamp(0, GRID - 1)  # (B,)
+    moved = row * GRID + col  # (B,)
+    done = moved == GOAL  # (B,)
+    reward = torch.where(done, 1.0, -STEP_COST)  # (B,)
+    return torch.where(done, torch.full_like(moved, START), moved), reward, done  # a finished episode restarts
 
 
 class PolicyValue(nn.Module):
@@ -306,45 +307,47 @@ class PolicyValue(nn.Module):
         self.policy = nn.Linear(hidden, n_actions)
         self.value = nn.Linear(hidden, 1)
 
-    def forward(self, pos):                 # pos: (...,) long -> logits (..., n_actions), values (...,)
-        hidden = self.trunk(pos)
-        return self.policy(hidden), self.value(hidden).squeeze(-1)
+    def forward(self, pos):
+        hidden = self.trunk(pos)  # (...,) => (..., hidden)
+        return self.policy(hidden), self.value(hidden).squeeze(-1)  # (..., n_actions), (...,)
 
 
 @torch.no_grad()
 def rollout(model, n_envs):
     """HORIZON steps in n_envs environments. Every returned tensor has shape (HORIZON, n_envs)."""
-    pos = torch.full((n_envs,), START)
+    pos = torch.full((n_envs,), START)  # (B,)
     states, actions, rewards, dones = [], [], [], []
     for _ in range(HORIZON):
-        logits, _ = model(pos)
-        action = Categorical(logits=logits).sample()        # bug 1: was logits.argmax(dim=-1)
-        states.append(pos)                                  # NOTE: the square the action was chosen in
+        logits, _ = model(pos)  # (B, 4)
+        action = Categorical(logits=logits).sample()  # (B,), bug 1: was logits.argmax(dim=-1)
+        states.append(pos)  # warning: the square the action was chosen in, not the one it leads to
         actions.append(action)
         pos, reward, done = env_step(pos, action)
         rewards.append(reward)
         dones.append(done)
-    return torch.stack(states), torch.stack(actions), torch.stack(rewards), torch.stack(dones)
+    return torch.stack(states), torch.stack(actions), torch.stack(rewards), torch.stack(dones)  # (T, B) each
 
 
-def compute_returns(rewards, dones):        # rewards, dones: (T, B) -> (T, B)
+def compute_returns(rewards, dones):
     """returns[t] is the discounted reward-to-go of step t inside its own episode."""
-    returns = torch.zeros_like(rewards)
-    running = torch.zeros(rewards.shape[1])
-    for t in reversed(range(rewards.shape[0])):             # bug 3: was range(rewards.shape[0])
-        # NOTE: a terminal step cuts the chain, so no reward of the next episode leaks into this one
-        running = rewards[t] + GAMMA * running * (~dones[t]).float()
+    # we go backwards: G[t] = r[t] + GAMMA * G[t+1], and G[t+1] is dropped when step t ends the episode
+    returns = torch.zeros_like(rewards)  # (T, B)
+    running = torch.zeros(rewards.shape[1])  # (B,)
+    for t in reversed(range(rewards.shape[0])):  # bug 3: was range(rewards.shape[0])
+        # warning: a terminal step cuts the chain, so no reward of the next episode leaks into this one
+        running = rewards[t] + GAMMA * running * (~dones[t]).float()  # (B,)
         returns[t] = running
     return returns
 
 
 def surrogate(model, states, actions, returns):
     """The loss whose gradient is the policy gradient, plus the baseline and entropy terms."""
-    logits, values = model(states)
+    # grad of -mean(log pi(a|s) * A) is the policy gradient, with A = G - V(s) a constant
+    logits, values = model(states)  # (T, B, 4), (T, B)
     dist = Categorical(logits=logits)
-    advantages = returns - values                           # bug 2: was values - returns
-    # NOTE: detach, or the policy term trains the baseline to sit one surprisal above the return
-    policy_loss = -(dist.log_prob(actions) * advantages.detach()).mean()    # bug 4: was advantages
+    advantages = returns - values  # (T, B), bug 2: was values - returns
+    # warning: detach, or the policy term trains the baseline to sit one surprisal above the return
+    policy_loss = -(dist.log_prob(actions) * advantages.detach()).mean()  # bug 4: was advantages
     value_loss = advantages.pow(2).mean()
     entropy = dist.entropy().mean()
     loss = policy_loss + VALUE_COEF * value_loss - ENT_COEF * entropy
@@ -358,17 +361,19 @@ def train(iters=120, n_envs=64, lr=0.02, seed=0):
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     history = []
     for it in range(iters):
+        # first we collect a rollout with the current policy
         states, actions, rewards, dones = rollout(model, n_envs)
         returns = compute_returns(rewards, dones)
+        # then one gradient step on it
         loss, stats = surrogate(model, states, actions, returns)
         opt.zero_grad()
         loss.backward()
         opt.step()
         history.append({"reward": rewards.sum(0).mean().item(), **stats})
         if it % 20 == 0 or it == iters - 1:
-            h = history[-1]
-            print(f"iter {it:3d}  reward {h['reward']:+.3f}  entropy {h['entropy']:.3f}  "
-                  f"value loss {h['value_loss']:.3f}  mean adv {h['advantage']:+.3f}")
+            last = history[-1]
+            print(f"iter {it:3d}  reward {last['reward']:+.3f}  entropy {last['entropy']:.3f}  "
+                  f"value loss {last['value_loss']:.3f}  mean adv {last['advantage']:+.3f}")
     return model, history
 
 
@@ -379,7 +384,7 @@ def run_tests(model, history):
     torch.manual_seed(7)
     probe = PolicyValue()
     states, taken = torch.full((1, 8), START), torch.zeros(1, 8, dtype=torch.long)
-    returns = torch.full((1, 8), 5.0)       # far above anything the untrained value head predicts
+    returns = torch.full((1, 8), 5.0)  # far above anything the untrained value head predicts
     with torch.no_grad():
         before = Categorical(logits=probe(states)[0]).log_prob(taken).mean().item()
     opt = torch.optim.SGD(probe.parameters(), lr=0.1)

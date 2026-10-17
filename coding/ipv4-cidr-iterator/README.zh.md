@@ -219,50 +219,50 @@ CIDR 的种子地址是否必须已经是网络地址，还是像这里一样可
 ```python
 import re
 
-_OCTET_RE = re.compile(r"\A(0|[1-9][0-9]{0,2})\Z")
+OCTET_RE = re.compile(r"\A(0|[1-9][0-9]{0,2})\Z")  # warning: \A and \Z, since $ also matches before a trailing "\n"
+MAX_IP = (1 << 32) - 1  # 255.255.255.255
 
 
-def _parse_ip(s):
-    parts = s.split(".")
+def ip_to_int(ip: str) -> int:
+    # we read the address as one 32-bit integer, a * 2^24 + b * 2^16 + c * 2^8 + d
+    parts = ip.split(".")
     if len(parts) != 4:
-        raise ValueError(f"expected 4 dot-separated octets, got {s!r}")
+        raise ValueError(f"expected 4 dot-separated octets, got {ip!r}")
     value = 0
-    for p in parts:
-        if not _OCTET_RE.match(p):
-            raise ValueError(f"bad octet {p!r} in {s!r}: must be digits with no leading zero")
-        octet = int(p)
+    for part in parts:
+        if not OCTET_RE.match(part):
+            raise ValueError(f"bad octet {part!r} in {ip!r}: must be digits with no leading zero")
+        octet = int(part)
         if octet > 255:
-            raise ValueError(f"octet {octet} out of range 0-255 in {s!r}")
-        value = (value << 8) | octet      # NOTE: big-endian -- the leftmost octet is the most significant byte
+            raise ValueError(f"octet {octet} out of range 0-255 in {ip!r}")
+        value = (value << 8) | octet  # warning: big-endian, the leftmost octet is the most significant byte
     return value
 
 
-def ip_to_int(ip):
-    return _parse_ip(ip)
-
-
-def int_to_ip(value):
-    # NOTE: shifts 24,16,8,0 mirror _parse_ip's order -- swap either one and addresses would compare backwards
+def int_to_ip(value: int) -> str:
+    # warning: the shifts 24, 16, 8, 0 mirror the order of ip_to_int, swap either one and addresses compare backwards
     return ".".join(str((value >> shift) & 0xFF) for shift in (24, 16, 8, 0))
 
 
-MAX_IP = (1 << 32) - 1   # 255.255.255.255
-
-
 class IPV4Iterator:
-    def __init__(self, ip_or_cidr):
+    def __init__(self, ip_or_cidr: str) -> None:
+        """ip_or_cidr must be a bare address "a.b.c.d". Raises ValueError if it is not a valid
+        address."""
+        # we keep only two integers, so the walk costs O(1) memory however long it is
         self._cursor = ip_to_int(ip_or_cidr)
         self._hi = MAX_IP
 
-    def __iter__(self):
+    def __iter__(self) -> "IPV4Iterator":
         return self
 
-    def __next__(self):
-        if self._cursor > self._hi:          # NOTE: > not >=, so MAX_IP itself is still produced
+    def __next__(self) -> str:
+        """Returns the next address, starting from (and including) ip_or_cidr, in increasing
+        numeric order, up to and including 255.255.255.255. Raises StopIteration afterwards."""
+        if self._cursor > self._hi:  # warning: > not >=, so MAX_IP itself is still produced
             raise StopIteration
-        result = int_to_ip(self._cursor)
-        self._cursor += 1
-        return result
+        ans = int_to_ip(self._cursor)
+        self._cursor += 1  # a segment carrying past 255 falls out of the addition
+        return ans
 ```
 
 ### Part 2
@@ -271,24 +271,27 @@ class IPV4Iterator:
 所以两个方向共用同一个 `__next__`。
 
 ```python
-def __init__(self, ip_or_cidr, reverse=False):
+def __init__(self, ip_or_cidr: str, reverse: bool = False) -> None:
+    """reverse=False keeps Part 1's behaviour. reverse=True walks backward from (and
+    including) ip_or_cidr, in decreasing numeric order, down to and including 0.0.0.0."""
     self._cursor = ip_to_int(ip_or_cidr)
     self._reverse = reverse
     self._lo, self._hi = 0, MAX_IP
 
 
-def __next__(self):
-    # NOTE: self._cursor is a plain Python int, so decrementing past 0 just makes it negative --
+def __next__(self) -> str:
+    # we check both ends, so one __next__ stops either direction
+    # warning: self._cursor is a plain Python int, so decrementing past 0 just makes it negative;
     # it does not wrap around the way a fixed-width unsigned counter would, and this comparison
-    # alone is enough to catch the underflow, no separate "would this go negative" check needed
+    # alone catches the underflow, no separate "would this go negative" check is needed
     if self._cursor < self._lo or self._cursor > self._hi:
         raise StopIteration
-    result = int_to_ip(self._cursor)
+    ans = int_to_ip(self._cursor)
     self._cursor += -1 if self._reverse else 1
-    return result
+    return ans
 
 
-IPV4Iterator.__init__ = __init__   # attach to the class defined in Part 1
+IPV4Iterator.__init__ = __init__  # attach to the class defined in Part 1
 IPV4Iterator.__next__ = __next__
 ```
 
@@ -301,38 +304,41 @@ IPV4Iterator.__next__ = __next__
 `self._lo`/`self._hi`，现在这两个值来自这个块，而不是整个地址空间。
 
 ```python
-_PREFIX_RE = re.compile(r"\A(0|[1-9][0-9]?)\Z")
+PREFIX_RE = re.compile(r"\A(0|[1-9][0-9]?)\Z")
 
 
-def _parse_prefix(s):
-    if not _PREFIX_RE.match(s):
-        raise ValueError(f"bad prefix {s!r}: must be digits with no leading zero")
-    value = int(s)
-    if not (0 <= value <= 32):
+def parse_prefix(prefix: str) -> int:
+    if not PREFIX_RE.match(prefix):
+        raise ValueError(f"bad prefix {prefix!r}: must be digits with no leading zero")
+    value = int(prefix)
+    if value > 32:
         raise ValueError(f"prefix {value} out of range 0-32")
     return value
 
 
-def parse_ip_or_cidr(s):
-    if s.count("/") > 1:
-        raise ValueError(f"bad CIDR notation: {s!r}")
-    if "/" in s:
-        ip_part, prefix_part = s.split("/")
-        return _parse_ip(ip_part), _parse_prefix(prefix_part)
-    return _parse_ip(s), None
+def parse_ip_or_cidr(ip_or_cidr: str) -> tuple[int, int | None]:
+    """Returns (address, prefix), with prefix None for a bare address."""
+    if ip_or_cidr.count("/") > 1:
+        raise ValueError(f"bad CIDR notation: {ip_or_cidr!r}")
+    if "/" in ip_or_cidr:
+        ip, prefix = ip_or_cidr.split("/")
+        return ip_to_int(ip), parse_prefix(prefix)
+    return ip_to_int(ip_or_cidr), None
 
 
-def network_and_broadcast(start, prefix):
-    host_bits = 32 - prefix
-    # NOTE: prefix == 0 shifts by 32 -- fine for a Python int (its low 32 bits come out 0), but a
-    # 32-bit int in C/Java shifted by 32 is undefined or unchanged, and /0 comes out wrong
-    mask = (0xFFFFFFFF << host_bits) & 0xFFFFFFFF
+def network_and_broadcast(start: int, prefix: int) -> tuple[int, int]:
+    # the mask has 1 in the top prefix bits and 0 in the low 32 - prefix host bits
+    # we clear the host bits to get the network address, and set them to get the broadcast address
+    n_host_bits = 32 - prefix
+    # warning: prefix == 0 shifts by 32; fine for a Python int (its low 32 bits come out 0),
+    # but a 32-bit int in C/Java shifted by 32 is undefined or unchanged, and /0 comes out wrong
+    mask = (0xFFFFFFFF << n_host_bits) & 0xFFFFFFFF
     network = start & mask
-    broadcast = network + (1 << host_bits) - 1
+    broadcast = network + (1 << n_host_bits) - 1
     return network, broadcast
 
 
-def __init__(self, ip_or_cidr, reverse=False):
+def __init__(self, ip_or_cidr: str, reverse: bool = False) -> None:
     start, prefix = parse_ip_or_cidr(ip_or_cidr)
     self._cursor = start
     self._reverse = reverse
@@ -342,7 +348,7 @@ def __init__(self, ip_or_cidr, reverse=False):
         self._lo, self._hi = network_and_broadcast(start, prefix)
 
 
-IPV4Iterator.__init__ = __init__      # attach to the class of Part 1; Part 2's __next__ needs no change
+IPV4Iterator.__init__ = __init__  # attach to the class of Part 1; Part 2's __next__ needs no change
 ```
 
 ### Part 4
@@ -351,10 +357,12 @@ IPV4Iterator.__init__ = __init__      # attach to the class of Part 1; Part 2's 
 和步长为 `1` 时一样会被拦下，区别只是它可能越过边界地址，而不是正好落在上面。
 
 ```python
-def __init__(self, ip_or_cidr, reverse=False, step=1):
-    start, prefix = parse_ip_or_cidr(ip_or_cidr)
+def __init__(self, ip_or_cidr: str, reverse: bool = False, step: int = 1) -> None:
+    """step is the number of addresses __next__ advances by on each call, in the direction
+    reverse selects. Raises ValueError if step <= 0."""
     if step <= 0:
         raise ValueError(f"step must be a positive integer, got {step}")
+    start, prefix = parse_ip_or_cidr(ip_or_cidr)
     self._cursor = start
     self._reverse = reverse
     self._step = step
@@ -364,12 +372,13 @@ def __init__(self, ip_or_cidr, reverse=False, step=1):
         self._lo, self._hi = network_and_broadcast(start, prefix)
 
 
-def __next__(self):
+def __next__(self) -> str:
+    # a jump past self._lo or self._hi is caught by the same comparison as a jump of 1
     if self._cursor < self._lo or self._cursor > self._hi:
         raise StopIteration
-    result = int_to_ip(self._cursor)
+    ans = int_to_ip(self._cursor)
     self._cursor += -self._step if self._reverse else self._step
-    return result
+    return ans
 
 
 IPV4Iterator.__init__ = __init__
@@ -381,16 +390,20 @@ IPV4Iterator.__next__ = __next__
 `next_batch` 就是对 `__next__` 的一次有上限的抽取，因此上面所有的停止规则都直接继承下来，不需要重新推导一遍。
 
 ```python
-def next_batch(self, size):
+def next_batch(self, size: int) -> list[str]:
+    """Returns up to size addresses from the current position, in the same order __next__
+    would produce them. Returns fewer than size once fewer remain, [] once none remain.
+    Raises ValueError if size < 0."""
     if size < 0:
         raise ValueError(f"size must be non-negative, got {size}")
-    out = []
+    # we drain __next__, so every stopping rule above carries over
+    batch = []
     for _ in range(size):
         try:
-            out.append(next(self))
+            batch.append(next(self))
         except StopIteration:
             break
-    return out
+    return batch
 
 
 IPV4Iterator.next_batch = next_batch
@@ -420,111 +433,118 @@ IPV4Iterator.next_batch = next_batch
 如果把扫描里的 `>` 改成 `>=`，并列时压缩的就变成最右边那一段，而这正是 RFC 5952 禁止的。
 
 ```python
-_GROUP_RE = re.compile(r"\A[0-9A-Fa-f]{1,4}\Z")
-_PREFIX6_RE = re.compile(r"\A(0|[1-9][0-9]{0,2})\Z")
-MAX_IP6 = (1 << 128) - 1   # ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+GROUP_RE = re.compile(r"\A[0-9A-Fa-f]{1,4}\Z")
+PREFIX6_RE = re.compile(r"\A(0|[1-9][0-9]{0,2})\Z")
+MAX_IP6 = (1 << 128) - 1  # ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
 
 
-def _parse_groups(text):
-    # NOTE: "" gives [] -- that is how "::" at either end, or "::" alone, has an empty side. An empty
-    # piece after a split, from ":::" or a lone leading/trailing colon, fails the group regex instead
+def parse_groups(text: str) -> list[int]:
+    # warning: "" gives [], that is how "::" at either end, or "::" alone, has an empty side;
+    # an empty piece after a split, from ":::" or a lone leading/trailing colon, fails the group regex instead
     if text == "":
         return []
     groups = []
     for piece in text.split(":"):
-        if not _GROUP_RE.match(piece):
+        if not GROUP_RE.match(piece):
             raise ValueError(f"bad group {piece!r} in {text!r}: 1-4 hex digits expected")
         groups.append(int(piece, 16))
     return groups
 
 
-def parse_ip6(s):
-    if s.count("::") > 1:
-        raise ValueError(f"'::' may appear at most once: {s!r}")
-    if "::" in s:
-        head, tail = s.split("::")      # NOTE: exactly two parts here, either of which may be empty
-        left, right = _parse_groups(head), _parse_groups(tail)
-        # NOTE: '::' must stand for at least one zero group, so at most 7 groups are written around it;
+def parse_ip6(ip: str) -> int:
+    # we split on "::" first; the zero groups it stands for are whatever is missing from eight
+    if ip.count("::") > 1:
+        raise ValueError(f"'::' may appear at most once: {ip!r}")
+    if "::" in ip:
+        head, tail = ip.split("::")  # warning: exactly two parts here, either of which may be empty
+        left, right = parse_groups(head), parse_groups(tail)
+        # warning: '::' must stand for at least one zero group, so at most 7 groups are written around it;
         # "1:2:3:4:5:6:7:8::" is rejected even though its value would be well defined
         if len(left) + len(right) > 7:
-            raise ValueError(f"'::' must replace at least one group: {s!r}")
+            raise ValueError(f"'::' must replace at least one group: {ip!r}")
         groups = left + [0] * (8 - len(left) - len(right)) + right
     else:
-        groups = _parse_groups(s)
+        groups = parse_groups(ip)
         if len(groups) != 8:
-            raise ValueError(f"expected 8 groups without '::', got {len(groups)}: {s!r}")
+            raise ValueError(f"expected 8 groups without '::', got {len(groups)}: {ip!r}")
     value = 0
-    for g in groups:
-        value = (value << 16) | g       # NOTE: big-endian -- the leftmost group is the most significant 16 bits
+    for group in groups:
+        value = (value << 16) | group  # warning: big-endian, the leftmost group is the most significant 16 bits
     return value
 
 
-def int_to_ip6(value):
+def int_to_ip6(value: int) -> str:
     groups = [(value >> shift) & 0xFFFF for shift in range(112, -1, -16)]
+    # first we find the longest run of zero groups
     best_start, best_len, i = 0, 0, 0
-    while i < 8:                         # find the longest run of zero groups
+    while i < 8:
         if groups[i] != 0:
             i += 1
             continue
         j = i
         while j < 8 and groups[j] == 0:
             j += 1
-        # NOTE: strict '>' keeps the leftmost run on a tie, as RFC 5952 requires
-        if j - i > best_len:
+        if j - i > best_len:  # warning: strict '>' keeps the leftmost run on a tie, as RFC 5952 requires
             best_start, best_len = i, j - i
         i = j
-    # NOTE: a lone zero group is written "0", never "::" -- only runs of 2 or more are compressed
+    # then we write it as "::"
+    # warning: a lone zero group is written "0", never "::"; only runs of 2 or more are compressed
     if best_len < 2:
         return ":".join(f"{g:x}" for g in groups)
     left = ":".join(f"{g:x}" for g in groups[:best_start])
     right = ":".join(f"{g:x}" for g in groups[best_start + best_len:])
-    return left + "::" + right           # NOTE: an empty side gives "::1", "1::" and "::" with no stray colon
+    return left + "::" + right  # warning: an empty side gives "::1", "1::" and "::" with no stray colon
 
 
-def _parse_prefix6(s):
-    if not _PREFIX6_RE.match(s):
-        raise ValueError(f"bad prefix {s!r}: must be digits with no leading zero")
-    value = int(s)
+def parse_prefix6(prefix: str) -> int:
+    if not PREFIX6_RE.match(prefix):
+        raise ValueError(f"bad prefix {prefix!r}: must be digits with no leading zero")
+    value = int(prefix)
     if value > 128:
         raise ValueError(f"prefix {value} out of range 0-128")
     return value
 
 
-def block_bounds6(start, prefix):
-    low = (1 << (128 - prefix)) - 1      # the host bits; prefix 0 gives all 128 bits, prefix 128 gives none
-    network = start & (MAX_IP6 ^ low)
-    return network, network | low
+def block_bounds6(start: int, prefix: int) -> tuple[int, int]:
+    host_mask = (1 << (128 - prefix)) - 1  # the host bits; prefix 0 gives all 128 bits, prefix 128 gives none
+    network = start & (MAX_IP6 ^ host_mask)
+    return network, network | host_mask
 
 
 class IPV6Iterator:
-    def __init__(self, ip_or_cidr, reverse=False, step=1):
+    def __init__(self, ip_or_cidr: str, reverse: bool = False, step: int = 1) -> None:
+        """ip_or_cidr is an IPv6 address or "address/prefix", in any spelling allowed above.
+        Raises ValueError if it is invalid or if step <= 0."""
+        # the same walk as IPv4: only the width (128) and the text form change
         if step <= 0:
             raise ValueError(f"step must be a positive integer, got {step}")
         if ip_or_cidr.count("/") > 1:
             raise ValueError(f"bad CIDR notation: {ip_or_cidr!r}")
-        ip_part, slash, prefix_part = ip_or_cidr.partition("/")
-        self._cursor = parse_ip6(ip_part)
+        ip, slash, prefix = ip_or_cidr.partition("/")
+        self._cursor = parse_ip6(ip)
         if slash:
-            self._lo, self._hi = block_bounds6(self._cursor, _parse_prefix6(prefix_part))
+            self._lo, self._hi = block_bounds6(self._cursor, parse_prefix6(prefix))
         else:
             self._lo, self._hi = 0, MAX_IP6
         self._reverse = reverse
         self._step = step
 
-    def __iter__(self):
+    def __iter__(self) -> "IPV6Iterator":
         return self
 
-    def __next__(self):
-        # NOTE: the cursor is a Python int, so a jump past ffff:...:ffff (or below ::) does not wrap
-        # around; a pair of uint64 words would wrap to a small value here and the walk would never stop
+    def __next__(self) -> str:
+        """Returns the next address in canonical form; StopIteration once the block (or the address
+        space) is left."""
+        # warning: the cursor is a Python int, so a jump past ffff:...:ffff (or below ::) does not wrap around;
+        # a pair of uint64 words would wrap to a small value here and the walk would never stop
         if self._cursor < self._lo or self._cursor > self._hi:
             raise StopIteration
-        result = int_to_ip6(self._cursor)
+        ans = int_to_ip6(self._cursor)
         self._cursor += -self._step if self._reverse else self._step
-        return result
+        return ans
 
 
-IPV6Iterator.next_batch = IPV4Iterator.next_batch   # next_batch only calls next(self), so it is shared as is
+IPV6Iterator.next_batch = IPV4Iterator.next_batch  # next_batch only calls next(self), so it is shared as is
 ```
 
 解析和格式化只看八个组，所以都是 $O(1)$，`__next__` 与 IPv4 一样是 $O(1)$ 时间和内存。但是完整遍历一个 IPv6 块是另一回事：

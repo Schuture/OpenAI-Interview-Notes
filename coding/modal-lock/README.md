@@ -63,7 +63,7 @@ class Rig:
         wait_until(lambda: w.acquired.is_set() or self._parked(w))
 
     def _parked(self, w):
-        # NOTE: count the other not-yet-granted calls BEFORE reading waiting_count(). That count can
+        # warning: count the other not-yet-granted calls BEFORE reading waiting_count(). That count can
         # only shrink meanwhile (a call woken by an earlier release may still be on its way out of
         # acquire()), so a waiting_count() above it can only come from w itself having parked.
         others = sum(1 for v in self._w.values() if v is not w and not v.acquired.is_set())
@@ -187,44 +187,50 @@ class ModeMismatchError(RuntimeError):
 
 
 class ModalLock:
-    def __init__(self):
-        self._cond = threading.Condition()
-        self._mode = None          # current mode, or None when idle
-        self._holders = 0
-        self._waiting = 0          # calls parked in wait(), across every mode
+    # one Condition guards three fields: the current mode, the number of holders, the number of parked calls
+    # a call granted without blocking counts itself in and out of n_waiting without ever releasing
+    # the condition's lock in between, so no observer sees it counted
 
-    def acquire(self, mode):
+    def __init__(self) -> None:
+        self._cond = threading.Condition()
+        self._mode = None  # current mode, or None when idle
+        self._n_holders = 0
+        self._n_waiting = 0  # calls parked in wait(), across every mode
+
+    def acquire(self, mode: str) -> None:
         with self._cond:
-            self._waiting += 1
+            self._n_waiting += 1
             try:
-                # NOTE: while, not if -- notify_all() wakes the parked callers of every mode at once;
-                # by the time this one gets back in, another may already hold the lock in its mode
+                # warning: while, not if; notify_all() wakes the parked calls of every mode at once,
+                # and by the time this one gets back in, another may already hold the lock in its mode
                 while self._mode is not None and self._mode != mode:
                     self._cond.wait()
             finally:
-                self._waiting -= 1
+                self._n_waiting -= 1
             self._mode = mode
-            self._holders += 1
+            self._n_holders += 1
 
-    def release(self, mode):
+    def release(self, mode: str) -> None:
         with self._cond:
-            if self._holders == 0 or self._mode != mode:      # NOTE: checked before any state is
-                raise ModeMismatchError(mode)                   #  touched, so a bad call leaves
-            self._holders -= 1                                  #  nothing to undo; the `with` block
-            if self._holders == 0:                               #  still releases the underlying
-                self._mode = None                                 #  mutex on the way out either way
-                self._cond.notify_all()   # NOTE: notify_all, not notify -- notify() wakes one
-                                            # caller, and the others parked for that same mode
-                                            # would stay asleep instead of joining it
+            # warning: we check before any state is touched, so a bad call leaves nothing to undo;
+            # the with block still releases the underlying mutex on the way out either way
+            if self._n_holders == 0 or self._mode != mode:
+                raise ModeMismatchError(mode)
+            self._n_holders -= 1
+            if self._n_holders == 0:  # the last holder of the mode leaves, the lock is idle
+                self._mode = None
+                # warning: notify_all, not notify; notify() wakes one call, and the others parked
+                # for that same mode would stay asleep instead of joining it
+                self._cond.notify_all()
 
-    def waiting_count(self):
+    def waiting_count(self) -> int:
         with self._cond:
-            return self._waiting
+            return self._n_waiting
 ```
 
 `ModalLock` starves a mode whenever the current mode never fully drains. With `Rig`, this needs no luck
 at all: an `"infer"` request is made to arrive first and park; then, repeatedly, a fresh `"train"`
-request arrives *before* the previous `"train"` holder releases, so `_holders` never reaches zero and
+request arrives *before* the previous `"train"` holder releases, so `_n_holders` never reaches zero and
 `notify_all()` is never called -- the parked `"infer"` call cannot possibly wake up.
 
 ```python
@@ -253,54 +259,58 @@ granted the moment its own batch reaches the front (`_queue[0] is batch`); this 
 both the idle-lock case (an empty queue with one freshly appended batch is trivially at the front) and
 the join-the-running-batch case (the batch stays at index 0 while active), so no separate fast path is
 needed. `release` removes the front batch only once both of its counts are zero: a member woken when
-its batch reached the front may not have re-entered the condition yet (`active == 0` while
-`waiting > 0`), and removing the batch under it would leave that member waiting for a batch that is no
+its batch reached the front may not have re-entered the condition yet (`n_active == 0` while
+`n_waiting > 0`), and removing the batch under it would leave that member waiting for a batch that is no
 longer in the queue. Calling `notify()` instead of `notify_all()` here hangs the lock whenever a batch
 reaches the front with two or more members parked: `notify()` wakes just one of them, and once that one
-releases, the batch has `active == 0` but `waiting > 0`, so it is not removed and nothing calls `notify`
+releases, the batch has `n_active == 0` but `n_waiting > 0`, so it is not removed and nothing calls `notify`
 again -- the remaining members, and every batch behind them, wait forever.
 
 ```python
 class _Batch:
-    __slots__ = ("mode", "waiting", "active")
+    __slots__ = ("mode", "n_waiting", "n_active")
 
-    def __init__(self, mode):
+    def __init__(self, mode: str):
         self.mode = mode
-        self.waiting = 0    # calls blocked in acquire(), not yet granted
-        self.active = 0     # calls granted from this batch, not yet released
+        self.n_waiting = 0  # calls blocked in acquire(), not yet granted
+        self.n_active = 0  # calls granted from this batch, not yet released
 
 
 class FairModalLock:
-    def __init__(self):
+    def __init__(self) -> None:
         self._cond = threading.Condition()
-        self._queue = deque()     # deque[_Batch]; index 0 is served first (or already running)
+        self._queue: deque[_Batch] = deque()  # index 0 is served first (or already running)
 
-    def acquire(self, mode):
+    def acquire(self, mode: str) -> None:
         with self._cond:
-            if self._queue and self._queue[-1].mode == mode:   # NOTE: only the TAIL is checked --
-                batch = self._queue[-1]                          # an older same-mode batch is off limits
+            # first we join the last batch if it asks for our mode, else we start a new batch
+            # warning: only the tail is checked, an older same-mode batch is off limits
+            if self._queue and self._queue[-1].mode == mode:
+                batch = self._queue[-1]
             else:
                 batch = _Batch(mode)
                 self._queue.append(batch)
-            batch.waiting += 1
-            while self._queue[0] is not batch:      # NOTE: while, not if -- see ModalLock.acquire
+            # then we wait until our batch is at the front, which also covers an idle lock and the running batch
+            batch.n_waiting += 1
+            while self._queue[0] is not batch:  # warning: while, not if, see ModalLock.acquire
                 self._cond.wait()
-            batch.waiting -= 1
-            batch.active += 1
+            batch.n_waiting -= 1
+            batch.n_active += 1
 
-    def release(self, mode):
+    def release(self, mode: str) -> None:
         with self._cond:
             batch = self._queue[0] if self._queue else None
-            if batch is None or batch.mode != mode or batch.active == 0:
+            if batch is None or batch.mode != mode or batch.n_active == 0:
                 raise ModeMismatchError(mode)
-            batch.active -= 1
-            if batch.active == 0 and batch.waiting == 0:    # NOTE: a woken member may not be back yet
+            batch.n_active -= 1
+            # warning: n_waiting too, a member woken when its batch reached the front may not be back yet
+            if batch.n_active == 0 and batch.n_waiting == 0:
                 self._queue.popleft()
-                self._cond.notify_all()
+                self._cond.notify_all()  # warning: notify() wakes one member, the rest of the next batch would hang
 
-    def waiting_count(self):
+    def waiting_count(self) -> int:
         with self._cond:
-            return sum(batch.waiting for batch in self._queue)
+            return sum(batch.n_waiting for batch in self._queue)
 ```
 
 Once a batch is in the queue, every batch ahead of it has stopped being the tail, so none of them gains
@@ -467,7 +477,7 @@ def random_fairness_trial(seed, cover, n_events=40):
             events.append(('release', name))
         else:
             return      # every name has already arrived and released
-        # NOTE: settle after EVERY event, arrive or release -- skipping this after a release would
+        # warning: settle after EVERY event, arrive or release -- skipping this after a release would
         # let the next step() read a holder set that has not caught up with a just-freed batch yet
         expected = expected_holders(events)[-1]
         wait_until(lambda: rig.holders() == expected)
@@ -495,7 +505,7 @@ def stress(lock_factory, n_threads, n_rounds, require_progress, seed):
     held: dict[int, str] = {}
     book = threading.Lock()
     done = [False] * n_threads
-    violations = []     # NOTE: threads only record; an assert inside a thread would just end that
+    violations = []     # warning: threads only record; an assert inside a thread would just end that
     stop = threading.Event()    # thread and never fail the check -- the main thread asserts below
 
     def worker(idx):

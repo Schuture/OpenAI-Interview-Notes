@@ -312,7 +312,7 @@ BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz"
 def geohash_encode(lat, lon, precision=9):
     lo, hi, bits = [-180.0, -90.0], [180.0, 90.0], ""
     for n in range(5 * precision):
-        d, v = n % 2, (lon, lat)[n % 2]  # NOTE: bit 0 bisects longitude
+        d, v = n % 2, (lon, lat)[n % 2]  # warning: bit 0 bisects longitude
         mid = (lo[d] + hi[d]) / 2
         bits += "1" if v >= mid else "0"
         lo[d], hi[d] = (mid, hi[d]) if v >= mid else (lo[d], mid)
@@ -327,7 +327,7 @@ def geohash_decode(gh):  # -> centre lat, centre lon, half-height, half-width (d
 
 def geohash_neighbors(gh):
     lat, lon, hh, hw = geohash_decode(gh)
-    return [geohash_encode(max(-90.0, min(90.0, lat + dy * 2 * hh)),         # NOTE: clamp at the poles
+    return [geohash_encode(max(-90.0, min(90.0, lat + dy * 2 * hh)),         # warning: clamp at the poles
                            (lon + dx * 2 * hw + 180.0) % 360.0 - 180.0, len(gh))  # wrap across +-180 deg
             for dy in (-1, 0, 1) for dx in (-1, 0, 1)]
 
@@ -339,10 +339,10 @@ def haversine_m(lat1, lon1, lat2, lon2):
 def cell_deg(p):  # cell height, width in degrees
     return 180.0 / 2 ** (5 * p // 2), 360.0 / 2 ** ((5 * p + 1) // 2)
 
-def choose_precision(lat, radius_m, max_p=9):  # NOTE: max_p = length of the stored keys
+def choose_precision(lat, radius_m, max_p=9):  # warning: max_p = length of the stored keys
     rho = radius_m / R
     s = math.sin(rho) / math.cos(math.radians(lat))
-    # NOTE: the disc spans asin(sin(rho) / cos(lat)) of longitude, more than rho / cos(lat)
+    # warning: the disc spans asin(sin(rho) / cos(lat)) of longitude, more than rho / cos(lat)
     need_h, need_w = math.degrees(rho), (math.degrees(math.asin(s)) if s < 1 else math.inf)
     best = 0  # 0: no 3x3 block covers the disc (too big, or over a pole) -> scan the whole index
     while best < max_p and cell_deg(best + 1)[0] >= need_h and cell_deg(best + 1)[1] >= need_w:
@@ -380,7 +380,7 @@ def window_margin_m(lat, lon, center):
     clat, clon, hh, hw = geohash_decode(center)
     north, south = min(clat + 3 * hh, 90.0), max(clat - 3 * hh, -90.0)
     d_lon = math.radians(3 * hw - abs(lon - clon))  # to the nearer east/west edge, <= 67.5 deg
-    # NOTE: a parallel is nearest due north/south; a meridian is a great circle: asin(cos(lat) sin(d_lon))
+    # warning: a parallel is nearest due north/south; a meridian is a great circle: asin(cos(lat) sin(d_lon))
     return R * min(math.radians(north - lat), math.radians(lat - south),
                    math.asin(math.cos(math.radians(lat)) * math.sin(d_lon)))
 
@@ -396,7 +396,7 @@ def knn_search(ix, lat, lon, k, category=None, start_radius_m=1000.0):
         center, scored = scored_block(ix, lat, lon, p, category)
         if p == 0 or (len(scored) >= k and scored[k - 1][0] <= window_margin_m(lat, lon, center)):
             return scored[:k]
-        # NOTE: the k-th distance so far bounds the true one; a block chosen for it passes next round
+        # warning: the k-th distance so far bounds the true one; a block chosen for it passes next round
         p = min(p - 1, choose_precision(lat, scored[k - 1][0])) if len(scored) >= k else p - 1
 
 # ---- independent reference: chord distance, full scan ----

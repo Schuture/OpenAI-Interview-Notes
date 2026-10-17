@@ -170,20 +170,28 @@ assert a.text() == b.text()           # 两边最后必须得到同一份文档
 ```python
 class TextBuffer:
     def __init__(self, text: str = "") -> None:
-        self._chars = list(text)
+        """Starts with these initial contents."""
+        self._chars = list(text)  # warning: a list, not a str, so an edit does not copy the whole text
 
     def __len__(self) -> int:
+        """The current length, in characters."""
         return len(self._chars)
 
     def text(self) -> str:
+        """The entire contents, equivalent to read(0, len(self))."""
         return "".join(self._chars)
 
     def insert(self, pos: int, text: str) -> None:
+        """Inserts text so its first character lands at offset pos, shifting every character
+        currently at or after pos to the right by len(text). Requires 0 <= pos <= len(self);
+        raises IndexError otherwise."""
         if not 0 <= pos <= len(self):
             raise IndexError(f"insert position {pos} out of range for length {len(self)}")
-        self._chars[pos:pos] = text                # NOTE: slice-assignment insert, no separate loop
+        self._chars[pos:pos] = text  # we insert by slice assignment, no separate loop
 
     def delete(self, start: int, end: int) -> str:
+        """Removes the half-open range [start, end) and returns the removed text ("" if start == end).
+        Requires 0 <= start <= end <= len(self); raises IndexError otherwise."""
         if not 0 <= start <= end <= len(self):
             raise IndexError(f"delete range [{start}, {end}) out of range for length {len(self)}")
         removed = self._chars[start:end]
@@ -191,6 +199,7 @@ class TextBuffer:
         return "".join(removed)
 
     def read(self, start: int, end: int) -> str:
+        """Returns [start, end) without modifying the buffer. Same bounds as delete."""
         if not 0 <= start <= end <= len(self):
             raise IndexError(f"read range [{start}, {end}) out of range for length {len(self)}")
         return "".join(self._chars[start:end])
@@ -203,11 +212,13 @@ class TextBuffer:
 撤销本身不会被记成新的一次操作。
 
 ```python
+# we keep the Part 1 methods: undo and redo replay through them, so reversing an edit is never recorded
 _insert_without_undo = TextBuffer.insert
 _delete_without_undo = TextBuffer.delete
 
 
 def _stacks(self):
+    # warning: Part 1's __init__ does not know the stacks, so we create them on first use
     if not hasattr(self, "_undo_stack"):
         self._undo_stack, self._redo_stack = [], []
     return self._undo_stack, self._redo_stack
@@ -216,9 +227,9 @@ def _stacks(self):
 def insert(self, pos: int, text: str) -> None:
     _insert_without_undo(self, pos, text)
     undo_stack, redo_stack = _stacks(self)
-    if text:
+    if text:  # warning: an empty insert changes nothing, so it is not recorded
         undo_stack.append(("insert", pos, text))
-        redo_stack.clear()
+        redo_stack.clear()  # a new edit discards the pending redos
 
 
 def delete(self, start: int, end: int) -> str:
@@ -231,10 +242,12 @@ def delete(self, start: int, end: int) -> str:
 
 
 def undo(self) -> bool:
+    """Reverses the most recent recorded insert/delete. Returns whether there was one to reverse."""
     undo_stack, redo_stack = _stacks(self)
     if not undo_stack:
         return False
     kind, pos, payload = undo_stack.pop()
+    # we apply the inverse operation
     if kind == "insert":
         _delete_without_undo(self, pos, pos + len(payload))
     else:
@@ -244,10 +257,12 @@ def undo(self) -> bool:
 
 
 def redo(self) -> bool:
+    """Re-applies the most recently undone operation. Returns whether there was one to redo."""
     undo_stack, redo_stack = _stacks(self)
     if not redo_stack:
         return False
     kind, pos, payload = redo_stack.pop()
+    # we apply the operation again
     if kind == "insert":
         _insert_without_undo(self, pos, payload)
     else:
@@ -273,7 +288,7 @@ TextBuffer.redo = redo
 import re
 from collections import Counter
 
-_WORD_RE = re.compile(r"[A-Za-z]+")
+WORD_RE = re.compile(r"[A-Za-z]+")
 
 
 class _TrieNode:
@@ -281,28 +296,32 @@ class _TrieNode:
 
     def __init__(self):
         self.children: dict[str, "_TrieNode"] = {}
-        self.count = 0                  # NOTE: 0 unless this node ends a word that occurs in the buffer
+        self.count = 0  # warning: 0 unless this node ends a word that occurs in the buffer
 
 
-def _build_trie(words: Counter) -> _TrieNode:
+def _build_trie(word_counts: Counter) -> _TrieNode:
     root = _TrieNode()
-    for word, count in words.items():
+    for word, count in word_counts.items():
         node = root
         for ch in word:
             node = node.children.setdefault(ch, _TrieNode())
-        node.count = count
+        node.count = count  # the count is stored at the last letter
     return root
 
 
 def suggest(self, prefix: str, k: int) -> list[str]:
+    """Up to k words of the buffer's current vocabulary that start with prefix, highest frequency
+    first, ties broken by string order (uppercase before lowercase)."""
     if k < 0:
         raise ValueError(f"k must be >= 0, got {k}")
-    root = _build_trie(Counter(_WORD_RE.findall(self.text())))
-    node = root
+    # first we rebuild the trie from the current text, so deleted words drop out
+    node = _build_trie(Counter(WORD_RE.findall(self.text())))
+    # then we walk down to the node of the prefix
     for ch in prefix:
         if ch not in node.children:
             return []
         node = node.children[ch]
+    # then we collect every word of its subtree
     matches: list[tuple[str, int]] = []
 
     def collect(n: _TrieNode, built: str) -> None:
@@ -312,7 +331,7 @@ def suggest(self, prefix: str, k: int) -> list[str]:
             collect(child, built + ch)
 
     collect(node, prefix)
-    matches.sort(key=lambda item: (-item[1], item[0]))   # NOTE: frequency first, then string order
+    matches.sort(key=lambda item: (-item[1], item[0]))  # warning: frequency first, then string order
     return [word for word, _ in matches[:k]]
 
 
@@ -334,24 +353,31 @@ import bisect
 import random
 from fractions import Fraction
 
-_RAND_DENOM = 2 ** 32
+RAND_DENOM = 2 ** 32
 
 
 class CRDTDoc:
+    # every character gets a position, a Fraction strictly between its two visible neighbours (0 and 1 are the ends)
+    # with (site, seq) to make it unique, a position never refers to another operation
+    # so the state is two sets, the inserts applied and the ids deleted, and text() depends only on these sets
     def __init__(self, site_id: str) -> None:
+        """A single replica, starting from an empty document."""
         self.site_id = site_id
         self._counter = 0
-        self._entries = []       # (pos, site, seq, ch) tuples, kept sorted
-        self._inserted = set()   # (site, seq) of inserts already applied
-        self._deleted = set()    # (site, seq) of characters deleted on any replica
+        self._entries = []  # (pos, site, seq, ch) tuples, kept sorted
+        self._inserted = set()  # (site, seq) of inserts already applied
+        self._deleted = set()  # (site, seq) of characters deleted on any replica
 
     def _live(self) -> list:
-        return [e for e in self._entries if (e[1], e[2]) not in self._deleted]
+        return [entry for entry in self._entries if (entry[1], entry[2]) not in self._deleted]
 
     def text(self) -> str:
-        return "".join(e[3] for e in self._live())
+        """This replica's current visible document."""
+        return "".join(entry[3] for entry in self._live())
 
-    def local_insert(self, index: int, ch: str):
+    def local_insert(self, index: int, ch: str) -> object:
+        """Inserts one character (len(ch) == 1) at visible index (0 <= index <= len(text())) as a
+        local edit, and returns an operation to broadcast to every other replica."""
         if len(ch) != 1:
             raise ValueError(f"local_insert takes exactly one character, got {ch!r}")
         live = self._live()
@@ -359,13 +385,16 @@ class CRDTDoc:
             raise IndexError(f"insert index {index} out of range for length {len(live)}")
         left = live[index - 1][0] if index > 0 else Fraction(0)
         right = live[index][0] if index < len(live) else Fraction(1)
-        pos = left + (right - left) * Fraction(random.randint(1, _RAND_DENOM - 1), _RAND_DENOM)
+        # warning: a random point in the gap, not the midpoint, so two replicas filling the same gap differ
+        pos = left + (right - left) * Fraction(random.randint(1, RAND_DENOM - 1), RAND_DENOM)
         self._counter += 1
         op = ("insert", pos, self.site_id, self._counter, ch)
         self.apply(op)
         return op
 
-    def local_delete(self, index: int):
+    def local_delete(self, index: int) -> object:
+        """Deletes the visible character at index (0 <= index < len(text())) as a local edit, and
+        returns an operation to broadcast."""
         live = self._live()
         if not 0 <= index < len(live):
             raise IndexError(f"delete index {index} out of range for length {len(live)}")
@@ -373,16 +402,18 @@ class CRDTDoc:
         self.apply(op)
         return op
 
-    def apply(self, op) -> None:
+    def apply(self, op: object) -> None:
+        """Applies an operation returned by local_insert/local_delete on some replica (including
+        this one). apply is idempotent: applying the same operation twice has no further effect."""
         if op[0] == "insert":
             _, pos, site, seq, ch = op
-            if (site, seq) in self._inserted:    # NOTE: a replayed insert changes nothing
+            if (site, seq) in self._inserted:  # warning: a replayed insert changes nothing
                 return
             self._inserted.add((site, seq))
             bisect.insort(self._entries, (pos, site, seq, ch))
         else:
             _, site, seq = op
-            # NOTE: the id may arrive before the insert that creates the character
+            # warning: the id may arrive before the insert that creates the character
             self._deleted.add((site, seq))
 ```
 
@@ -638,7 +669,7 @@ def random_trial_4(seed, n_replicas=3, rounds=40, dup_chance=0.3):
             if n == 0 or rng.random() < 0.6:
                 index, ch = rng.randint(0, n), rng.choice("abc")
                 op = rep.local_insert(index, ch)
-                assert rep.text()[index] == ch        # NOTE: a local edit lands where it was asked to
+                assert rep.text()[index] == ch        # warning: a local edit lands where it was asked to
                 seen[i].add((op[2], op[3]))
                 stats["ins"] += 1
             else:

@@ -146,17 +146,18 @@ Index the edges by tail in a dictionary and simulate the walk, keeping the set o
 added once, so the time is O(E).
 
 ```python
-def walk_end(from_ids, to_ids, start):
-    next_of = dict(zip(from_ids, to_ids))      # NOTE: ids are arbitrary integers, so a dict, not a list indexed by id
+def walk_end(from_ids: list[int], to_ids: list[int], start: int) -> int:
+    """len(from_ids) == len(to_ids) <= 2 * 10**5; from_ids are distinct; from_ids[i] != to_ids[i]."""
+    next_of = dict(zip(from_ids, to_ids))  # warning: ids are arbitrary integers, so a dict, not a list indexed by id
     visited = {start}
     current = start
-    while current in next_of:                  # no outgoing edge: the walk ends here
+    while current in next_of:  # no outgoing edge: the walk ends here
         following = next_of[current]
-        if following in visited:               # NOTE: return `current`, the node before the repeat, not `following`
+        if following in visited:  # warning: return `current`, the node before the repeat, not `following`
             return current
         visited.add(following)
         current = following
-    return current                             # NOTE: also covers a start node that has no outgoing edge
+    return current  # warning: also covers a start node that has no outgoing edge
 ```
 
 ### Part 2
@@ -176,21 +177,28 @@ n^4 tuples is already feasible at n = 50 (about 6 million tuples), and a dynamic
 set of types used so far is the other standard route; the formula above is the shortest.
 
 ```python
-def count_typed_paths(n, edges, types):
-    # nbr_count[v][t]: number of neighbours of v whose type is t
-    nbr_count = [[0] * 4 for _ in range(n)]
+def count_typed_paths(n: int, edges: list[tuple[int, int]], types: list[int]) -> int:
+    """1 <= n <= 50, len(edges) <= 250, types[v] in {0, 1, 2, 3}. Returns the number of ordered
+    4-node paths whose four nodes have four different types."""
+    # we fix the middle edge (b, c); the two end nodes must have the two types x, y that b and c miss
+    # so the count is nbr_count[b][x] * nbr_count[c][y] + nbr_count[b][y] * nbr_count[c][x]
+    # first count, for every node, its neighbours of each type
+    nbr_count = [[0] * 4 for _ in range(n)]  # (n, 4), nbr_count[v][t]: number of neighbours of v whose type is t
     for u, v in edges:
         nbr_count[u][types[v]] += 1
         nbr_count[v][types[u]] += 1
-    total = 0
+
+    # then sum over every middle edge
+    n_paths = 0
     for u, v in edges:
-        for b, c in ((u, v), (v, u)):          # NOTE: both orientations of the middle edge; reversed paths count separately
+        # warning: both orientations of the middle edge; reversed paths count separately
+        for b, c in ((u, v), (v, u)):
             if types[b] == types[c]:
                 continue
             x, y = [t for t in range(4) if t != types[b] and t != types[c]]
-            # NOTE: end nodes need no "distinct from b, c" test: their types differ from types[b] and types[c]
-            total += nbr_count[b][x] * nbr_count[c][y] + nbr_count[b][y] * nbr_count[c][x]
-    return total
+            # warning: end nodes need no "distinct from b, c" test: their types differ from types[b] and types[c]
+            n_paths += nbr_count[b][x] * nbr_count[c][y] + nbr_count[b][y] * nbr_count[c][x]
+    return n_paths
 ```
 
 Trace of the example (`types = [0, 1, 2, 3, 0, 3]`): the middle edge `{1, 2}`, with types 1 and 2, misses
@@ -207,20 +215,24 @@ The input has at most 20 organisms and every round with an event removes at leas
 the same as comparing current sizes, and the growth can be applied when the round ends.
 
 ```python
-def last_standing(families, sizes):
-    fam, size = list(families), list(sizes)
+def last_standing(families: str, sizes: list[int]) -> str:
+    """1 <= len(families) == len(sizes) <= 20, families are letters, sizes are positive integers.
+    Returns "<family> <size>" of the largest organism once no eating event can occur."""
+    # we simulate round by round: at most 19 eventful rounds of O(n) work
+    family, size = list(families), list(sizes)  # we copy the inputs
     while True:
-        m = len(fam)
-        taken = [False] * m                    # has taken part in an eating event this round
-        gain = [0] * m
-        eaten = [False] * m
+        n_alive = len(family)
+        taken = [False] * n_alive  # has taken part in an eating event this round
+        gain = [0] * n_alive
+        eaten = [False] * n_alive
         any_event = False
-        for i in range(m):
+        # first find this round's eating events
+        for i in range(n_alive):
             if taken[i]:
                 continue
-            # NOTE: left neighbour is tried first; `taken` already reflects events earlier in this same round
+            # warning: left neighbour is tried first; `taken` already reflects events earlier in this same round
             for j in (i - 1, i + 1):
-                if 0 <= j < m and not taken[j] and fam[j] != fam[i] and size[j] < size[i]:
+                if 0 <= j < n_alive and not taken[j] and family[j] != family[i] and size[j] < size[i]:
                     taken[i] = taken[j] = True
                     gain[i] = size[j]
                     eaten[j] = True
@@ -228,13 +240,14 @@ def last_standing(families, sizes):
                     break
         if not any_event:
             break
-        # NOTE: sizes change only here, after the round; a grown eater is `taken`, so nobody compared against it
-        fam, size = (
-            [fam[i] for i in range(m) if not eaten[i]],
-            [size[i] + gain[i] for i in range(m) if not eaten[i]],
+        # then apply them
+        # warning: sizes change only here, after the round; a grown eater is `taken`, so nobody compared against it
+        family, size = (
+            [family[i] for i in range(n_alive) if not eaten[i]],
+            [size[i] + gain[i] for i in range(n_alive) if not eaten[i]],
         )
-    best = max(range(len(fam)), key=lambda i: (size[i], -i))   # NOTE: -i makes the leftmost win a tie
-    return f"{fam[best]} {size[best]}"
+    best = max(range(len(family)), key=lambda i: (size[i], -i))  # warning: -i makes the leftmost win a tie
+    return f"{family[best]} {size[best]}"
 ```
 
 ### Part 4
@@ -251,21 +264,28 @@ blend that achieved its minimum, start from the best final blend and walk back. 
 (three values per day).
 
 ```python
-def cheapest_blends(costs):
-    n = len(costs)
-    best = [list(costs[0])]                    # best[d][b]: cheapest cost of days 0..d if day d uses blend b
-    came_from = [[-1, -1, -1]]
-    for d in range(1, n):
-        row, back = [], []
+def cheapest_blends(costs: list[list[int]]) -> list[int]:
+    """1 <= len(costs) <= 10**5, costs[d] has 3 entries, 1 <= costs[d][b] <= 10**9. Returns the blend
+    chosen on each day in a plan of minimum total cost; that plan is unique."""
+    # best[d][b] = costs[d][b] + min(best[d-1][q] for q != b)
+    # we store the predecessor of each state and walk back from the best final blend
+    n_days = len(costs)
+    best = [list(costs[0])]  # (n_days, 3), best[d][b]: cheapest cost of days 0..d if day d uses blend b
+    came_from = [[-1, -1, -1]]  # (n_days, 3)
+    for d in range(1, n_days):
+        best_row, back_row = [], []
         for b in range(3):
             prev = min((q for q in range(3) if q != b), key=lambda q: best[d - 1][q])
-            row.append(costs[d][b] + best[d - 1][prev])
-            back.append(prev)                  # NOTE: store the predecessor; recomputing it later would need the whole table anyway
-        best.append(row)
-        came_from.append(back)
+            best_row.append(costs[d][b] + best[d - 1][prev])
+            # warning: store the predecessor; recomputing it later would need the whole table anyway
+            back_row.append(prev)
+        best.append(best_row)
+        came_from.append(back_row)
+
     b = min(range(3), key=lambda q: best[-1][q])
     plan = [b]
-    for d in range(n - 1, 0, -1):              # NOTE: iterative walk back; n = 10**5 would overflow Python's recursion limit
+    # warning: iterative walk back; n = 10**5 would overflow Python's recursion limit
+    for d in range(n_days - 1, 0, -1):
         b = came_from[d][b]
         plan.append(b)
     plan.reverse()

@@ -194,7 +194,7 @@ Each key maps to two parallel lists kept in increasing order of timestamp: `_tim
 `set` uses `bisect_left` to find where `timestamp` belongs — if an entry already sits there, it is
 overwritten (the later call wins); otherwise a new entry is inserted at that position, which is how a
 timestamp arriving late still lands in the right place. `get` uses `bisect_right`, not `bisect_left`: with
-an exact match at `timestamp`, `get` must still include it, so the answer sits at index `i - 1`, one before
+an exact match at `timestamp`, `get` must still include it, so the answer sits at index `pos - 1`, one before
 where `bisect_right` would insert a value equal to `timestamp`.
 
 ```python
@@ -204,25 +204,29 @@ from typing import Any
 
 class TimeMap:
     def __init__(self) -> None:
+        # we keep two parallel lists per key, sorted by timestamp
         self._timestamps: dict[str, list[float]] = {}
         self._values: dict[str, list[Any]] = {}
 
     def set(self, key: str, value: Any, timestamp: float) -> None:
         timestamps = self._timestamps.setdefault(key, [])
         values = self._values.setdefault(key, [])
-        i = bisect.bisect_left(timestamps, timestamp)
-        if i < len(timestamps) and timestamps[i] == timestamp:
-            values[i] = value               # NOTE: same timestamp as an existing entry -- the later call wins
-        else:
-            timestamps.insert(i, timestamp)
-            values.insert(i, value)
+        pos = bisect.bisect_left(timestamps, timestamp)  # where timestamp belongs, also for a late arrival
+        if pos < len(timestamps) and timestamps[pos] == timestamp:
+            values[pos] = value  # warning: same timestamp as an existing entry, the later call wins
+            return
+        timestamps.insert(pos, timestamp)
+        values.insert(pos, value)
 
     def get(self, key: str, timestamp: float) -> Any | None:
         timestamps = self._timestamps.get(key)
         if not timestamps:
             return None
-        i = bisect.bisect_right(timestamps, timestamp)  # NOTE: not bisect_left -- an exact match still counts
-        return self._values[key][i - 1] if i > 0 else None
+        # the answer is the last entry with a timestamp <= timestamp, one before the insertion point
+        pos = bisect.bisect_right(timestamps, timestamp)  # warning: not bisect_left, an exact match still counts
+        if pos == 0:
+            return None  # every recorded timestamp is later
+        return self._values[key][pos - 1]
 ```
 
 `get` is $O(\log n)$ in the number of values recorded for `key`; `set` is $O(n)$ because `timestamps.insert`
@@ -262,6 +266,7 @@ class TimeMap(TimeMap):
         self._clock = clock if clock is not None else RealClock()
 
     def set(self, key: str, value: Any, timestamp: float | None = None) -> None:
+        # warning: "is None", not a falsiness check, a timestamp of 0 is a real value
         super().set(key, value, self._clock.now() if timestamp is None else timestamp)
 
     def get(self, key: str, timestamp: float | None = None) -> Any | None:
@@ -297,15 +302,17 @@ further ahead of the clock instead of catching up, and a `get` that omits `times
 class TimeMap(TimeMap):
     def __init__(self, clock: Any = None) -> None:
         super().__init__(clock)
-        self._last: dict[str, float] = {}
+        self._last: dict[str, float] = {}  # key -> last recorded timestamp
 
     def set(self, key: str, value: Any, timestamp: float | None = None) -> float:
+        # we nudge every timestamp past the last one, so the new entry is always the last: append, O(1)
         if timestamp is None:
             timestamp = self._clock.now()
         last = self._last.get(key)
-        if last is not None and timestamp <= last:  # NOTE: a backward clock and a stale explicit timestamp
-            timestamp = last + 1                     #      both land here
-        self._timestamps.setdefault(key, []).append(timestamp)  # NOTE: append -- timestamp now exceeds all earlier
+        # warning: a backward clock and a stale explicit timestamp both land here
+        if last is not None and timestamp <= last:
+            timestamp = last + 1
+        self._timestamps.setdefault(key, []).append(timestamp)  # warning: append, timestamp now exceeds all earlier
         self._values.setdefault(key, []).append(value)
         self._last[key] = timestamp
         return timestamp
@@ -355,7 +362,8 @@ class PerKeyLockTimeMap(TimeMap):
         self._registry_lock = threading.Lock()
 
     def _lock_for(self, key: str) -> threading.Lock:
-        with self._registry_lock:  # NOTE: guards only the creation of a key's lock, not the operation under it
+        # "is there one already? if not, make one" is a read-modify-write too
+        with self._registry_lock:  # warning: guards only the creation of a key's lock, not the operation under it
             lock = self._key_locks.get(key)
             if lock is None:
                 lock = threading.Lock()
@@ -363,11 +371,12 @@ class PerKeyLockTimeMap(TimeMap):
         return lock
 
     def set(self, key: str, value: Any, timestamp: float | None = None) -> float:
-        with self._lock_for(key):  # NOTE: a missing timestamp is read from the clock in here, by Part 3's set
+        # we lock the whole read-modify-write of Part 3: read last, nudge, append, update last
+        with self._lock_for(key):  # warning: a missing timestamp is read from the clock in here, by Part 3's set
             return super().set(key, value, timestamp)
 
     def get(self, key: str, timestamp: float | None = None) -> Any | None:
-        with self._lock_for(key):  # NOTE: get needs it too -- set appends the timestamp before the value
+        with self._lock_for(key):  # warning: get needs it too, set appends the timestamp before the value
             return super().get(key, timestamp)
 
 

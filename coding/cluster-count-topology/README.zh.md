@@ -31,7 +31,7 @@ class Network:
     def __init__(self, seed=0):
         self.nodes = {}
         self._queue = []                 # list of (to_id, from_id, message), not yet delivered
-        self._rng = random.Random(seed)  # NOTE: seeded, so a run is reproducible for a fixed seed
+        self._rng = random.Random(seed)  # warning: seeded, so a run is reproducible for a fixed seed
 
     def register(self, node):
         self.nodes[node.node_id] = node
@@ -42,7 +42,7 @@ class Network:
     def run(self, max_rounds=10_000):
         rounds = 0
         while self._queue and rounds < max_rounds:
-            batch, self._queue = self._queue, []       # NOTE: freeze this round's batch first, so
+            batch, self._queue = self._queue, []       # warning: freeze this round's batch first, so
             self._rng.shuffle(batch)                    #       sends made while delivering it land
             for to_id, from_id, message in batch:       #       in self._queue for the NEXT round
                 self.nodes[to_id].receive_message(from_id, message)
@@ -152,7 +152,7 @@ class UnreliableNetwork(Network):
 
     def send_async_message(self, from_id, to_id, message):
         if self._rng.random() < self.drop_prob:
-            return                                        # NOTE: silently discarded, never queued
+            return                                        # warning: silently discarded, never queued
         super().send_async_message(from_id, to_id, message)
         if self._rng.random() < self.duplicate_prob:
             super().send_async_message(from_id, to_id, message)   # a second, independent delivery
@@ -169,7 +169,7 @@ class UnreliableNetwork(Network):
             else:
                 idle += 1
             for node in self.nodes.values():
-                node.on_tick()                            # NOTE: ticks even on an idle round, so a
+                node.on_tick()                            # warning: ticks even on an idle round, so a
             rounds += 1                                    #       pending timeout still fires
             if idle >= idle_rounds_to_stop and not self._queue:
                 break
@@ -218,7 +218,9 @@ Part 1 和 Part 2 的过程相同——向下广播、向上汇聚——只有�
 `leaf_value(node)` 给出叶子的贡献，`combine(node, child_values)` 给出子节点（按 `children_ids` 顺序）全部应答之后的结果。
 
 ```python
-QUERIES = {}   # query_type -> (leaf_value(node), combine(node, child_values in children_ids order))
+# we write the shape once: broadcast a request down, aggregate the answers back up
+# only the combining rule differs between parts, so each query_type maps to a pair of functions
+QUERIES = {}  # query_type -> (leaf_value(node), combine(node, child_values in children_ids order))
 
 
 class QueryNode(Node):
@@ -226,46 +228,49 @@ class QueryNode(Node):
 
     def __init__(self, node_id, parent_id, children_ids, network):
         super().__init__(node_id, parent_id, children_ids, network)
-        self.result = None     # set on the ROOT only, once the query has completed
-        self._pending = {}     # query_type -> set of children that have not answered yet
-        self._answers = {}     # query_type -> {child_id: value}  NOTE: per child, not a running total
+        self.result = None  # set on the ROOT only, once the query has completed
+        self._pending = {}  # query_type -> set of children that have not answered yet
+        self._answers = {}  # query_type -> {child_id: value}, warning: per child, not a running total
 
     def _respond(self, query_type, value):
-        if self.parent_id is None:
+        if self.parent_id is None:  # the root keeps the value instead of sending it
             self.result = value
         else:
             self.send(self.parent_id, ("response", query_type, value))
 
-    def receive_message(self, from_id, message):
+    def receive_message(self, from_id: str | None, message) -> None:
+        """After Network.run() returns, self.result on the ROOT holds the value of the query."""
         kind = message[0]
-        if kind == "request":             # from the parent, or from outside for the root
+        if kind == "request":  # from the parent, or from outside for the root
             _, query_type = message
-            leaf_value, _combine = QUERIES[query_type]
+            leaf_value, _ = QUERIES[query_type]
             if not self.children_ids:
-                self._respond(query_type, leaf_value(self))     # a leaf answers immediately
-            else:
-                self._pending[query_type] = set(self.children_ids)
-                self._answers[query_type] = {}
-                for child in self.children_ids:
-                    self.send(child, ("request", query_type))
-        elif kind == "response":          # from one child
+                self._respond(query_type, leaf_value(self))  # a leaf answers immediately
+                return
+            # first we remember who has to answer, then we forward the request
+            self._pending[query_type] = set(self.children_ids)
+            self._answers[query_type] = {}
+            for child in self.children_ids:
+                self.send(child, ("request", query_type))
+        elif kind == "response":  # from one child
             _, query_type, value = message
             pending = self._pending.get(query_type, ())
             if from_id not in pending:
-                return                    # NOTE: not a child we are still waiting on
+                return  # warning: not a child we are still waiting on
             self._answers[query_type][from_id] = value
             pending.discard(from_id)
-            if not pending:               # every child has now answered
+            if not pending:  # every child has now answered
                 _, combine = QUERIES[query_type]
-                ordered = [self._answers[query_type][c] for c in self.children_ids]
-                self._respond(query_type, combine(self, ordered))
+                # warning: children answer in any order, so we put the values back in children_ids order
+                child_values = [self._answers[query_type][c] for c in self.children_ids]
+                self._respond(query_type, combine(self, child_values))
 
 
 QUERIES["count"] = (
     lambda node: 1,
-    lambda node, child_counts: 1 + sum(child_counts),
+    lambda node, child_counts: 1 + sum(child_counts),  # 1 for the node itself
 )
-CountingNode = QueryNode      # Part 1: start it with ("request", "count")
+CountingNode = QueryNode  # Part 1: start it with ("request", "count")
 ```
 
 记下每个答案来自哪个子节点、而不是只往一个总数上累加，对可靠网络上的计数没有区别；但 Part 2 要靠它把答案按
@@ -274,7 +279,7 @@ CountingNode = QueryNode      # Part 1: start it with ("request", "count")
 ### Part 2
 
 拓扑查询只需换一对函数：叶子贡献 `(自己的 id, [])`；合并时把节点 id 包在子节点拓扑列表外面，
-`ordered` 已按 `children_ids` 排好顺序。
+`child_values` 已按 `children_ids` 排好顺序。
 
 ```python
 QUERIES["topology"] = (
@@ -294,51 +299,54 @@ TopologyNode = QueryNode      # Part 2: the same class, started with ("request",
 class RobustNode(Node):
     """QueryNode's protocol over the same QUERIES table, with all state kept per request_id."""
 
-    TIMEOUT = 3   # ticks to wait for a child's answer before asking that child again
+    TIMEOUT = 3  # ticks to wait for a child's answer before asking that child again
 
     def __init__(self, node_id, parent_id, children_ids, network):
         super().__init__(node_id, parent_id, children_ids, network)
-        self.results = {}   # request_id -> final value, on the ROOT only
-        self._state = {}    # request_id -> see _new_state; kept forever, it is also the cache
+        self.results = {}  # request_id -> final value, on the ROOT only
+        self._state = {}  # request_id -> see _new_state; kept forever, it is also the cache
         self._tick = 0
 
     def _new_state(self, query_type):
         return {
             "query_type": query_type,
             "pending": set(self.children_ids),
-            "answers": {},   # NOTE: keyed by child_id, never `+=`
+            "answers": {},  # warning: keyed by child_id, never `+=`
             "done": False,
             "value": None,
             "last_sent": {c: self._tick for c in self.children_ids},
         }
 
-    def receive_message(self, from_id, message):
+    def receive_message(self, from_id: str | None, message) -> None:
+        """Same task as Parts 1-2, run over an UnreliableNetwork. Once the query for a given
+        request_id has finished, its value is stored in self.results[request_id] on the ROOT;
+        correct even when requests or responses are duplicated or dropped."""
         kind = message[0]
         if kind == "request":
             _, query_type, request_id = message
             state = self._state.get(request_id)
             if state is not None:
                 if state["done"]:
-                    self._reply(request_id)   # NOTE: cached replay, nothing is recomputed
-                return                        # NOTE: still in progress -> ignore, do not restart
-            leaf_value, _combine = QUERIES[query_type]
+                    self._reply(request_id)  # warning: cached replay, nothing is recomputed
+                return  # warning: still in progress, so we ignore it and do not restart
+            leaf_value, _ = QUERIES[query_type]
             self._state[request_id] = self._new_state(query_type)
             if not self.children_ids:
                 self._finish(request_id, leaf_value(self))
-            else:
-                for child in self.children_ids:
-                    self.send(child, ("request", query_type, request_id))
+                return
+            for child in self.children_ids:
+                self.send(child, ("request", query_type, request_id))
         elif kind == "response":
             _, request_id, value = message
             state = self._state.get(request_id)
             if state is None or state["done"] or from_id not in state["pending"]:
-                return   # NOTE: a repeated or late answer: this child is already recorded
+                return  # warning: a repeated or late answer, this child is already recorded
             state["answers"][from_id] = value
             state["pending"].discard(from_id)
-            if not state["pending"]:
+            if not state["pending"]:  # every child has now answered
                 _, combine = QUERIES[state["query_type"]]
-                ordered = [state["answers"][c] for c in self.children_ids]
-                self._finish(request_id, combine(self, ordered))
+                child_values = [state["answers"][c] for c in self.children_ids]
+                self._finish(request_id, combine(self, child_values))
 
     def _finish(self, request_id, value):
         state = self._state[request_id]
@@ -352,13 +360,16 @@ class RobustNode(Node):
         else:
             self.send(self.parent_id, ("response", request_id, state["value"]))
 
-    def on_tick(self):
+    def on_tick(self) -> None:
+        """Called once per round by UnreliableNetwork.run(). Resend a request to any child that has
+        been pending too long for some request_id."""
         self._tick += 1
         for request_id, state in self._state.items():
             if state["done"]:
                 continue
-            for child in self.children_ids:   # NOTE: not the set: its order changes from run to run
+            for child in self.children_ids:  # warning: not the set, its order changes from run to run
                 if child in state["pending"] and self._tick - state["last_sent"][child] >= self.TIMEOUT:
+                    # we resend to this child alone, not to every child again
                     self.send(child, ("request", state["query_type"], request_id))
                     state["last_sent"][child] = self._tick
 ```

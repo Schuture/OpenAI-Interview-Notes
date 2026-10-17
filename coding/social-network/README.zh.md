@@ -131,32 +131,40 @@ class FollowTimeline:
 class SocialNetwork:
     def __init__(self):
         self._users = set()
-        self._following = {}
+        self._following = {}  # user -> set of the users they follow
 
-    def add_user(self, user_id):
+    def add_user(self, user_id: str) -> None:
+        """Registers a new user. Raises ValueError if user_id already exists."""
         if user_id in self._users:
             raise ValueError(f"user already exists: {user_id!r}")
         self._users.add(user_id)
         self._following[user_id] = set()
 
-    def follow(self, follower, followee):
+    def follow(self, follower: str, followee: str) -> None:
+        """follower starts following followee. Raises ValueError if follower or followee is
+        not a registered user. follower == followee is a no-op, and so is a call for a pair
+        that already follows."""
         if follower not in self._users or followee not in self._users:
             raise ValueError("unknown user")
-        if follower == followee:          # NOTE: checked before any mutation, so self-follow is a no-op
+        if follower == followee:  # warning: checked before any mutation, so self-follow is a no-op
             return
-        self._following[follower].add(followee)   # NOTE: set.add is idempotent -> duplicate follow is a no-op too
+        self._following[follower].add(followee)  # warning: set.add is idempotent, so a duplicate follow is a no-op too
 
-    def create_snapshot(self):
+    def create_snapshot(self) -> "Snapshot":
+        """Freezes the current users and follow edges into a Snapshot. Any add_user() or
+        follow() call made on this SocialNetwork afterwards must not change a Snapshot that
+        has already been returned."""
         return Snapshot(self._users, self._following)
 
 
 class Snapshot:
     def __init__(self, users, following):
         self._users = set(users)
-        # NOTE: copy EACH inner set. following.copy() alone would copy the outer dict but keep the
-        # same inner set objects, so a later SocialNetwork.follow() would still mutate this snapshot.
-        self._following = {u: set(fs) for u, fs in following.items()}
-        self._followers = {u: set() for u in self._users}   # reverse index, used starting get_followers below
+        # warning: we copy EACH inner set; following.copy() alone copies the outer dict but keeps the
+        # same inner set objects, so a later SocialNetwork.follow() would still mutate this snapshot
+        self._following = {u: set(followees) for u, followees in following.items()}
+        # we build the reverse index once here, it is used by get_followers below
+        self._followers = {u: set() for u in self._users}
         for u, followees in self._following.items():
             for v in followees:
                 self._followers[v].add(u)
@@ -165,7 +173,8 @@ class Snapshot:
         if user_id not in self._users:
             raise ValueError(f"unknown user: {user_id!r}")
 
-    def is_following(self, follower, followee):
+    def is_following(self, follower: str, followee: str) -> bool:
+        """Raises ValueError if follower or followee was not a user of this snapshot."""
         self._check(follower)
         self._check(followee)
         return followee in self._following[follower]
@@ -178,17 +187,21 @@ class Snapshot:
 构造过程里一次性建好，两个方法的开销就都只取决于各自答案的大小。
 
 ```python
-def get_following(self, user_id):
+def get_following(self, user_id: str) -> list[str]:
+    """Users user_id follows, as of this snapshot, sorted by user id ascending.
+    Raises ValueError if user_id is unknown to this snapshot."""
     self._check(user_id)
-    return sorted(self._following[user_id])          # NOTE: sets have no reliable order; sort for determinism
+    return sorted(self._following[user_id])  # warning: sets have no reliable order, we sort for determinism
 
 
-def get_followers(self, user_id):
+def get_followers(self, user_id: str) -> list[str]:
+    """Users who follow user_id, as of this snapshot, sorted by user id ascending.
+    Raises ValueError if user_id is unknown to this snapshot."""
     self._check(user_id)
-    return sorted(self._followers[user_id])
+    return sorted(self._followers[user_id])  # the reverse index costs only the size of the answer
 
 
-Snapshot.get_following = get_following      # attach both methods to the Snapshot class of Part 1
+Snapshot.get_following = get_following  # we attach both methods to the Snapshot class of Part 1
 Snapshot.get_followers = get_followers
 ```
 
@@ -203,19 +216,24 @@ Snapshot.get_followers = get_followers
 from collections import Counter
 
 
-def recommend(self, user_id, k):
+def recommend(self, user_id: str, k: int) -> list[str]:
+    """Top-k two-hop recommendations for user_id, ranked by score descending, ties
+    broken by user id ascending. Returns fewer than k entries if fewer candidates
+    exist. Raises ValueError if user_id is unknown to this snapshot."""
+    # we give one point to every followee c of every followee f of user_id
+    # _following[f] is a set, so c gets at most one point per f: the score is the number of distinct f
     self._check(user_id)
     direct = self._following[user_id]
-    counts = Counter()
+    score = Counter()
     for f in direct:
         for c in self._following[f]:
-            if c != user_id and c not in direct:   # NOTE: exclude the user itself and already-followed accounts
-                counts[c] += 1
-    ranked = sorted(counts, key=lambda c: (-counts[c], c))   # NOTE: ties broken by user id ascending
-    return ranked[:k]           # NOTE: k > len(ranked) just returns every candidate, no error or padding
+            if c != user_id and c not in direct:  # warning: exclude the user itself and already-followed accounts
+                score[c] += 1
+    ranked = sorted(score, key=lambda c: (-score[c], c))  # warning: ties broken by user id ascending
+    return ranked[:k]  # warning: k > len(ranked) just returns every candidate, no error or padding
 
 
-Snapshot.recommend = recommend              # attach to the Snapshot class of Part 1
+Snapshot.recommend = recommend  # we attach it to the Snapshot class of Part 1
 ```
 
 设 $n$ 为快照时刻的用户数，$`m`$ 为关注边数，$`d(u)`$ 为 $u$ 关注的人数，$`d^-(u)`$ 为关注 $u$ 的人数。
@@ -249,32 +267,39 @@ class FollowTimeline:
         self._events = {}  # (follower, followee) -> toggle timestamps, always sorted by construction
 
     def _following_at(self, key, t):
+        # we store only the toggle timestamps of each pair; they alternate start, stop, start, ...
+        # so an odd number of events at or before t means the most recent one was a start
         events = self._events.get(key)
         if not events:
             return False
-        # NOTE: binary search over this one pair's own event list; the alternative -- keeping a
-        # full graph snapshot for every past instant and deep-copying one on each event -- would
-        # cost O(n + m) per event instead of the O(1) amortized appends follow()/unfollow() do
-        i = bisect.bisect_right(events, t)   # NOTE: bisect_right, so a stop/start AT t is already in effect
-        return i % 2 == 1                    # NOTE: relies on the log alternating start/stop, first event a start
+        # warning: we binary search this one pair's own event list; keeping a full graph snapshot for every
+        # past instant would cost O(n + m) per event instead of the O(1) amortized appends of follow()/unfollow()
+        n_events = bisect.bisect_right(events, t)  # warning: bisect_right, so a stop/start AT t is already in effect
+        return n_events % 2 == 1  # warning: relies on the log alternating start/stop, first event a start
 
-    def follow(self, follower, followee, t):
+    def follow(self, follower: str, followee: str, t: int) -> None:
+        """follower starts following followee at time t. follower == followee is a no-op,
+        and so is a call that would repeat the pair's current state."""
         if follower == followee:
             return
         key = (follower, followee)
-        if self._following_at(key, t):       # already following -> duplicate call, no-op
+        if self._following_at(key, t):  # already following: a duplicate call is a no-op
             return
         self._events.setdefault(key, []).append(t)
 
-    def unfollow(self, follower, followee, t):
+    def unfollow(self, follower: str, followee: str, t: int) -> None:
+        """follower stops following followee at time t. Same no-op rules as follow()."""
         if follower == followee:
             return
         key = (follower, followee)
-        if not self._following_at(key, t):   # not following -> duplicate call, no-op
+        if not self._following_at(key, t):  # not following: a duplicate call is a no-op
             return
         self._events[key].append(t)
 
-    def is_following(self, follower, followee, t):
+    def is_following(self, follower: str, followee: str, t: int) -> bool:
+        """Whether follower was following followee at time t. If follow() and unfollow()
+        were both called with the same t for this pair, the call made later decides the
+        state at that t."""
         return self._following_at((follower, followee), t)
 ```
 

@@ -228,7 +228,7 @@ self.w_o = nn.Linear(d_model, d_model)      # was nn.Linear(self.d_head, d_model
 损失只是随着每个 batch 的不同在初始值附近波动；对 11 个 token 均匀地猜，损失是 $\ln 11 \approx 2.40$。
 
 ```py
-opt.zero_grad()                             # NOTE: before backward(); after it, it would erase the gradients
+opt.zero_grad()                             # warning: before backward(); after it, it would erase the gradients
 loss.backward()
 opt.step()
 ```
@@ -261,6 +261,7 @@ self.pos_emb = nn.Parameter(torch.randn(1, max_len, d_model) * 0.02)    # one ro
 下面的包装类不改动 `TinyGPT`：它把词表输出头换成 `nn.Identity()`，这样模型主体返回的就是隐藏状态。
 
 ```python
+import torch
 import torch.nn as nn
 
 
@@ -269,16 +270,18 @@ class ParityClassifier(nn.Module):
         super().__init__()
         self.body = TinyGPT(**kwargs)
         d_model = self.body.head.in_features
-        self.body.head = nn.Identity()              # drop the vocabulary head: body(idx) now returns hidden states
-        self.cls = nn.Linear(d_model, 2)            # class 0 = even, class 1 = odd
+        self.body.head = nn.Identity()  # we drop the vocabulary head, so body(idx) returns the hidden states
+        self.cls = nn.Linear(d_model, 2)  # class 0 = even, class 1 = odd
 
-    def forward(self, idx):                         # idx: (B, T) digits -> logits (B, 2)
-        hidden = self.body(idx)                     # (B, T, d_model)
-        return self.cls(hidden.mean(dim=1))         # NOTE: average over time (dim=1), not over features (dim=-1)
+    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+        """idx: (B, T) digit tokens. Returns logits of shape (B, 2): class 0 = even, class 1 = odd."""
+        hidden = self.body(idx)  # (B, T, d_model)
+        # warning: we average over time (dim=1), not over features (dim=-1)
+        return self.cls(hidden.mean(dim=1))  # (B, T, d_model) => (B, d_model) => (B, 2)
 ```
 
 ```py
-labels = digits[:, -1] % 2                          # NOTE: one label per sequence; the last digit decides
+labels = digits[:, -1] % 2                          # warning: one label per sequence; the last digit decides
 loss = F.cross_entropy(model(digits), labels)       # logits (B, 2) against labels (B,)
 pred = model(digits).argmax(dim=-1)                 # 0 = even, 1 = odd
 ```
@@ -298,7 +301,7 @@ mask 和位置嵌入按绝对位置 `past .. past + T - 1` 取下标，而不是
 class KVCache:
     def update(self, layer: int, k: torch.Tensor, v: torch.Tensor):
         if self.k[layer] is not None:
-            k = torch.cat([self.k[layer], k], dim=2)        # NOTE: dim 2 is time in (B, n_head, T, d_head)
+            k = torch.cat([self.k[layer], k], dim=2)        # warning: dim 2 is time in (B, n_head, T, d_head)
             v = torch.cat([self.v[layer], v], dim=2)
         self.k[layer], self.v[layer] = k, v
         return k, v
@@ -312,7 +315,7 @@ class SelfAttention(nn.Module):
             k, v = cache.update(layer, k, v)                            # k, v now cover positions 0 .. past + T - 1
         past = k.shape[2] - T
         scores = q @ k.transpose(-1, -2) / self.d_head ** 0.5           # (B, n_head, T, past + T)
-        # NOTE: new query i sits at absolute position past + i, so take rows past.. of the mask, not rows 0..
+        # warning: new query i sits at absolute position past + i, so take rows past.. of the mask, not rows 0..
         scores = scores.masked_fill(~self.visible[past:past + T, :past + T], float("-inf"))
         ...                                                             # softmax, merge heads, w_o: unchanged
 
@@ -326,8 +329,8 @@ class Block(nn.Module):
 class TinyGPT(nn.Module):
     def forward(self, idx, cache=None):     # idx: (B, T) token ids -> logits (B, T, vocab)
         T = idx.shape[1]
-        past = cache.length if cache is not None else 0                 # NOTE: read before the blocks update it
-        x = self.tok_emb(idx) + self.pos_emb[:, past:past + T]          # NOTE: positions past.., not 0..
+        past = cache.length if cache is not None else 0                 # warning: read before the blocks update it
+        x = self.tok_emb(idx) + self.pos_emb[:, past:past + T]          # warning: positions past.., not 0..
         for layer, block in enumerate(self.blocks):
             x = block(x, cache, layer)
         return self.head(self.ln_f(x))
@@ -339,7 +342,7 @@ def generate(model, prompt, n_new, use_cache=False):
     seq, new = prompt, prompt                                           # the first call processes the whole prompt
     for _ in range(n_new):
         logits = model(new, cache) if use_cache else model(seq)
-        new = logits[:, -1].argmax(dim=-1, keepdim=True)                # NOTE: later calls feed only this one token
+        new = logits[:, -1].argmax(dim=-1, keepdim=True)                # warning: later calls feed only this one token
         seq = torch.cat([seq, new], dim=1)
     return seq
 ```
@@ -366,27 +369,27 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-N_DIGITS, SEP = 6, 10                       # tokens 0..9 are digits, token 10 is the separator
+N_DIGITS, SEP = 6, 10  # tokens 0..9 are digits, token 10 is the separator
 VOCAB, MAX_LEN = 11, 2 * N_DIGITS + 1
 
 
-class KVCache:                              # Part 3: the given class, with update() filled in
+class KVCache:  # Part 3: the given class, with update() filled in
     """Keys and values of all positions processed so far, one entry per layer."""
 
     def __init__(self, n_layer: int):
-        self.k = [None] * n_layer       # per layer: (B, n_head, T_past, d_head), or None while empty
+        self.k = [None] * n_layer  # per layer: (B, n_head, T_past, d_head), or None while empty
         self.v = [None] * n_layer
 
     @property
-    def length(self) -> int:            # T_past
+    def length(self) -> int:  # T_past
         return 0 if self.k[0] is None else self.k[0].shape[2]
 
     def update(self, layer: int, k: torch.Tensor, v: torch.Tensor):
         """k, v: (B, n_head, T_new, d_head), the new positions of this layer. Appends them to the cache
         and returns the keys and values of all T_past + T_new positions."""
         if self.k[layer] is not None:
-            k = torch.cat([self.k[layer], k], dim=2)        # NOTE: dim 2 is time in (B, n_head, T, d_head)
-            v = torch.cat([self.v[layer], v], dim=2)
+            k = torch.cat([self.k[layer], k], dim=2)  # (B, n_head, T_past + T_new, d_head), warning: dim 2 is time
+            v = torch.cat([self.v[layer], v], dim=2)  # (B, n_head, T_past + T_new, d_head)
         self.k[layer], self.v[layer] = k, v
         return k, v
 
@@ -398,24 +401,27 @@ class SelfAttention(nn.Module):
         self.w_q = nn.Linear(d_model, d_model)
         self.w_k = nn.Linear(d_model, d_model)
         self.w_v = nn.Linear(d_model, d_model)
-        self.w_o = nn.Linear(d_model, d_model)                          # bug 1: was nn.Linear(self.d_head, d_model)
+        # bug 1: was nn.Linear(self.d_head, d_model), warning: w_o mixes the concatenated heads, d_model inputs
+        self.w_o = nn.Linear(d_model, d_model)
         # visible[i, j] is True when the query at position i may attend to the key at position j
-        self.register_buffer("visible", torch.ones(max_len, max_len).tril().bool())
+        self.register_buffer("visible", torch.ones(max_len, max_len).tril().bool())  # (max_len, max_len)
 
-    def split_heads(self, x):               # (B, T, d_model) -> (B, n_head, T, d_head)
+    def split_heads(self, x):  # (B, T, d_model) => (B, n_head, T, d_head)
         return x.unflatten(-1, (self.n_head, self.d_head)).transpose(1, 2)
 
     def forward(self, x, cache=None, layer=0):
-        T = x.shape[1]                                                  # number of new positions
+        T = x.shape[1]  # number of new positions
+        # (B, T, d_model) => (B, n_head, T, d_head)
         q, k, v = self.split_heads(self.w_q(x)), self.split_heads(self.w_k(x)), self.split_heads(self.w_v(x))
         if cache is not None:
-            k, v = cache.update(layer, k, v)                            # k, v now cover positions 0 .. past + T - 1
+            k, v = cache.update(layer, k, v)  # (B, n_head, past + T, d_head), positions 0 .. past + T - 1
         past = k.shape[2] - T
-        scores = q @ k.transpose(-1, -2) / self.d_head ** 0.5           # (B, n_head, T, past + T)
-        # NOTE: new query i sits at absolute position past + i, so take rows past.. of the mask, not rows 0..
-        scores = scores.masked_fill(~self.visible[past:past + T, :past + T], float("-inf"))     # bug 3: was -1e-9
-        y = scores.softmax(dim=-1) @ v                                  # (B, n_head, T, d_head)
-        return self.w_o(y.transpose(1, 2).flatten(-2))
+        scores = q @ k.transpose(-1, -2) / self.d_head ** 0.5  # (B, n_head, T, d_head) @ (B, n_head, d_head, past + T)
+        # warning: new query i sits at absolute position past + i, so we take rows past.. of the mask, not rows 0..
+        # bug 3: was -1e-9, warning: only -inf gets a weight of exp(-inf) = 0 in the softmax
+        scores = scores.masked_fill(~self.visible[past:past + T, :past + T], float("-inf"))  # (B, n_head, T, past + T)
+        y = scores.softmax(dim=-1) @ v  # (B, n_head, T, past + T) @ (..., past + T, d_head) => (B, n_head, T, d_head)
+        return self.w_o(y.transpose(1, 2).flatten(-2))  # (B, T, n_head * d_head) => (B, T, d_model)
 
 
 class Block(nn.Module):
@@ -426,44 +432,46 @@ class Block(nn.Module):
         self.mlp = nn.Sequential(nn.Linear(d_model, 4 * d_model), nn.GELU(), nn.Linear(4 * d_model, d_model))
 
     def forward(self, x, cache=None, layer=0):
-        x = x + self.attn(self.ln1(x), cache, layer)                    # pass-through only
-        return x + self.mlp(self.ln2(x))
+        x = x + self.attn(self.ln1(x), cache, layer)  # (B, T, d_model), the cache is only passed through
+        return x + self.mlp(self.ln2(x))  # (B, T, d_model)
 
 
 class TinyGPT(nn.Module):
     def __init__(self, vocab=VOCAB, d_model=64, n_head=4, n_layer=1, max_len=MAX_LEN):
         super().__init__()
         self.tok_emb = nn.Embedding(vocab, d_model)
-        self.pos_emb = nn.Parameter(torch.randn(1, max_len, d_model) * 0.02)    # bug 4: was randn(1, 1, d_model)
+        # bug 4: was randn(1, 1, d_model), one vector for all positions carries no position information, now one row each
+        self.pos_emb = nn.Parameter(torch.randn(1, max_len, d_model) * 0.02)  # (1, max_len, d_model)
         self.blocks = nn.ModuleList([Block(d_model, n_head, max_len) for _ in range(n_layer)])
         self.ln_f = nn.LayerNorm(d_model)
         self.head = nn.Linear(d_model, vocab)
 
-    def forward(self, idx, cache=None):     # idx: (B, T) token ids -> logits (B, T, vocab)
+    def forward(self, idx, cache=None):  # idx: (B, T) token ids => logits (B, T, vocab)
         T = idx.shape[1]
-        past = cache.length if cache is not None else 0                 # NOTE: read before the blocks update it
-        x = self.tok_emb(idx) + self.pos_emb[:, past:past + T]          # NOTE: positions past.., not 0..
+        past = cache.length if cache is not None else 0  # warning: read before the blocks update the cache
+        x = self.tok_emb(idx) + self.pos_emb[:, past:past + T]  # (B, T, d_model), warning: positions past.., not 0..
         for layer, block in enumerate(self.blocks):
-            x = block(x, cache, layer)
-        return self.head(self.ln_f(x))
+            x = block(x, cache, layer)  # (B, T, d_model)
+        return self.head(self.ln_f(x))  # (B, T, d_model) => (B, T, vocab)
 
 
-def make_batch(batch_size, rng):            # each row: N_DIGITS random digits, SEP, the same digits reversed
-    digits = torch.randint(0, 10, (batch_size, N_DIGITS), generator=rng)
-    sep = torch.full((batch_size, 1), SEP)
-    return torch.cat([digits, sep, digits.flip(1)], dim=1)
+def make_batch(batch_size, rng):  # each row: N_DIGITS random digits, SEP, the same digits reversed
+    digits = torch.randint(0, 10, (batch_size, N_DIGITS), generator=rng)  # (B, N_DIGITS)
+    sep = torch.full((batch_size, 1), SEP)  # (B, 1)
+    return torch.cat([digits, sep, digits.flip(1)], dim=1)  # (B, 2 * N_DIGITS + 1)
 
 
 def train(model, steps=400, batch_size=64, lr=3e-3):
     rng = torch.Generator().manual_seed(0)
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     for step in range(steps):
-        seq = make_batch(batch_size, rng)
-        logits = model(seq[:, :-1])                                     # logits[:, t] predicts seq[:, t + 1]
-        answer_logits, answer = logits[:, -N_DIGITS:], seq[:, -N_DIGITS:]   # only the reversed digits are scored
+        seq = make_batch(batch_size, rng)  # (B, 13)
+        logits = model(seq[:, :-1])  # (B, 12, VOCAB), logits[:, t] predicts seq[:, t + 1]
+        # only the reversed digits are scored
+        answer_logits, answer = logits[:, -N_DIGITS:], seq[:, -N_DIGITS:]  # (B, N_DIGITS, VOCAB), (B, N_DIGITS)
         loss = F.cross_entropy(answer_logits.reshape(-1, VOCAB), answer.reshape(-1))
-        opt.zero_grad()
-        loss.backward()                                                 # bug 2: this line was missing
+        opt.zero_grad()  # warning: before backward(), after it would erase the gradients
+        loss.backward()  # bug 2: this line was missing, without it no parameter gets a gradient
         opt.step()
         if step % 100 == 0 or step == steps - 1:
             print(f"step {step:3d}  loss {loss.item():.4f}")
@@ -472,12 +480,13 @@ def train(model, steps=400, batch_size=64, lr=3e-3):
 
 @torch.no_grad()
 def generate(model, prompt, n_new, use_cache=False):
+    # greedy decoding: append the most likely next token, n_new times
     cache = KVCache(len(model.blocks)) if use_cache else None
-    seq, new = prompt, prompt                                           # the first call processes the whole prompt
+    seq, new = prompt, prompt  # the first call processes the whole prompt
     for _ in range(n_new):
-        logits = model(new, cache) if use_cache else model(seq)
-        new = logits[:, -1].argmax(dim=-1, keepdim=True)                # NOTE: later calls feed only this one token
-        seq = torch.cat([seq, new], dim=1)
+        logits = model(new, cache) if use_cache else model(seq)  # (B, T_new, VOCAB)
+        new = logits[:, -1].argmax(dim=-1, keepdim=True)  # (B, 1), warning: later calls feed only this one token
+        seq = torch.cat([seq, new], dim=1)  # (B, T + 1)
     return seq
 
 
@@ -529,7 +538,7 @@ with torch.no_grad():
     cache, out = KVCache(n_layer=2), []
     for a, b in [(0, 3), (3, 4), (4, 9), (9, 11), (11, 13)]:
         out.append(deep(seq[:, a:b], cache))
-        assert cache.length == b                    # NOTE: a call adds its own positions and no others
+        assert cache.length == b                    # warning: a call adds its own positions and no others
     assert torch.allclose(torch.cat(out, dim=1), deep(seq), atol=1e-5)
 
 row = torch.tensor([[0.0, 120.0, float("-inf")]])   # a softmax that skips the row maximum: exp(120) overflows

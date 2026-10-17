@@ -44,7 +44,7 @@ What sets the pages apart:
   checks. For coding, these are asserts on the examples and, wherever one can be written, a brute force built
   independently from the statement; for system design, the back-of-the-envelope estimates recomputed in code.
   CI runs the code of all pages on every push.
-- **Pitfalls where they happen.** Instead of a separate list of mistakes, `# NOTE:` comments sit on the line the
+- **Pitfalls where they happen.** Instead of a separate list of mistakes, `# warning:` comments sit on the line the
   mistake would be made.
 - **Study tracks.** The [roadmap](ROADMAP.md) orders the problems for Research (RS / RE), MLE and SWE / Infra roles.
 - **English and Chinese.** Every page exists in both languages with identical code.
@@ -68,7 +68,7 @@ Read [how the loop runs](INTERVIEW-PROCESS.md) once, then start from the track f
 (edge cases, tie-breaking, input sizes), then compare with the first lines of the reference solution, which list
 the points worth confirming. Give yourself a time limit for the whole problem and take the parts in order,
 treating each new part as a change of requirements: extend your code instead of starting over. Run it on the
-examples, then open the reference solution and compare approach, complexity and the `# NOTE:` comments. The
+examples, then open the reference solution and compare approach, complexity and the `# warning:` comments. The
 checks call the functions named in the statement, so if you keep the same names and signatures you can usually
 run them against your own code.
 
@@ -89,7 +89,7 @@ and has exactly two sections:
 | Section | Coding | System design | Behavioral |
 | --- | --- | --- | --- |
 | **Problem** | definitions, then one block per part: task, signature, example | the system, its users, the numbers given, the scope | the round and its questions |
-| **Reference solution** (collapsed) | per part: idea, derivation, code, with pitfalls as `# NOTE:` comments; then follow-ups and the checks | requirements, data model and API, architecture, deep dives, follow-ups | what is probed, how to structure the answer, an outline to fill in |
+| **Reference solution** (collapsed) | per part: idea, derivation, code, with pitfalls as `# warning:` comments; then follow-ups and the checks | requirements, data model and API, architecture, deep dives, follow-ups | what is probed, how to structure the answer, an outline to fill in |
 
 Roles: **RS** research scientist · **RE** research engineer · **MLE** machine-learning engineer ·
 **SWE** software engineer · **Infra Eng** infrastructure engineer · **EM** engineering manager.

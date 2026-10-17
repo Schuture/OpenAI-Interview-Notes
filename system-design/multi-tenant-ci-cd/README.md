@@ -351,7 +351,7 @@ def finish(w, j, status, by, bug):            # one transaction: j ends and the 
         if d.status == "pending":
             rows, label = put(rows, D, status="cancelled"), "cascade"
     elif d.status == "pending" or bug == "no_pending_guard":
-        q = d.deps == 1                       # NOTE: decrement and enqueue both WHERE status = 'pending'
+        q = d.deps == 1                       # warning: decrement and enqueue both WHERE status = 'pending'
         rows, label = put(rows, D, deps=d.deps - 1, status="queued" if q else d.status), "fan-in" * q
     return label, w._replace(rows=rows)
 
@@ -399,7 +399,7 @@ def moves(w, bug):
                 out.append(("stale complete", w._replace(atts=rest)))
             if live:
                 out.append(retry(w._replace(atts=rest), j, bug))
-        elif phase == "log":                  # NOTE: the object store cannot check the token
+        elif phase == "log":                  # warning: the object store cannot check the token
             key = None if bug == "log_per_job" else t
             out.append(("late chunk" * (r.tok != t), w._replace(atts=rest | {(j, t, "run")}, logs=w.logs | {(j, key, t)})))
         elif phase == "cancel" and live:      # it saw cancel_requested: fail(reason="cancelled")

@@ -259,15 +259,20 @@ that the true class is $c$; the diagonal entry $M_a[c, c]$ is the probability it
 averaging the diagonal gives one reliability number per annotator, without ever looking at `y`.
 
 ```python
-def reliability(self):
-    return self.forward().diagonal(dim1=-2, dim2=-1).mean(-1)
+def reliability(self) -> torch.Tensor:
+    """Attached as CrowdLayer.reliability. Returns r of shape (A,), r[a] in [0, 1]: the estimated
+    reliability of annotator a, computed from self.forward(), the learned confusion matrices."""
+    # M[a, c, c] is the probability that annotator a reports the true class c, so we average the diagonal
+    M = self.forward()  # (A, C, C)
+    return M.diagonal(dim1=-2, dim2=-1).mean(-1)  # (A, C, C) => (A, C) => (A,)
 
 
-CrowdLayer.reliability = reliability          # attach to the CrowdLayer class given in the problem
+CrowdLayer.reliability = reliability  # attach to the CrowdLayer class given in the problem
 
 
-def least_reliable(r):
-    return int(r.argmin().item())
+def least_reliable(r: torch.Tensor) -> int:
+    """r: (A,). Returns the index of the annotator with the lowest estimated reliability."""
+    return int(r.argmin().item())  # warning: the contract asks for an int, not a 0-dim tensor
 ```
 
 On the trained `crowd` of the problem statement, `crowd.reliability()` is about
@@ -285,14 +290,19 @@ corresponding rows of `p` and matrices of `M`, and run all $P$ vector-matrix pro
 matrix multiply.
 
 ```python
-def nll_vectorized(p, M, Y):
-    idx_i, idx_a = (Y >= 0).nonzero(as_tuple=True)                    # P pairs, P = (Y >= 0).sum()
-    lab = Y[idx_i, idx_a]
-    q = torch.bmm(p[idx_i].unsqueeze(1), M[idx_a]).squeeze(1)         # (P, 1, C) @ (P, C, C) -> (P, C)
-    return -torch.log(q.gather(1, lab.unsqueeze(1)).squeeze(1) + 1e-8).sum()
+def nll_vectorized(p: torch.Tensor, M: torch.Tensor, Y: torch.Tensor) -> torch.Tensor:
+    """p: (N, C) class probabilities. M: (A, C, C) confusion matrices. Y: (N, A) observed labels,
+    -1 for missing. Returns the same scalar as nll_loop(p, M, Y)."""
+    # we take the P valid (sample, annotator) pairs first, so no (N, A, C) tensor is ever built
+    # then all P products p[i] @ M[a] run as one batched matmul
+    sample_idx, annotator_idx = (Y >= 0).nonzero(as_tuple=True)  # (P,), (P,), P = (Y >= 0).sum()
+    lab = Y[sample_idx, annotator_idx]  # (P,)
+    q = torch.bmm(p[sample_idx].unsqueeze(1), M[annotator_idx]).squeeze(1)  # (P, 1, C) @ (P, C, C) => (P, C)
+    chosen = q.gather(1, lab.unsqueeze(1)).squeeze(1)  # (P, C) => (P,), prob of the label actually reported
+    return -torch.log(chosen + 1e-8).sum()  # warning: the same 1e-8 floor as nll_loop, else the values differ
 ```
 
-`p[idx_i]` and `M[idx_a]` are advanced indexing, producing new tensors of shape `(P, C)` and
+`p[sample_idx]` and `M[annotator_idx]` are advanced indexing, producing new tensors of shape `(P, C)` and
 `(P, C, C)`; `torch.bmm` treats the leading dimension as a batch of $P$ independent `(1, C) @ (C, C)`
 products; `gather` reads off, from each of the $P$ rows of `q`, the probability of the label that
 annotator actually reported. The asymptotic time is the same $O(PC^2)$ as `nll_loop`'s tight bound — the

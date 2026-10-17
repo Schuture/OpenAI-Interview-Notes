@@ -95,16 +95,17 @@ def softmax_entropy_online(blocks) -> float:
 import numpy as np
 
 
-def softmax_entropy(logits):
-    x = np.asarray(logits, dtype=np.float64)
-    exp_x = np.exp(x)                       # NOTE: np.exp(1000.0) is inf, with a RuntimeWarning
-                                             #       "overflow encountered in exp"
-    p = exp_x / np.sum(exp_x)               # NOTE: once exp_x holds an inf, p is inf / inf = nan
-                                             #       ("invalid value encountered in divide")
-    return float(-np.sum(p * np.log(p)))    # NOTE: even without overflow, a p_i that underflows to
-                                             #       exactly 0.0 makes log(p_i) = -inf ("divide by zero
-                                             #       encountered in log"), and 0.0 * -inf is nan too
-                                             #       ("invalid value encountered in multiply")
+def softmax_entropy(logits: np.ndarray) -> float:
+    """logits: shape (N,) float array, N >= 1, every entry finite. Returns H(softmax(logits))."""
+    # H = -sum(p * log(p)), with p = exp(x) / sum(exp(x))
+    x = logits.astype(np.float64)  # (N,), for precision
+    # warning: np.exp(1000.0) is inf, with a RuntimeWarning "overflow encountered in exp"
+    exp_x = np.exp(x)  # (N,)
+    # warning: once exp_x holds an inf, p is inf / inf = nan ("invalid value encountered in divide")
+    p = exp_x / np.sum(exp_x)  # (N,)
+    # warning: even without overflow, a p_i that underflows to exactly 0.0 makes log(p_i) = -inf
+    # ("divide by zero encountered in log"), and 0.0 * -inf is nan too ("invalid value encountered in multiply")
+    return -np.sum(p * np.log(p))
 ```
 
 ### Part 2
@@ -126,19 +127,21 @@ $p_i = e^{x_i - m}/s$ 可能恰好下溢为 `0.0`，而 `np.log(0.0)` 是 `-inf`
 它与 `log_p_i` 相乘也只是 `0.0` 乘一个有限数，不是 `0.0` 乘 `-inf`。
 
 ```python
-def log_softmax_stable(logits):
-    x = np.asarray(logits, dtype=np.float64)
-    m = np.max(x)
-    shifted = x - m                          # NOTE: shifted <= 0 everywhere, so np.exp below never overflows
-    total = np.exp(shifted).sum()
-    return shifted - np.log(total)           # NOTE: never calls log on a value that could be 0
+def log_softmax_stable(logits: np.ndarray) -> np.ndarray:
+    # we subtract m = max(x), so exp(x - m) is in (0, 1] and s = sum(exp(x - m)) is in [1, N]
+    # log p = (x - m) - log(s) only takes the log of s, never of a probability
+    x = logits.astype(np.float64)  # (N,)
+    shifted = x - np.max(x)  # (N,), warning: shifted <= 0 everywhere, so np.exp below never overflows
+    return shifted - np.log(np.sum(np.exp(shifted)))  # (N,), warning: never calls log on a value that could be 0
 
 
-def softmax_entropy_stable(logits):
-    log_p = log_softmax_stable(logits)
-    p = np.exp(log_p)                        # NOTE: p can still underflow to exactly 0.0 here, but log_p
-                                              #       stays finite, so p * log_p below is 0.0 * finite, not nan
-    return float(-np.sum(p * log_p))
+def softmax_entropy_stable(logits: np.ndarray) -> float:
+    """Same contract as softmax_entropy, correct and finite for every finite input."""
+    log_p = log_softmax_stable(logits)  # (N,)
+    # warning: p can still underflow to exactly 0.0 here, but log_p stays finite,
+    # so p * log_p below is 0.0 * finite, not nan
+    p = np.exp(log_p)  # (N,)
+    return -np.sum(p * log_p)
 ```
 
 ### Part 3
@@ -162,25 +165,27 @@ $s$ 和 $u$ 都是对 $i$ 的求和，一旦 $m$ 已知，就可以逐块累加�
 ```python
 def _chunks(x, block_size):
     for start in range(0, x.shape[0], block_size):
-        yield x[start:start + block_size]                      # NOTE: at most block_size elements live at
-                                                                 #       once; no array of size N is ever built
+        # warning: at most block_size elements live at once, no array of size N is ever built,
+        # so we cast each chunk to float64, not the whole of x
+        yield x[start:start + block_size].astype(np.float64)  # (<= block_size,)
 
 
-def softmax_entropy_blockwise(logits, block_size=2):
-    x = np.asarray(logits, dtype=np.float64)
-
+def softmax_entropy_blockwise(logits: np.ndarray, block_size: int = 2) -> float:
+    """Same contract as softmax_entropy_stable, using O(1) extra space for a fixed block_size."""
+    # H = log(Z) - sum(p * x), with log(Z) = m + log(s) and sum(p * x) = m + u / s
+    # so H = log(s) - u / s, where s = sum(exp(x - m)) and u = sum(exp(x - m) * (x - m))
+    # first pass: the global maximum
     m = -np.inf
-    for chunk in _chunks(x, block_size):          # pass 1: the global maximum
-        m = max(m, float(np.max(chunk)))
-
+    for chunk in _chunks(logits, block_size):
+        m = max(m, np.max(chunk))
+    # second pass: s and u together, given m
     s = u = 0.0
-    for chunk in _chunks(x, block_size):           # pass 2: s and u together, given m
-        shifted = chunk - m
-        w = np.exp(shifted)
-        s += float(np.sum(w))
-        u += float(np.sum(w * shifted))
-
-    return float(np.log(s) - u / s)
+    for chunk in _chunks(logits, block_size):
+        shifted = chunk - m  # (block_size,)
+        exp_shifted = np.exp(shifted)  # (block_size,)
+        s += np.sum(exp_shifted)
+        u += np.sum(exp_shifted * shifted)
+    return np.log(s) - u / s
 ```
 
 ### Part 4
@@ -200,30 +205,37 @@ $$\sum_k e^{x_k - m}(x_k - m) = e^{\delta}\sum_k e^{x_k - m_0}\bigl((x_k - m_0) 
 
 ```python
 def _centered_stats(x):
-    m = float(np.max(x))
-    shifted = x - m
-    w = np.exp(shifted)
-    return m, float(np.sum(w)), float(np.sum(w * shifted))
+    """(m, s, u) of one chunk, relative to its own maximum m."""
+    m = np.max(x)
+    shifted = x - m  # (n,)
+    exp_shifted = np.exp(shifted)  # (n,)
+    return m, np.sum(exp_shifted), np.sum(exp_shifted * shifted)
 
 
 def _fold(acc, chunk):
+    # we re-center both triples on m = max(m0, m1), with delta = m0 - m <= 0:
+    # s = s0 * exp(delta) + ..., u = (u0 + delta * s0) * exp(delta) + ...
     m0, s0, u0 = acc
     m1, s1, u1 = chunk
-    if s0 == 0.0:                 # NOTE: acc is still the empty accumulator (m0 = -inf). Without this guard,
-        return chunk               #       exp(m0 - m) is 0.0 and s0 * (m0 - m) is 0.0 * -inf = nan below
+    # warning: acc is still the empty accumulator (m0 = -inf); without this guard,
+    # exp(m0 - m) is 0.0 and s0 * (m0 - m) is 0.0 * -inf = nan below
+    if s0 == 0.0:
+        return chunk
     m = max(m0, m1)
-    a, b = np.exp(m0 - m), np.exp(m1 - m)
-    s = s0 * a + s1 * b
-    u = (u0 + s0 * (m0 - m)) * a + (u1 + s1 * (m1 - m)) * b
+    scale0, scale1 = np.exp(m0 - m), np.exp(m1 - m)
+    s = s0 * scale0 + s1 * scale1
+    u = (u0 + s0 * (m0 - m)) * scale0 + (u1 + s1 * (m1 - m)) * scale1
     return m, s, u
 
 
-def softmax_entropy_online(blocks):
-    acc = (-np.inf, 0.0, 0.0)
+def softmax_entropy_online(blocks) -> float:
+    """blocks: an iterable of 1-D float arrays, the logits split into chunks of any length, consumed
+    once, in order. Returns the same value as softmax_entropy_stable on their concatenation."""
+    acc = (-np.inf, 0.0, 0.0)  # (m, s, u) of nothing seen yet
     for block in blocks:
-        acc = _fold(acc, _centered_stats(np.asarray(block, dtype=np.float64)))
+        acc = _fold(acc, _centered_stats(block.astype(np.float64)))
     m, s, u = acc
-    return float(np.log(s) - u / s)
+    return np.log(s) - u / s  # the Part 3 formula
 ```
 
 ### 追问

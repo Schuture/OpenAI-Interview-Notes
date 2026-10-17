@@ -169,28 +169,28 @@ from abc import ABC, abstractmethod
 
 class ResumableIterator(ABC):
     @abstractmethod
-    def __iter__(self):
+    def __iter__(self) -> "ResumableIterator":
         return self
 
     @abstractmethod
     def __next__(self):
-        ...
+        """Returns the next item. Raises StopIteration once none remain."""
 
     @abstractmethod
-    def get_state(self):
-        ...
+    def get_state(self) -> tuple:
+        """Returns a copyable, JSON-serializable tuple describing the current position."""
 
     @abstractmethod
     def set_state(self, state) -> None:
-        ...
+        """Moves to the position state describes. Raises TypeError or ValueError as specified above."""
 
 
-def _check_index_tuple(state, length):
-    # NOTE: bool is a subclass of int, so isinstance(True, int) is True
+def _check_index_tuple(state, length: int) -> tuple:
+    # warning: bool is a subclass of int, so isinstance(True, int) is True
     if (not isinstance(state, (tuple, list)) or len(state) != length
             or not all(isinstance(v, int) and not isinstance(v, bool) for v in state)):
         raise TypeError(f"expected a {length}-tuple of ints, got {state!r}")
-    return tuple(state)          # NOTE: a state that went through JSON arrives as a list
+    return tuple(state)  # warning: a state that went through JSON arrives as a list
 ```
 
 ### Part 2
@@ -199,26 +199,27 @@ def _check_index_tuple(state, length):
 
 ```python
 class ResumableListIterator(ResumableIterator):
-    def __init__(self, items):
+    def __init__(self, items: list) -> None:
+        """items may be empty."""
         self.items = items
-        self._pos = 0                                 # index of the next element to produce
+        self._pos = 0  # index of the next element to produce
 
-    def __iter__(self):
+    def __iter__(self) -> "ResumableListIterator":
         return self
 
     def __next__(self):
-        pos = self._pos
-        if pos == len(self.items):                    # the exhausted state; set_state never goes past it
+        if self._pos == len(self.items):  # the exhausted state; set_state never goes past it
             raise StopIteration
-        self._pos = pos + 1
-        return self.items[pos]
+        item = self.items[self._pos]
+        self._pos += 1
+        return item
 
-    def get_state(self):
+    def get_state(self) -> tuple:
         return (self._pos,)
 
-    def set_state(self, state):
+    def set_state(self, state) -> None:
         (pos,) = _check_index_tuple(state, 1)
-        if not 0 <= pos <= len(self.items):          # NOTE: '<=': pos == len(items) is exhausted
+        if not 0 <= pos <= len(self.items):  # warning: '<=', pos == len(items) is exhausted
             raise ValueError(f"{state!r} is not a canonical position")
         self._pos = pos
 ```
@@ -231,18 +232,20 @@ class ResumableListIterator(ResumableIterator):
 
 ```python
 class Resumable2DIterator(ResumableIterator):
-    def __init__(self, items):
+    def __init__(self, items: list) -> None:
+        """items is a list of lists; a row may be empty."""
+        # we keep (_outer, _inner) canonical at all times, so get_state just reads it off
         self.items = items
         self._outer = 0
         self._inner = 0
         self._skip_empty()
 
-    def _skip_empty(self):
+    def _skip_empty(self) -> None:
         while self._outer < len(self.items) and self._inner >= len(self.items[self._outer]):
             self._outer += 1
             self._inner = 0
 
-    def __iter__(self):
+    def __iter__(self) -> "Resumable2DIterator":
         return self
 
     def __next__(self):
@@ -250,17 +253,17 @@ class Resumable2DIterator(ResumableIterator):
             raise StopIteration
         item = self.items[self._outer][self._inner]
         self._inner += 1
-        self._skip_empty()              # NOTE: right away, not before producing the next item
+        self._skip_empty()  # warning: right away, not before producing the next item
         return item
 
-    def get_state(self):
+    def get_state(self) -> tuple:
         return (self._outer, self._inner)
 
-    def set_state(self, state):
+    def set_state(self, state) -> None:
         outer, inner = _check_index_tuple(state, 2)
         exhausted = (outer, inner) == (len(self.items), 0)
         inside = 0 <= outer < len(self.items) and 0 <= inner < len(self.items[outer])
-        if not (exhausted or inside):   # NOTE: strict '<': inner == len(row) is not canonical
+        if not (exhausted or inside):  # warning: strict '<', inner == len(row) is not canonical
             raise ValueError(f"{state!r} is not a canonical position")
         self._outer, self._inner = outer, inner
 ```
@@ -273,27 +276,31 @@ Part 3 的做法可以推广成一叠 `(container, index)` 帧（frame），每�
 
 ```python
 class ResumableNestedIterator(ResumableIterator):
-    def __init__(self, items, depth):
+    def __init__(self, items: list, depth: int) -> None:
+        """items is nested depth levels deep, depth >= 1; a list at any level may be empty."""
+        # we keep a stack of (container, idx) frames, one per level; an empty stack means exhausted
         self.items = items
         self.depth = depth
         self._stack = [(items, 0)]
         self._advance()
 
-    def _advance(self):
+    def _advance(self) -> None:
         while self._stack:
             container, idx = self._stack[-1]
             if idx >= len(container):
+                # first this list is done, so we pop it and move its parent on by one
                 self._stack.pop()
                 if self._stack:
-                    parent, pidx = self._stack[-1]
-                    self._stack[-1] = (parent, pidx + 1)
+                    parent, parent_idx = self._stack[-1]
+                    self._stack[-1] = (parent, parent_idx + 1)
                 continue
+            # warning: we descend by counting levels, not by isinstance(x, list): at depth=1 an empty list is an item
             if len(self._stack) < self.depth:
                 self._stack.append((container[idx], 0))
             else:
-                return                   # top of stack points at the next item
+                return  # top of stack points at the next item
 
-    def __iter__(self):
+    def __iter__(self) -> "ResumableNestedIterator":
         return self
 
     def __next__(self):
@@ -305,22 +312,23 @@ class ResumableNestedIterator(ResumableIterator):
         self._advance()
         return item
 
-    def _exhausted_state(self):
+    def _exhausted_state(self) -> tuple:
         return (len(self.items),) + (0,) * (self.depth - 1)
 
-    def get_state(self):
-        if not self._stack:              # NOTE: the empty stack alone would give (), not a d-tuple
+    def get_state(self) -> tuple:
+        if not self._stack:  # warning: the empty stack alone would give (), not a d-tuple
             return self._exhausted_state()
         return tuple(idx for _, idx in self._stack)
 
-    def set_state(self, state):
+    def set_state(self, state) -> None:
         indices = _check_index_tuple(state, self.depth)
         if indices == self._exhausted_state():
             self._stack = []
             return
+        # we build the new stack aside, so a rejected state leaves the iterator where it was
         stack, container = [], self.items
         for idx in indices:
-            if not 0 <= idx < len(container):    # NOTE: the same strict '<' at every level
+            if not 0 <= idx < len(container):  # warning: the same strict '<' at every level
                 raise ValueError(f"{state!r} is not a canonical position")
             stack.append((container, idx))
             container = container[idx]

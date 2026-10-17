@@ -198,7 +198,7 @@ class Discrete:
     def mean(self):
         return float(self.values @ self.probs)
 
-    def sf(self, t):                                    # NOTE: strict, P(T > t): an attempt with T == t succeeds
+    def sf(self, t):                                    # warning: strict, P(T > t): an attempt with T == t succeeds
         return float(self.probs[self.values > t].sum())
 
 

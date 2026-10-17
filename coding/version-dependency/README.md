@@ -179,28 +179,34 @@ Sorting turns `is_supported` into a monotone predicate over indices, so the left
 binary search instead of a linear scan -- the same routine Part 3 reuses at every level.
 
 ```python
-def parse_version(version):
+def parse_version(version: str) -> tuple[int, int, int]:
+    """Parses "{major}.{minor}.{patch}" into (major, minor, patch)."""
     major, minor, patch = version.split(".")
-    return int(major), int(minor), int(patch)   # NOTE: int() drops leading zeros; never compare the raw strings
+    return int(major), int(minor), int(patch)  # warning: int() drops leading zeros; never compare the raw strings
 
 
-def first_true_index(n, predicate):
+def first_true_index(n: int, predicate) -> int | None:
     """Leftmost index in range(n) with predicate(i) True, assuming predicate is monotone; else None."""
-    left, right, result = 0, n - 1, None
+    left, right, ans = 0, n - 1, None
     while left <= right:
         mid = (left + right) // 2
         if predicate(mid):
-            result = mid
-            right = mid - 1          # an earlier True may still exist -- keep searching left
+            ans = mid
+            right = mid - 1  # an earlier True may still exist, so we keep searching left
         else:
             left = mid + 1
-    return result
+    return ans
 
 
-def find_earliest_supported_monotone(versions, is_supported):
-    ordered = sorted(versions, key=parse_version)   # NOTE: numeric order; "1.10.0" < "1.9.0" as plain strings
+def find_earliest_supported_monotone(versions: list[str], is_supported) -> str | None:
+    """versions: distinct "{major}.{minor}.{patch}" strings, in arbitrary order. Assumes is_supported is
+    monotone once versions are ordered numerically. Returns the earliest supported version, or None."""
+    # we sort, so is_supported(ordered[i]) is monotone in i and we can bisect for the leftmost True
+    ordered = sorted(versions, key=parse_version)  # warning: numeric order; "1.10.0" < "1.9.0" as plain strings
     idx = first_true_index(len(ordered), lambda i: is_supported(ordered[i]))
-    return ordered[idx] if idx is not None else None
+    if idx is None:
+        return None
+    return ordered[idx]
 ```
 
 ### Part 2
@@ -211,10 +217,11 @@ Once regressions are allowed, `is_supported(ordered[i])` is no longer monotone i
 left-to-right scan that returns on the first hit, since nothing later can be smaller.
 
 ```python
-def find_earliest_supported(versions, is_supported):
-    for v in sorted(versions, key=parse_version):
-        if is_supported(v):        # sorted, so this first True is already the earliest
-            return v
+def find_earliest_supported(versions: list[str], is_supported) -> str | None:
+    """Same contract as find_earliest_supported_monotone, but is_supported need not be monotone."""
+    for version in sorted(versions, key=parse_version):
+        if is_supported(version):  # sorted, so this first True is already the earliest
+            return version
     return None
 ```
 
@@ -234,32 +241,49 @@ always equals that of the full scan. If A1 is violated (`True, False, True` insi
 bisection returns the later `True`.
 
 ```python
-def find_earliest_supported_hierarchical(versions, is_supported):
+def find_earliest_supported_hierarchical(versions: list[str], is_supported) -> str | None:
+    """Same contract as find_earliest_supported, but assumes A1-A3 above and must call is_supported
+    (which may be a CountingProbe) O(log M + log N_minor + log P) times, where M is the number of
+    majors, N_minor the largest number of minors within one major, and P the largest number of patches
+    within one (major, minor) group -- never probing the same version string twice."""
+    # a group's representative (its latest version) is True iff the group holds any supported version
+    # so we bisect the majors by their representatives, then the minors of that major, then its patches
+    if not versions:
+        return None
     cache = {}
-    def probe(v):
-        if v not in cache:                     # NOTE: never call is_supported twice for one version
-            cache[v] = is_supported(v)
-        return cache[v]
 
-    tree = {}                                   # major -> minor -> patch-sorted versions
-    for v in versions:
-        major, minor, _ = parse_version(v)
-        tree.setdefault(major, {}).setdefault(minor, []).append(v)
+    def probe(version: str) -> bool:
+        if version not in cache:  # warning: never call is_supported twice for one version
+            cache[version] = is_supported(version)
+        return cache[version]
+
+    # first we group the versions: major -> minor -> patch-sorted versions
+    tree = {}
+    for version in versions:
+        major, minor, _ = parse_version(version)
+        tree.setdefault(major, {}).setdefault(minor, []).append(version)
     for minors in tree.values():
         for patches in minors.values():
             patches.sort(key=parse_version)
 
+    # then we bisect the majors
     majors = sorted(tree)
-    rep = lambda i: max((p[-1] for p in tree[majors[i]].values()), key=parse_version)   # NOTE: latest = rep
-    mi = first_true_index(len(majors), lambda i: probe(rep(i)))
-    if mi is None:
-        return None
 
-    minors = sorted(tree[majors[mi]])
-    ni = first_true_index(len(minors), lambda i: probe(tree[majors[mi]][minors[i]][-1]))
-    patches = tree[majors[mi]][minors[ni]]
-    pi = first_true_index(len(patches), lambda i: probe(patches[i]))
-    return patches[pi]
+    def major_rep(i: int) -> str:
+        # warning: the representative is the latest version of the whole major, not of its first minor
+        return max((patches[-1] for patches in tree[majors[i]].values()), key=parse_version)
+
+    major_idx = first_true_index(len(majors), lambda i: probe(major_rep(i)))
+    if major_idx is None:
+        return None
+    # then the minors of that major, by their latest patch
+    minor_groups = tree[majors[major_idx]]
+    minors = sorted(minor_groups)
+    minor_idx = first_true_index(len(minors), lambda i: probe(minor_groups[minors[i]][-1]))
+    # then the patches of that minor
+    patches = minor_groups[minors[minor_idx]]
+    patch_idx = first_true_index(len(patches), lambda i: probe(patches[i]))
+    return patches[patch_idx]
 ```
 
 This probes `"0.9.0", "1.3.3"`, then `"1.1.0", "1.2.1"`, then `"1.2.0"` (`"1.2.1"` cached) on the example
@@ -282,19 +306,20 @@ combinations of versions.
 import operator
 from collections import deque
 
-_OPS = {"==": operator.eq, ">=": operator.ge, "<=": operator.le, ">": operator.gt, "<": operator.lt}
+OPS = {"==": operator.eq, ">=": operator.ge, "<=": operator.le, ">": operator.gt, "<": operator.lt}
 
 
-def satisfies(version, constraint):
-    for op in ("==", ">=", "<=", ">", "<"):        # NOTE: two-character operators first, or ">=" is read as ">"
+def satisfies(version: str, constraint: str) -> bool:
+    for op in ("==", ">=", "<=", ">", "<"):  # warning: two-character operators first, or ">=" is read as ">"
         if constraint.startswith(op):
-            return _OPS[op](parse_version(version), parse_version(constraint[len(op):]))
+            return OPS[op](parse_version(version), parse_version(constraint[len(op):]))
     raise ValueError(f"bad constraint: {constraint!r}")
 
 
-def install_order(registry, chosen):
+def install_order(registry: Registry, chosen: dict[str, str]) -> list[str] | None:
     """Kahn's algorithm over the chosen versions; None if their dependencies form a cycle."""
-    indegree = {name: 0 for name in chosen}
+    # we emit a package once all its dependencies are emitted
+    indegree = {name: 0 for name in chosen}  # number of dependencies not yet emitted
     dependents = {name: [] for name in chosen}
     for name, version in chosen.items():
         for dep in registry.requires(name, version):
@@ -305,27 +330,38 @@ def install_order(registry, chosen):
     while queue:
         name = queue.popleft()
         order.append(f"{name}@{chosen[name]}")
-        for other in sorted(dependents[name]):
-            indegree[other] -= 1
-            if indegree[other] == 0:
-                queue.append(other)
-    return order if len(order) == len(chosen) else None      # NOTE: a shorter order means a cycle
+        for dependent in sorted(dependents[name]):
+            indegree[dependent] -= 1
+            if indegree[dependent] == 0:
+                queue.append(dependent)
+    if len(order) < len(chosen):  # warning: a shorter order means a cycle
+        return None
+    return order
 
 
-def resolve(registry, root):
-    def search(chosen, pending):
+def resolve(registry: Registry, root: str) -> list[str] | None:
+    """Chooses one version for root and for every package the chosen versions require, so that every
+    declared constraint holds, and returns them as "name@version" strings in an install order: every
+    package appears after all of its dependencies. Packages the chosen versions do not need are not
+    listed. A choice whose dependencies form a cycle has no install order and is therefore not valid.
+    Returns None if no valid choice exists."""
+    # we backtrack: take the first pending constraint, and try every version that satisfies it, newest first
+    # each trial carries the whole remaining list, so a failure later returns to the most recent choice
+
+    def search(chosen: dict[str, str], pending: list[tuple[str, str]]) -> list[str] | None:
         """chosen: name -> version so far; pending: declared (name, constraint) pairs not yet enforced."""
         if not pending:
-            return install_order(registry, chosen)            # a cyclic choice fails here and the search goes on
+            return install_order(registry, chosen)  # a cyclic choice fails here and the search goes on
         (name, constraint), rest = pending[0], pending[1:]
-        if name in chosen:                                     # version already fixed: the constraint is only checked
+        if name in chosen:  # version already fixed: the constraint is only checked
             return search(chosen, rest) if satisfies(chosen[name], constraint) else None
-        for version in sorted(registry.versions(name), key=parse_version, reverse=True):   # newest first
+        for version in sorted(registry.versions(name), key=parse_version, reverse=True):  # newest first
             if satisfies(version, constraint):
+                # warning: we copy chosen instead of mutating it, so a failed trial leaves nothing behind
                 found = search({**chosen, name: version}, rest + list(registry.requires(name, version).items()))
                 if found is not None:
                     return found
-        return None                                            # NOTE: the caller then tries its own next version
+        return None  # warning: the caller then tries its own next version
 
     return search({}, [(root, ">=0.0.0")])
 ```

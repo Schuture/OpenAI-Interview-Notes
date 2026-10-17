@@ -162,22 +162,27 @@ class LogKVStore:
 像 `key + ":" + value + "\n"` 这样用分隔符拼接的格式，键或值里一旦含有分隔符就有歧义。转义在原理上能解决，但转义字符自身在每一处出现时也都要转义，很容易写出隐蔽的错误。*长度前缀*（length-prefixed）编码从根本上避开了这个问题：每个字符串前面先写它占多少字节，读取时不需要在数据里寻找分隔符，也就没有哪种字节序列是不允许出现的。下面的实现在每个字符串前放一个定长 8 字节、大端序的长度。
 
 ```python
-def _encode_str(s):
-    raw = s.encode("utf-8", "surrogatepass")  # a str may hold a lone surrogate such as "\ud800"
-    return len(raw).to_bytes(8, "big") + raw  # NOTE: the length counts BYTES; len(s) would count code points
+INT_SIZE = 8  # every integer we store (string length, record length, manifest field) is 8 bytes, big-endian
 
 
-def _read_str(data, pos):
-    length = int.from_bytes(data[pos:pos + 8], "big")
-    raw = data[pos + 8:pos + 8 + length]
-    return raw.decode("utf-8", "surrogatepass"), pos + 8 + length
+def _encode_str(s: str) -> bytes:
+    # we put the byte length in front of the string, so reading never searches the data for a separator
+    raw = s.encode("utf-8", "surrogatepass")  # warning: a str may hold a lone surrogate such as "\ud800"
+    return len(raw).to_bytes(INT_SIZE, "big") + raw  # warning: the length counts bytes, len(s) would count code points
 
 
-def _serialize_store(data):
-    return b"".join(_encode_str(k) + _encode_str(v) for k, v in data.items())
+def _read_str(data: bytes, pos: int) -> tuple[str, int]:
+    """Decodes the string that starts at pos. Returns it and the position right after it."""
+    length = int.from_bytes(data[pos:pos + INT_SIZE], "big")
+    start = pos + INT_SIZE
+    return data[start:start + length].decode("utf-8", "surrogatepass"), start + length
 
 
-def _deserialize_store(blob):
+def _serialize_store(data: dict[str, str]) -> bytes:
+    return b"".join(_encode_str(key) + _encode_str(value) for key, value in data.items())
+
+
+def _deserialize_store(blob: bytes) -> dict[str, str]:
     store, pos = {}, 0
     while pos < len(blob):
         key, pos = _read_str(blob, pos)
@@ -189,22 +194,30 @@ def _deserialize_store(blob):
 class KVStore:
     FILE_NAME = "store"
 
-    def __init__(self, fs):
+    def __init__(self, fs: FileSystem):
+        """fs is the FileSystem this store persists to and restores from."""
         self.fs = fs
-        self._data = {}
+        self._data: dict[str, str] = {}
 
-    def put(self, key, value):
+    def put(self, key: str, value: str) -> None:
+        """Sets key -> value in memory, overwriting any previous value for key."""
         self._data[key] = value
 
-    def get(self, key):
+    def get(self, key: str) -> str | None:
+        """Returns the current value of key, or None if key has no value."""
         return self._data.get(key)
 
-    def save(self):
-        self.fs.write(self.FILE_NAME, _serialize_store(self._data))  # NOTE: one write replaces the whole file
+    def save(self) -> None:
+        """Persists the entire in-memory store to fs."""
+        self.fs.write(self.FILE_NAME, _serialize_store(self._data))  # warning: one write replaces the whole file
 
-    def load(self):
+    def load(self) -> None:
+        """Replaces the in-memory store with what fs currently holds."""
         blob = self.fs.read(self.FILE_NAME)
-        self._data = _deserialize_store(blob) if blob is not None else {}
+        if blob is None:  # nothing was ever saved
+            self._data = {}
+            return
+        self._data = _deserialize_store(blob)
 ```
 
 ### Part 2
@@ -225,43 +238,55 @@ class CorruptStoreError(RuntimeError):
     pass
 
 
-def _encode_manifest(*fields):  # generation, num_chunks, total_length, checksum
-    return b"".join(field.to_bytes(8, "big") for field in fields)
+def _encode_manifest(*fields: int) -> bytes:
+    """fields: generation, n_chunks, total_length, checksum."""
+    return b"".join(field.to_bytes(INT_SIZE, "big") for field in fields)
 
 
-def _decode_manifest(data):
-    return [int.from_bytes(data[i:i + 8], "big") for i in range(0, 32, 8)]
+def _decode_manifest(data: bytes) -> list[int]:
+    return [int.from_bytes(data[i:i + INT_SIZE], "big") for i in range(0, 4 * INT_SIZE, INT_SIZE)]
 
 
 class ChunkedKVStore(KVStore):
     MANIFEST = "manifest"
 
-    def save(self):
-        old = self.fs.read(self.MANIFEST)
-        generation = _decode_manifest(old)[0] + 1 if old is not None else 0  # NOTE: never the live generation
+    def save(self) -> None:
+        """Persists the entire in-memory store to fs, never writing more than fs.max_file_size
+        bytes to any single file."""
+        # we write the chunks under a new generation, then the manifest, then we delete
+        # a crash before the manifest write: the manifest still names the old generation, which we never touched
+        # a crash after it: every chunk the new manifest names is already in place
+        old_manifest = self.fs.read(self.MANIFEST)
+        generation = 0 if old_manifest is None else _decode_manifest(old_manifest)[0] + 1  # warning: never the live one
 
+        # first the chunks, the serialized bytes sliced at fixed offsets
         blob = _serialize_store(self._data)
         cap = self.fs.max_file_size or len(blob)  # no cap: a single chunk
         chunks = [blob[i:i + cap] for i in range(0, len(blob), cap)] if blob else []
-        names = [f"chunk_{generation}_{i}" for i in range(len(chunks))]
-        for name, chunk in zip(names, chunks):  # NOTE: a cut may fall inside a length header or a character;
-            self.fs.write(name, chunk)          # load() re-joins the chunks before parsing
-        # NOTE: the commit point -- one atomic write switches load() to the new generation
+        chunk_names = [f"chunk_{generation}_{i}" for i in range(len(chunks))]
+        for name, chunk in zip(chunk_names, chunks):
+            # warning: a cut may fall inside a length header or a character; load() re-joins the chunks before parsing
+            self.fs.write(name, chunk)
+
+        # then the commit point: one atomic write switches load() to the new generation
         self.fs.write(self.MANIFEST, _encode_manifest(generation, len(chunks), len(blob), zlib.crc32(blob)))
 
-        keep = set(names)
-        for name in self.fs.list():  # NOTE: not only the previous generation -- interrupted saves leave others
+        # then the cleanup
+        # warning: not only the previous generation, interrupted saves leave others
+        keep = set(chunk_names)
+        for name in self.fs.list():
             if name.startswith("chunk_") and name not in keep:
                 self.fs.delete(name)
 
-    def load(self):
+    def load(self) -> None:
+        """Replaces the in-memory store with what fs currently holds."""
         manifest = self.fs.read(self.MANIFEST)
-        if manifest is None:
+        if manifest is None:  # nothing was ever saved
             self._data = {}
             return
-        generation, num_chunks, total_length, checksum = _decode_manifest(manifest)
-        blob = b"".join(self.fs.read(f"chunk_{generation}_{i}") or b"" for i in range(num_chunks))
-        if len(blob) != total_length or zlib.crc32(blob) != checksum:
+        generation, n_chunks, total_length, checksum = _decode_manifest(manifest)
+        blob = b"".join(self.fs.read(f"chunk_{generation}_{i}") or b"" for i in range(n_chunks))
+        if len(blob) != total_length or zlib.crc32(blob) != checksum:  # no crash causes this, only outside damage
             raise CorruptStoreError("chunk contents do not match the manifest")
         self._data = _deserialize_store(blob)
 ```
@@ -276,57 +301,71 @@ class ChunkedKVStore(KVStore):
 
 ```python
 PUT, DELETE = 1, 0
+CRC_SIZE = 4
+HEADER_SIZE = INT_SIZE + CRC_SIZE  # a record is: payload length, CRC-32, payload
 
 
-def _encode_record(op, key, value=""):
+def _encode_record(op: int, key: str, value: str = "") -> bytes:
     payload = bytes([op]) + _encode_str(key) + (_encode_str(value) if op == PUT else b"")
-    header = len(payload).to_bytes(8, "big")
-    return header + zlib.crc32(header + payload).to_bytes(4, "big") + payload  # NOTE: the checksum covers the length
+    length = len(payload).to_bytes(INT_SIZE, "big")
+    # warning: the checksum covers the length too, else 12 zero bytes pass as a record of length 0
+    return length + zlib.crc32(length + payload).to_bytes(CRC_SIZE, "big") + payload
 
 
-def _read_record(data, pos):
+def _read_record(data: bytes, pos: int) -> tuple[int, str, str, int] | None:
     """Returns (op, key, value, end), or None if no complete, checksum-valid record starts at pos."""
-    if pos + 12 > len(data):
-        return None  # NOTE: not even a full header remains
-    length = int.from_bytes(data[pos:pos + 8], "big")
-    end = pos + 12 + length
+    if pos + HEADER_SIZE > len(data):
+        return None  # warning: not even a full header remains
+    length = int.from_bytes(data[pos:pos + INT_SIZE], "big")
+    end = pos + HEADER_SIZE + length
     if end > len(data):
-        return None  # NOTE: cut off mid-record, or a damaged (huge) length
-    payload = data[pos + 12:end]
-    if zlib.crc32(data[pos:pos + 8] + payload) != int.from_bytes(data[pos + 8:pos + 12], "big"):
-        return None  # NOTE: enough bytes, but not the ones that were written
+        return None  # warning: cut off mid-record, or a damaged (huge) length
+    payload = data[pos + HEADER_SIZE:end]
+    checksum = int.from_bytes(data[pos + INT_SIZE:pos + HEADER_SIZE], "big")
+    if zlib.crc32(data[pos:pos + INT_SIZE] + payload) != checksum:
+        return None  # warning: enough bytes, but not the ones that were written
     op = payload[0]
-    key, kpos = _read_str(payload, 1)
-    value = _read_str(payload, kpos)[0] if op == PUT else ""
+    key, value_pos = _read_str(payload, 1)
+    value = _read_str(payload, value_pos)[0] if op == PUT else ""
     return op, key, value, end
 
 
 class LogKVStore(KVStore):
     LOG = "log"
 
-    def put(self, key, value):
-        self.fs.append(self.LOG, _encode_record(PUT, key, value))  # NOTE: log first, memory second
-        super().put(key, value)
+    def put(self, key: str, value: str) -> None:
+        """Durably records key -> value before returning."""
+        self.fs.append(self.LOG, _encode_record(PUT, key, value))  # warning: log first, memory second
+        self._data[key] = value
 
-    def delete(self, key):
-        self.fs.append(self.LOG, _encode_record(DELETE, key))
+    def delete(self, key: str) -> None:
+        """Durably records the removal of key before returning."""
+        self.fs.append(self.LOG, _encode_record(DELETE, key))  # a tombstone, since put(key, "") is legal
         self._data.pop(key, None)
 
-    def load(self):
+    def load(self) -> None:
+        """Rebuilds the in-memory store from what fs currently holds."""
         data = self.fs.read(self.LOG) or b""
         store, pos = {}, 0
-        while (record := _read_record(data, pos)) is not None:  # NOTE: stop at the first bad record, for good
+        # we replay the records in order
+        # warning: stop at the first bad record, for good; nothing after it can be located reliably
+        while (record := _read_record(data, pos)) is not None:
             op, key, value, pos = record
             if op == PUT:
                 store[key] = value
             else:
                 store.pop(key, None)
-        if pos < len(data):  # NOTE: cut the bad tail off, or later appends land behind it and are never replayed
+        # warning: cut the bad tail off, or later appends land behind it and are never replayed
+        if pos < len(data):
             self.fs.write(self.LOG, data[:pos])
         self._data = store
 
-    def compact(self):
-        self.fs.write(self.LOG, b"".join(_encode_record(PUT, k, v) for k, v in self._data.items()))
+    def compact(self) -> None:
+        """Rewrites what is stored so that its size no longer depends on the history of overwritten
+        or deleted keys; a subsequent load() reconstructs the same in-memory store."""
+        # we write one put per live key; no tombstone is needed, no older record is left for it to cancel
+        # warning: fs.write is atomic, so an interrupted compact() leaves the old log in place
+        self.fs.write(self.LOG, b"".join(_encode_record(PUT, key, value) for key, value in self._data.items()))
 ```
 
 ### 追问
@@ -506,7 +545,7 @@ for damage in ["flip", "delete"]:
     for i in range(10):
         victim.put(f"k{i}", "v" * 40)
     victim.save()
-    if damage == "flip":                         # NOTE: reaches into the mock to simulate bit rot
+    if damage == "flip":                         # warning: reaches into the mock to simulate bit rot
         fs_corrupt._files["chunk_0_0"] = bytes([fs_corrupt.read("chunk_0_0")[0] ^ 0xFF]) + fs_corrupt.read("chunk_0_0")[1:]
     else:
         fs_corrupt.delete("chunk_0_1")
@@ -537,7 +576,7 @@ full_log = fs_log.read("log")
 
 def recover(log_bytes):
     fs = FileSystem()
-    fs._files["log"] = log_bytes                 # NOTE: reaches into the mock to plant what a crash left
+    fs._files["log"] = log_bytes                 # warning: reaches into the mock to plant what a crash left
     store = LogKVStore(fs)
     store.load()
     return store, fs

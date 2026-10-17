@@ -350,112 +350,133 @@ so their relative order is free.
 ```python
 from abc import ABC, abstractmethod
 
+MINUTES_PER_DAY = 24 * 60
 
-def after(prefix, text):
+
+def after(prefix: str, text: str) -> str | None:
+    """The stripped argument of a command, or None when text does not start with prefix."""
     return text[len(prefix):].strip() if text.startswith(prefix) else None
 
 
-def hhmm(m):
-    return f"{m // 60 % 24:02d}:{m % 60:02d}"
+def hhmm(minutes: int) -> str:
+    return f"{minutes % MINUTES_PER_DAY // 60:02d}:{minutes % 60:02d}"  # warning: the clock wraps at midnight
+
+
+def option_letter(i: int) -> str:
+    return chr(ord("A") + i)
 
 
 class Clock:
-    def __init__(self, now=0):
+    """now: minutes since midnight of the first day, never decreasing. ChatRoom.send sets it; bots only read it."""
+
+    def __init__(self, now: int = 0):
         self.now = now
 
 
 class ChatBot(ABC):
     @abstractmethod
-    def can_handle(self, sender, text): ...
+    def can_handle(self, sender: str, text: str) -> bool:
+        """Whether this bot has anything to say about this message."""
 
     @abstractmethod
-    def handle(self, sender, text): ...
+    def handle(self, sender: str, text: str) -> list[str]:
+        """The lines this bot appends to the log for this message."""
 
 
 class ChatRoom:
-    def __init__(self, clock):
-        self.clock, self.bots, self.log = clock, [], []
+    def __init__(self, clock: Clock):
+        self.clock = clock
+        self.bots = []
+        self.log = []
 
-    def register(self, bot):
+    def register(self, bot: "ChatBot") -> None:
         self.bots.append(bot)
 
-    def send(self, sender, text, now):
+    def send(self, sender: str, text: str, now: int) -> list[str]:
+        """Advances clock.now, appends "sender: text", dispatches to every registered bot, returns the log."""
         self.clock.now = now
         self.log.append(f"{sender}: {text}")
-        for bot in self.bots:  # NOTE: registration order = order of the bots' lines
+        for bot in self.bots:  # warning: registration order = order of the bots' lines
             if bot.can_handle(sender, text):
                 self.log.extend(bot.handle(sender, text))
         return self.log
 
 
 class CheerBot(ChatBot):
-    def __init__(self, cheer_counts):
+    def __init__(self, cheer_counts: dict[str, int]):
         self.cheer_counts = cheer_counts
 
     def _target(self, text):
         arg = after("/cheer ", text) or ""
-        return arg if arg.startswith("@") and len(arg) > 1 else None
+        return arg if arg.startswith("@") and len(arg) > 1 else None  # warning: a bare "@" is no target
 
-    def can_handle(self, sender, text):
+    def can_handle(self, sender: str, text: str) -> bool:
         return bool(self._target(text))
 
-    def handle(self, sender, text):
+    def handle(self, sender: str, text: str) -> list[str]:
         target = self._target(text)
-        n = self.cheer_counts[target[1:]] = self.cheer_counts.get(target[1:], 0) + 1
-        return [f"CheerBot: {sender} cheers for {target}! {target}'s cheer count is now {n}."]
+        username = target[1:]  # we count by the name without "@"
+        self.cheer_counts[username] = self.cheer_counts.get(username, 0) + 1
+        count = self.cheer_counts[username]
+        return [f"CheerBot: {sender} cheers for {target}! {target}'s cheer count is now {count}."]
 
 
 class FocusBot(ChatBot):
-    def __init__(self, clock, focus_until):
-        self.clock, self.focus_until = clock, focus_until
+    def __init__(self, clock: Clock, focus_until: dict[str, int]):
+        self.clock = clock
+        self.focus_until = focus_until
 
     def _minutes(self, text):
         arg = after("/focus ", text) or ""
         return int(arg) if arg.isdecimal() and int(arg) >= 1 else None
 
-    def _mentioned(self, text):  # NOTE: dict order = order of each user's FIRST session
-        return [u for u, end in self.focus_until.items() if u in text and self.clock.now < end]
+    def _mentioned(self, text):  # warning: dict order = order of each user's FIRST session
+        return [user for user, end in self.focus_until.items() if user in text and self.clock.now < end]
 
-    def can_handle(self, sender, text):
+    def can_handle(self, sender: str, text: str) -> bool:
         return bool(self._mentioned(text) or self._minutes(text))
 
-    def handle(self, sender, text):
-        lines = [f"FocusBot: {u} is heads-down until {hhmm(self.focus_until[u])}, try again later."
-                 for u in self._mentioned(text)]  # NOTE: before this message's own /focus is recorded
+    def handle(self, sender: str, text: str) -> list[str]:
+        # first the reminders, warning: before this message's own /focus is recorded
+        lines = [f"FocusBot: {user} is heads-down until {hhmm(self.focus_until[user])}, try again later."
+                 for user in self._mentioned(text)]
+        # then the new focus session
         if minutes := self._minutes(text):
-            end = self.focus_until[sender] = self.clock.now + minutes
+            end = self.clock.now + minutes
+            self.focus_until[sender] = end
             lines.append(f"FocusBot: {sender} is heads-down for {minutes} min, back at {hhmm(end)}.")
         return lines
 
 
 class PollBot(ChatBot):
-    def __init__(self, poll_state):
+    def __init__(self, poll_state: dict):
         self.poll_state = poll_state  # {} while no poll is in progress
 
     def _poll(self, text):
-        pieces = [p.strip() for p in (after("/poll ", text) or "").split("|")]
-        return pieces if len(pieces) >= 3 else None
+        pieces = [piece.strip() for piece in (after("/poll ", text) or "").split("|")]
+        return pieces if len(pieces) >= 3 else None  # a question and at least two options
 
     def _letter(self, text):
         letter = (after("/vote ", text) or "").upper()
         return letter if self.poll_state and letter in self.poll_state["votes"] else None
 
-    def can_handle(self, sender, text):
+    def can_handle(self, sender: str, text: str) -> bool:
         return bool(self._poll(text) or self._letter(text))
 
-    def handle(self, sender, text):
-        state, pieces = self.poll_state, self._poll(text)
-        if pieces:
+    def handle(self, sender: str, text: str) -> list[str]:
+        state = self.poll_state
+        if pieces := self._poll(text):
             question, *options = pieces
-            votes = {chr(65 + i): 0 for i in range(len(options))}
-            state.clear()
+            votes = {option_letter(i): 0 for i in range(len(options))}
+            state.clear()  # warning: mutate the shared dict in place, don't rebind it
             state.update(options=options, author=sender, votes=votes)
-            listed = ", ".join(f"{k}) {o}" for k, o in zip(votes, options))
+            listed = ", ".join(f"{letter}) {option}" for letter, option in zip(votes, options))
             return [f"PollBot: {sender} started a poll -- {question} [{listed}]"]
         letter = self._letter(text)
         state["votes"][letter] += 1
-        tally = ", ".join(f"{k}: {v}" for k, v in state["votes"].items())
-        return [f"PollBot: {sender} voted {letter} ({state['options'][ord(letter) - 65]}). Tally -- {tally}"]
+        option = state["options"][ord(letter) - ord("A")]
+        tally = ", ".join(f"{key}: {n_votes}" for key, n_votes in state["votes"].items())
+        return [f"PollBot: {sender} voted {letter} ({option}). Tally -- {tally}"]
 ```
 
 ### Part 3
@@ -472,55 +493,63 @@ runs (depth-first). Two bots that publish as soon as they receive each other's e
 recurse without end.
 
 ```python
+DECIDING_VOTES = 3
+
+
 class Event:
-    def __init__(self, type, data):
-        self.type, self.data = type, data
+    def __init__(self, type: str, data: dict):
+        self.type = type
+        self.data = data
 
 
 class EventBus:
     def __init__(self):
-        self.handlers = {}
+        self.handlers = {}  # event type -> handlers, in subscription order
 
-    def subscribe(self, event_type, handler):
+    def subscribe(self, event_type: str, handler) -> None:
+        """handler(event) is called for every published event of this type, in subscription order."""
         self.handlers.setdefault(event_type, []).append(handler)
 
-    def publish(self, event):  # NOTE: synchronous and depth-first
+    def publish(self, event: "Event") -> None:
+        # warning: synchronous and depth-first; we copy the list, so a handler subscribed now waits for the next event
         for handler in list(self.handlers.get(event.type, [])):
             handler(event)
 
 
 class DecisivePollBot(PollBot):
-    def __init__(self, poll_state, bus):
+    def __init__(self, poll_state: dict, bus: EventBus):
         super().__init__(poll_state)
         self.bus = bus
 
-    def handle(self, sender, text):
+    def handle(self, sender: str, text: str) -> list[str]:
         letter = self._letter(text)  # None unless a valid /vote
         lines = super().handle(sender, text)
-        if letter and self.poll_state["votes"][letter] >= 3:
+        if letter and self.poll_state["votes"][letter] >= DECIDING_VOTES:
             author = self.poll_state["author"]
-            self.poll_state.clear()  # NOTE: close before publishing, so no handler sees it open
+            self.poll_state.clear()  # warning: close before publishing, so no handler sees it open
             self.bus.publish(Event("poll_decided", {"author": author}))
         return lines
 
 
 class RewardedCheerBot(CheerBot):
-    def __init__(self, cheer_counts, bus):
+    def __init__(self, cheer_counts: dict[str, int], bus: EventBus):
         super().__init__(cheer_counts)
-        self.pending = []
+        self.pending = []  # lines queued by events, returned on this bot's next turn
         bus.subscribe("poll_decided", self._on_poll_decided)
 
     def _on_poll_decided(self, event):
         author = event.data["author"]
-        n = self.cheer_counts[author] = self.cheer_counts.get(author, 0) + 1
-        self.pending.append(f"CheerBot: {author}'s poll reached 3 votes! {author}'s cheer count is now {n}.")
+        self.cheer_counts[author] = self.cheer_counts.get(author, 0) + 1
+        count = self.cheer_counts[author]
+        self.pending.append(f"CheerBot: {author}'s poll reached {DECIDING_VOTES} votes! "
+                            f"{author}'s cheer count is now {count}.")
 
-    def can_handle(self, sender, text):
+    def can_handle(self, sender: str, text: str) -> bool:
         return super().can_handle(sender, text) or bool(self.pending)
 
-    def handle(self, sender, text):
+    def handle(self, sender: str, text: str) -> list[str]:
         lines = super().handle(sender, text) if self._target(text) else []
-        lines, self.pending = lines + self.pending, []
+        lines, self.pending = lines + self.pending, []  # warning: the queued line goes after our own
         return lines
 ```
 

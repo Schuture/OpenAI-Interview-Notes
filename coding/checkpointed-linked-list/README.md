@@ -116,7 +116,7 @@ the only case without a predecessor.
 class Node:
     __slots__ = ("value", "next")
 
-    def __init__(self, value, next=None):
+    def __init__(self, value: str, next: "Node | None" = None):
         self.value = value
         self.next = next
 
@@ -124,31 +124,31 @@ class Node:
 class LinkedVector:
     """Part 1: head holds element 0, every operation walks from the head."""
 
-    def __init__(self):
-        self._head = None
-        self._n = 0
+    def __init__(self) -> None:
+        self.head = None
+        self._n_items = 0
 
-    def __len__(self):
-        return self._n
+    def __len__(self) -> int:
+        return self._n_items
 
-    def _node_at(self, i):
-        node = self._head
+    def _node_at(self, i: int) -> Node:
+        node = self.head
         for _ in range(i):
             node = node.next
         return node
 
-    def add(self, index, value):
-        if not 0 <= index <= self._n:          # NOTE: index == n is allowed (append), index == -1 is not
+    def add(self, index: int, value: str) -> None:
+        if not 0 <= index <= self._n_items:  # warning: index == n is allowed (append), index == -1 is not
             raise IndexError(index)
-        if index == 0:                         # NOTE: no predecessor: the new node becomes the head
-            self._head = Node(value, self._head)
+        if index == 0:  # warning: no predecessor, the new node becomes the head
+            self.head = Node(value, self.head)
         else:
-            prev = self._node_at(index - 1)    # insert AFTER the predecessor, so stop one node early
+            prev = self._node_at(index - 1)  # we insert after the predecessor, so we stop one node early
             prev.next = Node(value, prev.next)
-        self._n += 1
+        self._n_items += 1
 
-    def get(self, index):
-        if not 0 <= index < self._n:
+    def get(self, index: int) -> str:
+        if not 0 <= index < self._n_items:
             raise IndexError(index)
         return self._node_at(index).value
 ```
@@ -192,55 +192,59 @@ and `n-1-i < j*k - i <= k-1` links suffice.
 
 ```python
 class CheckpointVector:
-    """Part 2: head holds the LAST element; node(a[m]).next is node(a[m-1]);
+    """Part 2: head holds the last element; node(a[m]).next is node(a[m-1]);
     checkpoints[j] is the node holding a[j*k]."""
+    # an add at i moves every a[m] with m >= i up to m+1, and nodes never move,
+    # so the new checkpoint j (j*k > i) is the node of a[j*k - 1], the predecessor of the old one
+    # we put the head at a[n-1], so next is that predecessor and each checkpoint moves by one link read
 
-    def __init__(self, k):
+    def __init__(self, k: int) -> None:
         if not isinstance(k, int) or isinstance(k, bool) or k < 1:
             raise ValueError("k must be a positive int")
         self.k = k
         self.head = None
         self.checkpoints = []
-        self._n = 0
+        self._n_items = 0
 
-    def __len__(self):
-        return self._n
+    def __len__(self) -> int:
+        return self._n_items
 
-    def _walk(self, node, steps):
-        for _ in range(steps):
+    def _walk(self, node: Node, n_steps: int) -> Node:
+        for _ in range(n_steps):
             node = node.next
         return node
 
-    def _node_at(self, i):
-        j = -(-i // self.k)                    # ceil(i / k): the nearest checkpoint at or ABOVE i
+    def _node_at(self, i: int) -> Node:
+        j = -(-i // self.k)  # ceil(i / k): the nearest checkpoint at or above i
         if j < len(self.checkpoints):
             return self._walk(self.checkpoints[j], j * self.k - i)
-        # NOTE: past the last checkpoint: start from the head, which holds a[n-1]
-        return self._walk(self.head, self._n - 1 - i)
+        # warning: past the last checkpoint, we start from the head, which holds a[n-1]
+        return self._walk(self.head, self._n_items - 1 - i)
 
-    def get(self, index):
-        if not 0 <= index < self._n:
+    def get(self, index: int) -> str:
+        if not 0 <= index < self._n_items:
             raise IndexError(index)
         return self._node_at(index).value
 
-    def add(self, index, value):
-        n, k = self._n, self.k
+    def add(self, index: int, value: str) -> None:
+        n, k = self._n_items, self.k
         if not 0 <= index <= n:
             raise IndexError(index)
         old_head = self.head
-        if index == n:                         # append: a new head, no index changes
+        if index == n:  # append: a new head, no index changes
             new = self.head = Node(value, old_head)
         else:
-            anchor = self._node_at(index)      # holds a[index]; it will sit just above the new node
+            # first we link the new node just below anchor
+            anchor = self._node_at(index)  # holds a[index]; it will sit just above the new node
             new = Node(value, anchor.next)
-            anchor.next = new                  # NOTE: relink BEFORE shifting: for the checkpoint at
-            #                                    index itself, anchor.next must already be `new`
+            anchor.next = new  # warning: relink before shifting, the checkpoint at index itself moves to anchor.next
+            # then every checkpoint at or above index takes one step toward smaller indices
             for j in range(-(-index // k), len(self.checkpoints)):
-                self.checkpoints[j] = self.checkpoints[j].next    # one step toward smaller indices
-        if n % k == 0:                         # index n is now occupied and is a multiple of k
-            # NOTE: for index < n that node is the OLD head (a[n-1] moved up by one), not `new`
+                self.checkpoints[j] = self.checkpoints[j].next
+        if n % k == 0:  # index n is now occupied and is a multiple of k
+            # warning: for index < n that node is the old head (a[n-1] moved up by one), not new
             self.checkpoints.append(new if index == n else old_head)
-        self._n = n + 1
+        self._n_items = n + 1
 ```
 
 ### Part 3
@@ -259,24 +263,26 @@ the head, which holds `a[n-1]`, down to `a[0]`.
 ```python
 class AutoVector(CheckpointVector):
     """Part 3: the spacing k is a power of two with n <= k*k, doubled when n reaches k*k."""
+    # with a fixed k an add costs n/k + k, which is smallest (2 sqrt(n)) at k = sqrt(n), so k has to follow n
+    # we keep n <= k*k and double k when n reaches k*k, so sqrt(n) <= k <= 2 sqrt(n)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(1)
 
-    def _rebuild(self):
-        n, k = self._n, self.k
-        checkpoints = [None] * -(-n // k)
-        node, index = self.head, n - 1         # the head holds a[n-1]; walk down to a[0]
+    def _rebuild(self) -> None:
+        n, k = self._n_items, self.k
+        checkpoints = [None] * -(-n // k)  # ceil(n / k) entries
+        node, index = self.head, n - 1  # the head holds a[n-1]; we walk down to a[0]
         while node is not None:
             if index % k == 0:
                 checkpoints[index // k] = node
             node, index = node.next, index - 1
         self.checkpoints = checkpoints
 
-    def add(self, index, value):
-        if self._n == self.k * self.k:
-            self.k *= 2                        # NOTE: double BEFORE the add so that n + 1 <= k*k afterwards
-            self._rebuild()                    # O(n) once per doubling: amortised O(1) per add
+    def add(self, index: int, value: str) -> None:
+        if self._n_items == self.k * self.k:
+            self.k *= 2  # warning: double before the add, so that n + 1 <= k*k afterwards
+            self._rebuild()  # O(n) once per doubling: amortised O(1) per add
         super().add(index, value)
 ```
 

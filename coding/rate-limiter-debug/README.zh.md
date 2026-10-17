@@ -149,7 +149,7 @@ test_allows_requests_under_the_limit()
 
 ```py
 while window and now - window[0] > period:
-    window.popleft()                   # NOTE: mutates the stored deque in place; a rebind would not
+    window.popleft()                   # warning: mutates the stored deque in place; a rebind would not
 ```
 
 **Bug 2：`should_allow_request` 里的 `self.day_count[user_id] += 1`。** 没有任何地方会给 `day_count`
@@ -159,7 +159,7 @@ while window and now - window[0] > period:
 起还是被拦住了，两次请求之间隔多久都一样。每日这一档也得像另外两档那样存时间戳、按窗口来算。
 
 ```py
-fits_day = self._fits(w["day"], now, *self.day_rule)  # NOTE: a window like the other two, not a total
+fits_day = self._fits(w["day"], now, *self.day_rule)  # warning: a window like the other two, not a total
 ```
 
 **Bug 3：`self.recent[user_id]` 是两条带窗口的规则共用的一个列表，而 `_within_window` 一旦自己这条规则
@@ -174,9 +174,9 @@ fits_day = self._fits(w["day"], now, *self.day_rule)  # NOTE: a window like the 
 ```py
 fits_minute = self._fits(w["minute"], now, *self.minute_rule)
 fits_hour = self._fits(w["hour"], now, *self.hour_rule)
-fits_day = self._fits(w["day"], now, *self.day_rule)  # NOTE: a window like the other two, not a total
+fits_day = self._fits(w["day"], now, *self.day_rule)  # warning: a window like the other two, not a total
 self.checkpoint()
-if not (fits_minute and fits_hour and fits_day):      # NOTE: every rule decides before any records
+if not (fits_minute and fits_hour and fits_day):      # warning: every rule decides before any records
     return False
 w["minute"].append(now)
 w["hour"].append(now)
@@ -192,8 +192,8 @@ w["day"].append(now)
 证明这个测试确实会失败；再把锁装回去，几百个线程去抢同一个上限，放行数正好等于上限。
 
 ```py
-with self._lock:                                      # NOTE: one lock over the check and the record
-    now = self.clock()                                # NOTE: read inside the lock, so the recorded
+with self._lock:                                      # warning: one lock over the check and the record
+    now = self.clock()                                # warning: read inside the lock, so the recorded
     w = self.windows[user_id]                         #       timestamps come out non-decreasing
 ```
 
@@ -284,6 +284,8 @@ from functools import wraps
 
 
 class FakeClock:
+    """A clock a test can move by hand instead of waiting on the wall clock."""
+
     def __init__(self, start: float = 1_700_000_000.0):
         self.t = start
 
@@ -295,30 +297,39 @@ class FakeClock:
 
 
 class RateLimiter:
+    """Three tiers per user: minute_rule, hour_rule and day_rule, each a
+    (max_requests, period_seconds) pair."""
+
     def __init__(self, minute_rule, hour_rule, day_rule, clock=time.time, checkpoint=lambda: None):
         self.minute_rule = minute_rule
         self.hour_rule = hour_rule
         self.day_rule = day_rule
         self.clock = clock
         self.checkpoint = checkpoint
+        # we keep one deque of admitted timestamps per user and per rule, oldest first
         self.windows = defaultdict(lambda: {"minute": deque(), "hour": deque(), "day": deque()})
         self._lock = threading.Lock()
 
-    def _fits(self, window, now, max_requests, period):
+    def _fits(self, window: deque, now: float, max_requests: int, period: float) -> bool:
+        # first we evict the timestamps that no longer count, then we count the rest
         while window and now - window[0] > period:
-            window.popleft()                   # NOTE: mutates the stored deque in place; a rebind would not
-        return len(window) < max_requests   # NOTE: strict; this request is not in the window yet
+            window.popleft()  # warning: this mutates the stored deque in place; a rebind would not
+        return len(window) < max_requests  # warning: strict, this request is not in the window yet
 
     def should_allow_request(self, user_id):
-        with self._lock:                                      # NOTE: one lock over the check and the record
-            now = self.clock()                                # NOTE: read inside the lock, so the recorded
-            w = self.windows[user_id]                         #       timestamps come out non-decreasing
+        # warning: one lock over the check and the record
+        with self._lock:
+            # warning: we read the clock inside the lock, so the recorded timestamps come out non-decreasing
+            now = self.clock()
+            w = self.windows[user_id]  # rule name -> deque of timestamps
+            # first every rule decides
             fits_minute = self._fits(w["minute"], now, *self.minute_rule)
             fits_hour = self._fits(w["hour"], now, *self.hour_rule)
-            fits_day = self._fits(w["day"], now, *self.day_rule)  # NOTE: a window like the other two, not a total
+            fits_day = self._fits(w["day"], now, *self.day_rule)  # warning: a window like the other two, not a total
             self.checkpoint()
-            if not (fits_minute and fits_hour and fits_day):      # NOTE: every rule decides before any records
+            if not (fits_minute and fits_hour and fits_day):  # warning: every rule decides before any records
                 return False
+            # then the request is recorded against all three rules
             w["minute"].append(now)
             w["hour"].append(now)
             w["day"].append(now)
@@ -326,6 +337,7 @@ class RateLimiter:
 
 
 def rate_limited(limiter):
+    """Stands in for a web framework's middleware: returns a 429 instead of calling the view."""
     def decorator(view):
         @wraps(view)
         def wrapped(user_id, *args, **kwargs):

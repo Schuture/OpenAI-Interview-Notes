@@ -169,29 +169,35 @@ cells can make the infection take on the order of $R \cdot C$ days.
 from collections import Counter, deque
 
 HEALTHY, INFECTED, IMMUNE, DEAD = 0, 1, 2, 3
-STEPS = ((1, 0), (-1, 0), (0, 1), (0, -1))      # NOTE: add the four diagonals for the 8-neighbour variant
+directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # warning: add the four diagonals for the 8-neighbour variant
 
 
-def days_until_all_infected(grid):
+def days_until_all_infected(grid: list[list[int]]) -> int:
+    """grid[r][c] is 0 (healthy) or 1 (infected); from Part 2 on also 2 (immune). Returns the day, or -1."""
     if not grid or not grid[0]:
         return 0
-    rows, cols = len(grid), len(grid[0])
-    reached = [[cell != HEALTHY for cell in row] for row in grid]      # NOTE: the input grid is not modified
-    frontier = deque((r, c) for r in range(rows) for c in range(cols) if grid[r][c] == INFECTED)
-    healthy = sum(cell == HEALTHY for row in grid for cell in row)
 
-    days = 0
-    while frontier and healthy:
-        days += 1
-        for _ in range(len(frontier)):          # NOTE: exactly one BFS level per day
-            r, c = frontier.popleft()
-            for dr, dc in STEPS:
-                nr, nc = r + dr, c + dc
-                if 0 <= nr < rows and 0 <= nc < cols and not reached[nr][nc]:
-                    reached[nr][nc] = True      # immune cells start as reached, so they are never entered
-                    healthy -= 1
-                    frontier.append((nr, nc))
-    return days if healthy == 0 else -1         # NOTE: healthy cells left over are walled off -> -1
+    rows, cols = len(grid), len(grid[0])
+    explored = set()  # warning: the input grid is not modified
+    queue = deque((r, c) for c in range(cols) for r in range(rows) if grid[r][c] == INFECTED)
+    # n_healthy helps to avoid off-by-one and to know whether all can be infected
+    n_healthy = sum(grid[r][c] == HEALTHY for c in range(cols) for r in range(rows))
+
+    day = 0
+    while queue and n_healthy > 0:
+        day += 1
+        for _ in range(len(queue)):  # warning: exactly one BFS level per day
+            r, c = queue.popleft()
+            for dr, dc in directions:
+                # immune cells are not HEALTHY, so they are never entered
+                if 0 <= r+dr < rows and 0 <= c+dc < cols and grid[r+dr][c+dc] == HEALTHY and (r+dr, c+dc) not in explored:
+                    explored.add((r+dr, c+dc))
+                    n_healthy -= 1
+                    queue.append((r+dr, c+dc))
+
+    if n_healthy == 0:
+        return day
+    return -1  # healthy cells left over are walled off
 ```
 
 ### Parts 3–4: day-by-day simulation
@@ -209,45 +215,51 @@ the initial cells recover before they spread. With a threshold $K > 1$ the close
 cell may collect its $K$ infected neighbours over several days.
 
 ```python
-def simulate(grid, recover_after, spread_threshold=1, death_threshold=None):
-    """Returns (day on which the outbreak ends, number of dead cells)."""
+def simulate(grid: list[list[int]], recover_after: int, spread_threshold: int = 1,
+             death_threshold: int | None = None) -> tuple[int, int]:
+    """recover_after is D. spread_threshold is the K of version A. death_threshold is the K of
+    version B, or None when nobody dies. Returns (day on which the outbreak ends, number of dead cells)."""
     if not grid or not grid[0]:
         return 0, 0
+
     rows, cols = len(grid), len(grid[0])
-    state = [row[:] for row in grid]
-    # NOTE: the cells infected in the input carry a timer too, with t0 = 0; they recover on day D
-    infected_on = {(r, c): 0 for r in range(rows) for c in range(cols) if state[r][c] == INFECTED}
-    doomed = set()
+    state = [row[:] for row in grid]  # we copy the grid for the state update
+    # warning: the cells infected in the input carry a timer too, with t0 = 0; they recover on day D
+    infected_day = {(r, c): 0 for r in range(rows) for c in range(cols) if grid[r][c] == INFECTED}
+    dead = set()  # cells that will die
     day = deaths = 0
 
-    while infected_on:
+    while infected_day:  # we only stop when all infected cells are dead or immune
         day += 1
-        # Phase 1: recovery.  NOTE: it comes BEFORE the spread of the same day, and the test is >=, not >
-        for cell in [cell for cell, since in infected_on.items() if day - since >= recover_after]:
-            del infected_on[cell]
+        # first some cells recover or die, warning: before the spread of the same day, and the test is >=
+        for cell in [cell for cell, infected_since in infected_day.items() if day - infected_since >= recover_after]:
             r, c = cell
-            state[r][c] = DEAD if cell in doomed else IMMUNE
-            deaths += cell in doomed
+            if cell in dead:
+                state[r][c] = DEAD
+                deaths += 1
+            else:
+                state[r][c] = IMMUNE
+            del infected_day[cell]
 
-        # Phase 2: spread.  NOTE: count first, apply afterwards. Writing into `state` while counting
-        # would let a cell infected today infect its neighbours today.
-        pressure = Counter()                    # healthy cell -> number of infected neighbours
-        for r, c in infected_on:                # NOTE: only infected cells count; immune and dead ones do not
-            for dr, dc in STEPS:
-                nr, nc = r + dr, c + dc
-                if 0 <= nr < rows and 0 <= nc < cols and state[nr][nc] == HEALTHY:
-                    pressure[(nr, nc)] += 1
-        for (r, c), count in pressure.items():
-            if count >= spread_threshold:
+        # then some cells are infected
+        # warning: count first, apply afterwards, else a cell infected today would infect its neighbours today
+        pressure = Counter()  # healthy cell -> number of infected neighbours
+        for cell, infected_since in infected_day.items():
+            r, c = cell
+            for dr, dc in directions:
+                if 0 <= r+dr < rows and 0 <= c+dc < cols and state[r+dr][c+dc] == HEALTHY:
+                    pressure[(r+dr, c+dc)] += 1  # warning: Counter is a dict
+        for (r, c), p in pressure.items():
+            if p >= spread_threshold:
                 state[r][c] = INFECTED
-                infected_on[(r, c)] = day
-                if death_threshold is not None and count >= death_threshold:
-                    doomed.add((r, c))          # decided now, carried out when the D days are over
+                infected_day[(r, c)] = day
+                if death_threshold is not None and p >= death_threshold:
+                    dead.add((r, c))  # this cell will die when its D days are over
     return day, deaths
 
 
-def days_until_outbreak_ends(grid, D):          # Part 3 is the engine with threshold 1 and no deaths
-    return simulate(grid, D)[0]
+def days_until_outbreak_ends(grid: list[list[int]], D: int) -> int:
+    return simulate(grid, D)[0]  # Part 3 is the engine with threshold 1 and no deaths
 ```
 
 ### Part 5
@@ -264,21 +276,24 @@ burning nothing. If the burn may also be delayed or repeated, the options multip
 day and the search has to be narrowed to a few candidate lines per day.
 
 ```python
-def min_deaths(grid, recover_after, death_threshold, spread_threshold=1):
-    """Part 5: the best of burning nothing and burning one whole row or column on day 0."""
+def min_deaths(grid: list[list[int]], recover_after: int, death_threshold: int,
+               spread_threshold: int = 1) -> int:
+    """Returns the smallest number of dead cells over the R + C + 1 choices."""
     if not grid or not grid[0]:
         return 0
     rows, cols = len(grid), len(grid[0])
-    lines = [[(r, c) for c in range(cols)] for r in range(rows)]
-    lines += [[(r, c) for r in range(rows)] for c in range(cols)]
-    best = simulate(grid, recover_after, spread_threshold, death_threshold)[1]   # burning nothing
-    for line in lines:
-        burnt = [row[:] for row in grid]
-        for r, c in line:
-            burnt[r][c] = DEAD                  # NOTE: a burnt cell counts as a death whatever it was
-        rest = simulate(burnt, recover_after, spread_threshold, death_threshold)[1]
-        best = min(best, len(line) + rest)      # NOTE: the line itself already costs len(line) deaths
-    return best
+    ans = simulate(grid, recover_after, spread_threshold, death_threshold)[1]  # burn nothing
+    for i in range(rows):  # burn the whole row
+        grid_copy = [row[:] for row in grid]
+        for j in range(cols):
+            grid_copy[i][j] = DEAD  # warning: a burnt cell counts as a death whatever it was
+        ans = min(ans, simulate(grid_copy, recover_after, spread_threshold, death_threshold)[1] + cols)
+    for j in range(cols):  # burn the whole column
+        grid_copy = [row[:] for row in grid]
+        for i in range(rows):
+            grid_copy[i][j] = DEAD
+        ans = min(ans, simulate(grid_copy, recover_after, spread_threshold, death_threshold)[1] + rows)
+    return ans
 ```
 
 ### Follow-ups
@@ -365,7 +380,7 @@ def naive_min_deaths(grid, D, k_death, k_spread=1):
                 for c in range(cols):
                     if before[r][c] != HEALTHY:
                         continue
-                    n = sum(before[r + dr][c + dc] == INFECTED for dr, dc in STEPS
+                    n = sum(before[r + dr][c + dc] == INFECTED for dr, dc in directions
                             if 0 <= r + dr < rows and 0 <= c + dc < cols)
                     if n >= k_spread:
                         state[r][c], age[(r, c)] = INFECTED, 0

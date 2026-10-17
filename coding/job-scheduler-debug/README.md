@@ -214,9 +214,9 @@ terminal status. The other jobs are unaffected, since each job has its own threa
 ```py
 try:
     job.result = job.func(*job.args, **job.kwargs)
-except Exception as exc:               # NOTE: Exception, not BaseException: Ctrl-C must still stop us
+except Exception as exc:               # warning: Exception, not BaseException: Ctrl-C must still stop us
     job.error = exc
-    job.status = Status.FAILED         # NOTE: set last, so a reader who sees a final status sees result/error
+    job.status = Status.FAILED         # warning: set last, so a reader who sees a final status sees result/error
 else:
     job.status = Status.COMPLETED
 ```
@@ -230,7 +230,7 @@ monotonically increasing submission number as the second element makes every ent
 the `Job`, and orders ties first-in first-out.
 
 ```py
-heapq.heappush(self._heap, (job.run_at, next(self._seq), job))   # NOTE: seq is unique, so the Job is never compared
+heapq.heappush(self._heap, (job.run_at, next(self._seq), job))   # warning: seq is unique, so the Job is never compared
 ```
 
 **Bug 3: peeking and removing are two steps.** The loop tests `self._heap[0][0] <= now` and, a few lines
@@ -242,7 +242,7 @@ and `submit` takes the same lock because `heappush` modifies the list that the l
 are started after the lock is released, since a job's function may itself call `submit`.
 
 ```py
-with self._lock:                       # NOTE: peek and pop are one step, or two callers share one peek
+with self._lock:                       # warning: peek and pop are one step, or two callers share one peek
     now = self.clock()
     while self._heap and self._heap[0][0] <= now:
         self.checkpoint()
@@ -267,7 +267,7 @@ bare call statement discards the object, and CPython then warns that it "was nev
 has to turn the coroutine into a task, which is what makes the event loop run it.
 
 ```py
-task = asyncio.create_task(self._execute(job))   # NOTE: calling a coroutine function only builds it
+task = asyncio.create_task(self._execute(job))   # warning: calling a coroutine function only builds it
 ```
 
 **Bug 2: `time.sleep` in a coroutine.** The event loop runs on one thread. `time.sleep(poll)` blocks that
@@ -278,7 +278,7 @@ to the loop. The test detects the bug without measuring time: it records every c
 correct scheduler makes none.
 
 ```py
-await asyncio.sleep(self.poll)         # NOTE: time.sleep would freeze every task on the loop
+await asyncio.sleep(self.poll)         # warning: time.sleep would freeze every task on the loop
 ```
 
 **Bug 3: `run()` stops looking at its tasks.** The loop `while self._heap` ends the moment the last job is
@@ -290,7 +290,7 @@ is done, and loops while the heap or the set is non-empty. Looping, rather than 
 dispatch, also covers a running job that submits another job.
 
 ```py
-while self._heap or self._tasks:       # NOTE: running jobs count as work; they may submit more
+while self._heap or self._tasks:       # warning: running jobs count as work; they may submit more
     ...
     self._tasks.add(task)
     task.add_done_callback(self._tasks.discard)
@@ -474,6 +474,8 @@ class Status(Enum):
 
 
 class Job:
+    """One unit of work: call func(*args, **kwargs) once the clock reaches run_at."""
+
     def __init__(self, func, args=(), kwargs=None, run_at=0.0):
         self.func = func
         self.args = args
@@ -485,6 +487,8 @@ class Job:
 
 
 class FakeClock:
+    """A clock a test can move by hand instead of waiting on the wall clock."""
+
     def __init__(self, start: float = 0.0):
         self.t = start
 
@@ -496,31 +500,36 @@ class FakeClock:
 
 
 class Scheduler:
+    """Runs each submitted job in its own daemon thread once its run_at has been reached."""
+
     def __init__(self, clock=time.monotonic, checkpoint=lambda: None):
         self.clock = clock
         self.checkpoint = checkpoint
-        self.started = []
-        self._heap = []                # entries (run_at, seq, job)
+        self.started = []  # jobs in the order they were taken off the heap
+        self._heap = []  # entries (run_at, seq, job)
         self._seq = itertools.count()
         self._lock = threading.Lock()
         self._stop = threading.Event()
 
     def submit(self, job):
-        with self._lock:
-            # NOTE: seq is unique, so tuple comparison never reaches the Job; it also keeps equal run_at FIFO
+        with self._lock:  # warning: heappush modifies the list that run_due is reading
+            # warning: seq is unique, so tuple comparison never reaches the Job; it also keeps equal run_at FIFO
             heapq.heappush(self._heap, (job.run_at, next(self._seq), job))
 
     def run_due(self):
+        """Start a thread for every job with run_at <= now and return those threads."""
+        # first we take the due jobs off the heap
         due = []
-        with self._lock:                       # NOTE: peek and pop are one step, or two callers share one peek
+        with self._lock:  # warning: peek and pop are one step, or two callers share one peek
             now = self.clock()
             while self._heap and self._heap[0][0] <= now:
                 self.checkpoint()
                 _, _, job = heapq.heappop(self._heap)
                 self.started.append(job)
                 due.append(job)
+        # then we start one thread per job
         threads = []
-        for job in due:                        # NOTE: threads start outside the lock; a job may call submit()
+        for job in due:  # warning: threads start outside the lock, a job may call submit()
             thread = threading.Thread(target=self._run, args=(job,), daemon=True)
             thread.start()
             threads.append(thread)
@@ -529,13 +538,14 @@ class Scheduler:
     def _run(self, job):
         try:
             job.result = job.func(*job.args, **job.kwargs)
-        except Exception as exc:               # NOTE: Exception, not BaseException: Ctrl-C must still stop us
+        except Exception as exc:  # warning: Exception, not BaseException, Ctrl-C must still stop us
             job.error = exc
-            job.status = Status.FAILED         # NOTE: set last, so a reader who sees a final status sees result/error
+            job.status = Status.FAILED  # warning: set last, so a reader who sees a final status sees result/error
         else:
             job.status = Status.COMPLETED
 
     def start(self, poll=0.01):
+        """Call run_due every poll seconds on a background thread until stop() is called."""
         def loop():
             while not self._stop.is_set():
                 self.run_due()
@@ -568,12 +578,14 @@ import time
 
 
 class AsyncScheduler:
+    """Runs each submitted coroutine job as an asyncio task once its run_at has been reached."""
+
     def __init__(self, clock=time.monotonic, poll=0.01):
         self.clock = clock
         self.poll = poll
-        self._heap = []
+        self._heap = []  # entries (run_at, seq, job)
         self._seq = itertools.count()
-        self._tasks = set()            # NOTE: the event loop keeps only weak references to tasks
+        self._tasks = set()  # warning: the event loop keeps only weak references to tasks
 
     def submit(self, job):
         heapq.heappush(self._heap, (job.run_at, next(self._seq), job))
@@ -587,14 +599,18 @@ class AsyncScheduler:
             job.status = Status.FAILED
 
     async def run(self):
-        while self._heap or self._tasks:       # NOTE: running jobs count as work; they may submit more
+        """Dispatch jobs as they fall due; return once no job is waiting or running."""
+        while self._heap or self._tasks:  # warning: running jobs count as work, they may submit more
+            # first we start a task for every due job
             now = self.clock()
             while self._heap and self._heap[0][0] <= now:
                 _, _, job = heapq.heappop(self._heap)
-                task = asyncio.create_task(self._execute(job))   # NOTE: calling a coroutine function only builds it
+                task = asyncio.create_task(self._execute(job))  # warning: calling a coroutine function only builds it
+                # we hold the task until it is done
                 self._tasks.add(task)
                 task.add_done_callback(self._tasks.discard)
-            await asyncio.sleep(self.poll)     # NOTE: time.sleep would freeze every task on the loop
+            # then we hand control back to the loop
+            await asyncio.sleep(self.poll)  # warning: time.sleep would freeze every task on the loop
 ```
 
 ```python

@@ -331,7 +331,7 @@ def RecurrenceRule(freq, interval=1, by_day=(), by_month_day=None, by_set_pos=No
 def _period(rule, d0, k):  # first day of the k-th day / Monday-started week / month
     if rule.freq == "DAILY":
         return d0 + timedelta(days=k * rule.interval)
-    if rule.freq == "WEEKLY":  # NOTE: weeks start on Monday (WKST=MO)
+    if rule.freq == "WEEKLY":  # warning: weeks start on Monday (WKST=MO)
         return d0 - timedelta(days=d0.weekday()) + timedelta(weeks=k * rule.interval)
     t = d0.year * 12 + d0.month - 1 + k * rule.interval
     return date(t // 12, t % 12 + 1, 1)
@@ -345,7 +345,7 @@ def _dates(rule, p):  # the rule's dates in the period starting at p
     n = calendar.monthrange(p.year, p.month)[1]
     if rule.by_month_day is not None:
         d = rule.by_month_day if rule.by_month_day > 0 else n + 1 + rule.by_month_day
-        return [p.replace(day=d)] if 1 <= d <= n else []  # NOTE: no April 31: nothing, not counted
+        return [p.replace(day=d)] if 1 <= d <= n else []  # warning: no April 31: nothing, not counted
     m = [p.replace(day=i) for i in range(1, n + 1) if WD[p.replace(day=i).weekday()] in rule.by_day]
     i = rule.by_set_pos - 1 if rule.by_set_pos > 0 else rule.by_set_pos
     return [m[i]] if -len(m) <= i < len(m) else []
@@ -355,12 +355,12 @@ def expand_series(start_local, duration, tz_name, rule, exceptions, range_start,
     """Sorted UTC (start, end, original_start) overlapping [range_start, range_end); exceptions map
     original_start_utc to None (cancelled) or (new_start_utc, new_end_utc)."""
     tz, d0, tod = ZoneInfo(tz_name), start_local.date(), start_local.time()
-    # NOTE: an exception moved into the range can come from any later occurrence
+    # warning: an exception moved into the range can come from any later occurrence
     horizon = max([range_end] + [o for o, x in exceptions.items() if x and x[0] < range_end and x[1] > range_start])
     out, n, k = [], 0, 0
     while _period(rule, d0, k) <= horizon.astimezone(tz).date():
         for d in (d for d in _dates(rule, _period(rule, d0, k)) if d >= d0):
-            # NOTE: fold=0 is RFC 5545's reading: a repeated 01:30 is the first; a skipped 02:30 takes
+            # warning: fold=0 is RFC 5545's reading: a repeated 01:30 is the first; a skipped 02:30 takes
             # the offset from before the gap (03:30 daylight time)
             base = datetime.combine(d, tod, tzinfo=tz).astimezone(UTC)
             n += 1
@@ -368,7 +368,7 @@ def expand_series(start_local, duration, tz_name, rule, exceptions, range_start,
                 return sorted(out)
             if base in exceptions and exceptions[base] is None:
                 continue  # cancelled (EXDATE), still counted
-            s, e = exceptions.get(base) or (base, base + duration)  # NOTE: exact, not wall-clock, duration
+            s, e = exceptions.get(base) or (base, base + duration)  # warning: exact, not wall-clock, duration
             if s < range_end and e > range_start:
                 out.append((s, e, base))
         k += 1
@@ -442,7 +442,7 @@ for case in range(500):
     if rng.random() < 0.3:
         rule.count = rng.randint(1, 12)
     elif rng.random() < 0.4:
-        rule.until_utc = rng.choice(allb[:15])  # NOTE: exactly an occurrence: inclusive
+        rule.until_utc = rng.choice(allb[:15])  # warning: exactly an occurrence: inclusive
     rs = rng.choice(allb[:20]) + rng.randint(-72, 72) * H
     re_ = rs + rng.choice([1, 7, 31, 366]) * D
     exc = {}
